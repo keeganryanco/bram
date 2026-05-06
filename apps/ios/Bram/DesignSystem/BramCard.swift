@@ -2,20 +2,22 @@ import SwiftUI
 
 struct BramCard<Content: View>: View {
     private let content: Content
+    private let padding: CGFloat
 
-    init(@ViewBuilder content: () -> Content) {
+    init(padding: CGFloat = 18, @ViewBuilder content: () -> Content) {
+        self.padding = padding
         self.content = content()
     }
 
     var body: some View {
         content
-            .padding(18)
+            .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(BramColor.elevated)
+            .background(BramColor.cardSurface)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(.black.opacity(0.06), lineWidth: 1)
+                    .stroke(BramColor.hairline, lineWidth: 1)
             }
     }
 }

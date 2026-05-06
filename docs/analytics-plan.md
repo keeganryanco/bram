@@ -9,6 +9,10 @@ Weekly active workout note writers.
 - `app_opened`
 - `onboarding_started`
 - `onboarding_completed`
+- `home_note_focused`
+- `calendar_opened`
+- `stats_opened`
+- `settings_opened`
 - `first_note_started`
 - `note_saved`
 - `note_parsed`
@@ -35,3 +39,10 @@ Allowed event properties should be categorical or numeric, such as:
 - set_count
 - unit_preference
 - subscription_status
+
+## Growth Integrations
+
+- PostHog owns product analytics only; never send raw workout note bodies.
+- RevenueCat will own subscription/paywall metrics once trusted integration is wired.
+- Apple Search Ads should be evaluated after App Store listing readiness.
+- TikTok ads should wait until organic creative and conversion signals exist.

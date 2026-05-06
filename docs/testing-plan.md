@@ -33,6 +33,9 @@ pnpm ios:build
 Manual checks:
 
 - App launches in simulator.
-- Tab shell works.
+- Home workspace is the first screen.
+- Daily note editor is immediately writable.
+- Calendar, stats, and settings panels open as sheets.
+- Dark and light mode use brand tokens cleanly.
 - App icon asset is present.
 - Legal/support links point to production URLs.

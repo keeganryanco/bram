@@ -10,7 +10,10 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "6.0"
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
-packages: {}
+packages:
+  RiveRuntime:
+    url: https://github.com/rive-app/rive-ios.git
+    from: 6.9.5
 targets:
   Bram:
     type: application
@@ -41,6 +44,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.trybram.Bram
         PRODUCT_NAME: Bram
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - package: RiveRuntime
     scheme:
       testTargets:
         - BramTests
