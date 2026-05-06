@@ -17,8 +17,15 @@
 ## Analytics
 
 - No raw notes in analytics.
+
+## AI
+
 - No names/emails in AI calls.
 - Do not log request bodies for workout-note routes.
+- Keep `OPENAI_API_KEY` server-only; never use a `NEXT_PUBLIC_` AI key.
+- AI endpoints must require authenticated Supabase users before any model call.
+- Rate-limit AI calls by pseudonymous user ID, task, and day/month budget before enabling production use.
+- Store model outputs as structured records where possible, not unbounded text blobs.
 
 ## Legal/Privacy
 
