@@ -15,7 +15,7 @@ export default function Home() {
         <header className="flex items-center justify-between">
           <Link
             href="/"
-            className="font-serif text-[28px] font-semibold leading-none text-[var(--violet)]"
+            className="brand-wordmark text-[28px] leading-none text-[var(--violet)]"
             aria-label="Bram home"
           >
             Bram

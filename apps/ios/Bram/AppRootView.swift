@@ -38,6 +38,7 @@ struct AppRootView: View {
             .tag(AppTab.settings)
         }
         .tint(BramColor.violet)
+        .font(BramFont.body())
     }
 }
 

@@ -20,6 +20,7 @@ struct SettingsView: View {
                 }
             }
         }
+        .font(BramFont.body())
         .scrollContentBackground(.hidden)
         .background(BramColor.appBackground)
         .navigationTitle("Settings")

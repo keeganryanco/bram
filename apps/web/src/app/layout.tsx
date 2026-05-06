@@ -1,15 +1,71 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const suisseIntl = localFont({
+  variable: "--font-suisse-intl",
+  display: "swap",
+  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
+  src: [
+    {
+      path: "../assets/fonts/suisse-intl/SuisseIntl-Book.otf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/suisse-intl/SuisseIntl-Regular.otf",
+      weight: "450",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/suisse-intl/SuisseIntl-Medium.otf",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/suisse-intl/SuisseIntl-Semibold.otf",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/suisse-intl/SuisseIntl-Bold.otf",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/suisse-intl/SuisseIntl-RegularItalic.otf",
+      weight: "450",
+      style: "italic",
+    },
+  ],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const adobeCaslonPro = localFont({
+  variable: "--font-adobe-caslon-pro",
+  display: "swap",
+  fallback: ["Georgia", "serif"],
+  src: [
+    {
+      path: "../assets/fonts/adobe-caslon-pro/AdobeCaslonPro-Regular.woff",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/adobe-caslon-pro/AdobeCaslonPro-Semibold.woff",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/adobe-caslon-pro/AdobeCaslonPro-Bold.woff",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/adobe-caslon-pro/AdobeCaslonPro-Italic.woff",
+      weight: "400",
+      style: "italic",
+    },
+  ],
 });
 
 export const metadata: Metadata = {
@@ -54,7 +110,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${suisseIntl.variable} ${adobeCaslonPro.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>

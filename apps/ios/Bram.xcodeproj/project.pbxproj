@@ -7,12 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0174C98C4996BD35AC305130 /* BramFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9580407DA3885107E471622 /* BramFont.swift */; };
+		033DCBBC585E4984E04945CC /* SuisseIntl-RegularItalic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 7C0A99928993546D26B7125C /* SuisseIntl-RegularItalic.otf */; };
 		0A755A77FF8B22AE1F70C7D3 /* WorkoutNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8754E1258EEEF312F699ECC /* WorkoutNote.swift */; };
+		2AFD80EFC4E2E0574FDD6380 /* SuisseIntl-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 8DC2E71AFE6E3B1C60A3D865 /* SuisseIntl-Bold.otf */; };
 		2FCE84FBD99DB6FE355F1681 /* ServicePlaceholders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20FE1B72BBFB65BDC735C020 /* ServicePlaceholders.swift */; };
+		3F17E3E75EF7763412919FE7 /* AdobeCaslonPro-Italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 8C57540D20D166C6851E6111 /* AdobeCaslonPro-Italic.otf */; };
+		4551BC054AD0430DD81151FA /* SuisseIntl-Book.otf in Resources */ = {isa = PBXBuildFile; fileRef = 46B005EC835121B4DD018517 /* SuisseIntl-Book.otf */; };
+		5ECE8CE8F25243F37A5B51BD /* AdobeCaslonPro-Semibold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 0C83C9ABCCD29339DE3F2EF0 /* AdobeCaslonPro-Semibold.otf */; };
 		65432521739D61FFAEF739B1 /* WeeklyReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FC0BE9DB352F2CA9658547 /* WeeklyReviewView.swift */; };
+		7C7169E708636609DE6E66D5 /* SuisseIntl-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 83563163E4752130CEFF0746 /* SuisseIntl-Regular.otf */; };
+		9694CB0EFBC6F10FC3DE3EA7 /* AdobeCaslonPro-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 17AB0B0A678F897312791616 /* AdobeCaslonPro-Bold.otf */; };
+		A971E8974B54D660BA5EBFA5 /* AdobeCaslonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = FCAF644B58904EE3D59604C0 /* AdobeCaslonPro-Regular.otf */; };
+		AD26E87A15CA1B930CE427CF /* SuisseIntl-Semibold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */; };
 		B5CD828CA67A32075F3FAB20 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6A67C6B02043F2DF7D63B2 /* TodayView.swift */; };
 		B88F2A6C6CA3E73FDC34870F /* BramColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A8232BCC6DDD545EC34B4B /* BramColor.swift */; };
 		C8F343824C50A4D67140921F /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFB20DE1429008D06676B3EB /* ProgressView.swift */; };
+		D09F9A2920E9775B01D77573 /* SuisseIntl-Medium.otf in Resources */ = {isa = PBXBuildFile; fileRef = 2572C0D243C86713B874CCF2 /* SuisseIntl-Medium.otf */; };
 		D0D76F222745C8E32E87FE19 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F87A1012A402EA85D104103 /* AppRootView.swift */; };
 		D2D5694DA803CCD9B9A32B78 /* BramApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607DA913FB66384CF350D64A /* BramApp.swift */; };
 		D702AF84168A96F2634B4CE3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C7A61A147B60A558FAE19DA /* Assets.xcassets */; };
@@ -33,19 +44,31 @@
 
 /* Begin PBXFileReference section */
 		0C7A61A147B60A558FAE19DA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0C83C9ABCCD29339DE3F2EF0 /* AdobeCaslonPro-Semibold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "AdobeCaslonPro-Semibold.otf"; sourceTree = "<group>"; };
+		17AB0B0A678F897312791616 /* AdobeCaslonPro-Bold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "AdobeCaslonPro-Bold.otf"; sourceTree = "<group>"; };
 		1EBA79773736D3D7384FE0DC /* BramCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramCard.swift; sourceTree = "<group>"; };
 		20FE1B72BBFB65BDC735C020 /* ServicePlaceholders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicePlaceholders.swift; sourceTree = "<group>"; };
+		2572C0D243C86713B874CCF2 /* SuisseIntl-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Medium.otf"; sourceTree = "<group>"; };
 		2DC905C1EF1285533957BFEA /* BramTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BramTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2F87A1012A402EA85D104103 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		46B005EC835121B4DD018517 /* SuisseIntl-Book.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Book.otf"; sourceTree = "<group>"; };
+		53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Semibold.otf"; sourceTree = "<group>"; };
 		5C6A67C6B02043F2DF7D63B2 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		607DA913FB66384CF350D64A /* BramApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramApp.swift; sourceTree = "<group>"; };
+		7C0A99928993546D26B7125C /* SuisseIntl-RegularItalic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-RegularItalic.otf"; sourceTree = "<group>"; };
+		83563163E4752130CEFF0746 /* SuisseIntl-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Regular.otf"; sourceTree = "<group>"; };
 		871BD9145790E50ECBA2E312 /* BramTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramTests.swift; sourceTree = "<group>"; };
+		8C57540D20D166C6851E6111 /* AdobeCaslonPro-Italic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "AdobeCaslonPro-Italic.otf"; sourceTree = "<group>"; };
+		8DC2E71AFE6E3B1C60A3D865 /* SuisseIntl-Bold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Bold.otf"; sourceTree = "<group>"; };
+		9FF10D98CB8B18D9B86B41FF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B97EB29BCB4ACFAE2D0E11E4 /* Bram.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Bram.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C03CCBAC2D1BF86ECDAF8C4F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C0FC0BE9DB352F2CA9658547 /* WeeklyReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyReviewView.swift; sourceTree = "<group>"; };
+		C9580407DA3885107E471622 /* BramFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramFont.swift; sourceTree = "<group>"; };
 		CFB20DE1429008D06676B3EB /* ProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressView.swift; sourceTree = "<group>"; };
 		E6A8232BCC6DDD545EC34B4B /* BramColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramColor.swift; sourceTree = "<group>"; };
 		F8754E1258EEEF312F699ECC /* WorkoutNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutNote.swift; sourceTree = "<group>"; };
+		FCAF644B58904EE3D59604C0 /* AdobeCaslonPro-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "AdobeCaslonPro-Regular.otf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -55,6 +78,14 @@
 				CFB20DE1429008D06676B3EB /* ProgressView.swift */,
 			);
 			path = Progress;
+			sourceTree = "<group>";
+		};
+		272265FF5172BE6C4BF3F635 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A931B4E5BCB268F83045ACA9 /* Fonts */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		2BD2A07BC2A9454A6A004E37 /* Settings */ = {
@@ -104,9 +135,11 @@
 				2F87A1012A402EA85D104103 /* AppRootView.swift */,
 				0C7A61A147B60A558FAE19DA /* Assets.xcassets */,
 				607DA913FB66384CF350D64A /* BramApp.swift */,
+				9FF10D98CB8B18D9B86B41FF /* Info.plist */,
 				8105DEA50956548CA32E86CD /* DesignSystem */,
 				AE02391F1F9A90DE13ACF488 /* Features */,
 				8248BF907E628DA51136CEB7 /* Models */,
+				272265FF5172BE6C4BF3F635 /* Resources */,
 				B244E03007EE6EA6C15267D5 /* Services */,
 			);
 			path = Bram;
@@ -117,6 +150,7 @@
 			children = (
 				1EBA79773736D3D7384FE0DC /* BramCard.swift */,
 				E6A8232BCC6DDD545EC34B4B /* BramColor.swift */,
+				C9580407DA3885107E471622 /* BramFont.swift */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -136,6 +170,23 @@
 				6B51783E8B9AA175F82A2C32 /* BramTests */,
 				4E290EF7A962D7BA089FE546 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		A931B4E5BCB268F83045ACA9 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				17AB0B0A678F897312791616 /* AdobeCaslonPro-Bold.otf */,
+				8C57540D20D166C6851E6111 /* AdobeCaslonPro-Italic.otf */,
+				FCAF644B58904EE3D59604C0 /* AdobeCaslonPro-Regular.otf */,
+				0C83C9ABCCD29339DE3F2EF0 /* AdobeCaslonPro-Semibold.otf */,
+				8DC2E71AFE6E3B1C60A3D865 /* SuisseIntl-Bold.otf */,
+				46B005EC835121B4DD018517 /* SuisseIntl-Book.otf */,
+				2572C0D243C86713B874CCF2 /* SuisseIntl-Medium.otf */,
+				83563163E4752130CEFF0746 /* SuisseIntl-Regular.otf */,
+				7C0A99928993546D26B7125C /* SuisseIntl-RegularItalic.otf */,
+				53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 		AE02391F1F9A90DE13ACF488 /* Features */ = {
@@ -232,7 +283,17 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9694CB0EFBC6F10FC3DE3EA7 /* AdobeCaslonPro-Bold.otf in Resources */,
+				3F17E3E75EF7763412919FE7 /* AdobeCaslonPro-Italic.otf in Resources */,
+				A971E8974B54D660BA5EBFA5 /* AdobeCaslonPro-Regular.otf in Resources */,
+				5ECE8CE8F25243F37A5B51BD /* AdobeCaslonPro-Semibold.otf in Resources */,
 				D702AF84168A96F2634B4CE3 /* Assets.xcassets in Resources */,
+				2AFD80EFC4E2E0574FDD6380 /* SuisseIntl-Bold.otf in Resources */,
+				4551BC054AD0430DD81151FA /* SuisseIntl-Book.otf in Resources */,
+				D09F9A2920E9775B01D77573 /* SuisseIntl-Medium.otf in Resources */,
+				7C7169E708636609DE6E66D5 /* SuisseIntl-Regular.otf in Resources */,
+				033DCBBC585E4984E04945CC /* SuisseIntl-RegularItalic.otf in Resources */,
+				AD26E87A15CA1B930CE427CF /* SuisseIntl-Semibold.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -247,6 +308,7 @@
 				D2D5694DA803CCD9B9A32B78 /* BramApp.swift in Sources */,
 				DB14FAC3AAB6F5CF8C9C904B /* BramCard.swift in Sources */,
 				B88F2A6C6CA3E73FDC34870F /* BramColor.swift in Sources */,
+				0174C98C4996BD35AC305130 /* BramFont.swift in Sources */,
 				C8F343824C50A4D67140921F /* ProgressView.swift in Sources */,
 				2FCE84FBD99DB6FE355F1681 /* ServicePlaceholders.swift in Sources */,
 				DFAFB31FA4FCBDA73258895E /* SettingsView.swift in Sources */,
@@ -355,11 +417,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Bram;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_FILE = Bram/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -441,11 +499,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Bram;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_FILE = Bram/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

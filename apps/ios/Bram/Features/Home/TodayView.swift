@@ -7,19 +7,19 @@ struct TodayView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Today")
-                    .font(.system(size: 34, weight: .medium, design: .default))
+                    .font(BramFont.largeTitle())
                     .foregroundStyle(BramColor.textPrimary)
 
                 BramCard {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Workout note")
-                            .font(.headline)
+                            .font(BramFont.headline())
                             .foregroundStyle(BramColor.textPrimary)
 
                         TextEditor(text: $note)
                             .frame(minHeight: 180)
                             .scrollContentBackground(.hidden)
-                            .font(.system(size: 17))
+                            .font(BramFont.body())
                             .foregroundStyle(BramColor.textPrimary)
                     }
                 }
@@ -27,10 +27,10 @@ struct TodayView: View {
                 BramCard {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Bram will sort it out.")
-                            .font(.headline)
+                            .font(BramFont.headline())
                             .foregroundStyle(BramColor.textPrimary)
                         Text("The parser, structured summary, and suggestion engine will connect here after the local note loop is built.")
-                            .font(.subheadline)
+                            .font(BramFont.callout())
                             .foregroundStyle(BramColor.textSecondary)
                     }
                 }
@@ -38,8 +38,14 @@ struct TodayView: View {
             .padding(20)
         }
         .background(BramColor.appBackground)
-        .navigationTitle("Bram")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Bram")
+                    .font(BramFont.wordmark(size: 24))
+                    .foregroundStyle(BramColor.violet)
+            }
+        }
     }
 }
 

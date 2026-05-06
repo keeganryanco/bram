@@ -5,16 +5,16 @@ struct WeeklyReviewView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Weekly Review")
-                    .font(.system(size: 34, weight: .medium))
+                    .font(BramFont.largeTitle())
                     .foregroundStyle(BramColor.textPrimary)
 
                 BramCard {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("A steady week.")
-                            .font(.headline)
+                            .font(BramFont.headline())
                             .foregroundStyle(BramColor.textPrimary)
                         Text("This screen will show one chart, one insight, and one suggested adjustment.")
-                            .font(.subheadline)
+                            .font(BramFont.callout())
                             .foregroundStyle(BramColor.textSecondary)
                     }
                 }

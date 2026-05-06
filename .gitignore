@@ -19,5 +19,5 @@ DerivedData/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 .vercel/
 .playwright-mcp/
-adobe-caslon-pro/
-suisse-font-family/
+/adobe-caslon-pro/
+/suisse-font-family/

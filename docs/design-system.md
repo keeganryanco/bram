@@ -38,4 +38,10 @@ Dark mode:
 
 ## Typography
 
-Use Suisse-like sans for product UI. Use Caslon-like serif only for Bram wordmark and rare brand moments. Current implementation uses Geist as a system-available fallback until licensed brand fonts are installed.
+Use Suisse Int'l for product UI and Adobe Caslon Pro for the Bram wordmark and rare brand moments.
+
+Implementation:
+
+- Web fonts live in `apps/web/src/assets/fonts/`.
+- iOS fonts live in `apps/ios/Bram/Resources/Fonts/` and are registered through `UIAppFonts`.
+- Font filenames intentionally omit `Trial`; the embedded PostScript names in the supplied Suisse files still include `Trial`, so iOS maps those names in `BramFont`.

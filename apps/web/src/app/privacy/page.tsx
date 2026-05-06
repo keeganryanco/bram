@@ -10,7 +10,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-3xl">
         <Link
           href="/"
-          className="font-serif text-2xl font-semibold text-[var(--violet)]"
+          className="brand-wordmark text-2xl text-[var(--violet)]"
         >
           Bram
         </Link>
