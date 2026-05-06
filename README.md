@@ -51,6 +51,7 @@ The global Vercel CLI is not required; deployment uses `npx vercel` and the `bra
 - [Product spec](docs/product-spec.md)
 - [Design system](docs/design-system.md)
 - [AI architecture](docs/ai-architecture.md)
+- [Account architecture](docs/account-architecture.md)
 - [Analytics plan](docs/analytics-plan.md)
 - [Privacy data map](docs/privacy-data-map.md)
 - [Security standards](docs/security-standards.md)

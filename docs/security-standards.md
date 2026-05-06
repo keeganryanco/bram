@@ -13,6 +13,9 @@
 - Prefer server-side writes for public unauthenticated endpoints.
 - Public waitlist writes go through `POST /api/waitlist`, not a browser Supabase client.
 - Use internal UUIDs for workout records.
+- Profile data and entitlement/admin data must stay separate.
+- Clients may read their own entitlement state but must never write `account_entitlements`.
+- Manual `FREE_PREMIUM` and developer access changes must use service-role/admin SQL.
 
 ## Analytics
 

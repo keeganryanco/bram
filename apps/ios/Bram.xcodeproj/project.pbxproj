@@ -30,6 +30,7 @@
 		DB14FAC3AAB6F5CF8C9C904B /* BramCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBA79773736D3D7384FE0DC /* BramCard.swift */; };
 		DBA14A5D03903E52D5BCBE0B /* BramTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 871BD9145790E50ECBA2E312 /* BramTests.swift */; };
 		DFAFB31FA4FCBDA73258895E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03CCBAC2D1BF86ECDAF8C4F /* SettingsView.swift */; };
+		E4A337251BB3650D1819B429 /* AccountSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F2089FF64A66F45D80DC73 /* AccountSnapshot.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +67,7 @@
 		C0FC0BE9DB352F2CA9658547 /* WeeklyReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyReviewView.swift; sourceTree = "<group>"; };
 		C9580407DA3885107E471622 /* BramFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramFont.swift; sourceTree = "<group>"; };
 		CFB20DE1429008D06676B3EB /* ProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressView.swift; sourceTree = "<group>"; };
+		E1F2089FF64A66F45D80DC73 /* AccountSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSnapshot.swift; sourceTree = "<group>"; };
 		E6A8232BCC6DDD545EC34B4B /* BramColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramColor.swift; sourceTree = "<group>"; };
 		F8754E1258EEEF312F699ECC /* WorkoutNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutNote.swift; sourceTree = "<group>"; };
 		FCAF644B58904EE3D59604C0 /* AdobeCaslonPro-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "AdobeCaslonPro-Regular.otf"; sourceTree = "<group>"; };
@@ -158,6 +160,7 @@
 		8248BF907E628DA51136CEB7 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				E1F2089FF64A66F45D80DC73 /* AccountSnapshot.swift */,
 				F8754E1258EEEF312F699ECC /* WorkoutNote.swift */,
 			);
 			path = Models;
@@ -304,6 +307,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E4A337251BB3650D1819B429 /* AccountSnapshot.swift in Sources */,
 				D0D76F222745C8E32E87FE19 /* AppRootView.swift in Sources */,
 				D2D5694DA803CCD9B9A32B78 /* BramApp.swift in Sources */,
 				DB14FAC3AAB6F5CF8C9C904B /* BramCard.swift in Sources */,

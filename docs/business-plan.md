@@ -804,6 +804,8 @@ bram/
 | Table             | Purpose                                |
 | ----------------- | -------------------------------------- |
 | profiles          | user-level settings                    |
+| account_entitlements | premium, founder-offer, and developer access flags |
+| subscription_events | App Store/RevenueCat/manual subscription history |
 | training_profiles | goal, split, experience, equipment     |
 | workout_notes     | raw note text by date                  |
 | parsed_workouts   | structured extraction                  |
@@ -811,7 +813,6 @@ bram/
 | exercise_aliases  | user-specific naming                   |
 | weekly_reviews    | generated weekly summaries             |
 | suggestions       | generated suggestions                  |
-| subscriptions     | RevenueCat state                       |
 | analytics_map     | internal user mapping, no note content |
 
 ## Development operating rhythm

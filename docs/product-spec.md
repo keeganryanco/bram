@@ -27,6 +27,7 @@ Core line: `Write your workout. Bram tracks the rest.`
 - Weekly review: one chart, one insight, one suggested adjustment.
 - Settings: privacy, subscription, export/delete, contact.
 - Landing site: waitlist, privacy, terms, contact.
+- Account state: Supabase-backed profile, founder-offer eligibility, native subscription entitlement, manual lifetime premium, and developer-mode flags.
 
 ## Exclusions
 
