@@ -28,6 +28,7 @@ Required before feature work lands:
 ```bash
 pnpm ios:generate
 pnpm ios:build
+pnpm ios:test
 ```
 
 Manual checks:

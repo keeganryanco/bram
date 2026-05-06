@@ -29,6 +29,13 @@ pnpm ios:generate
 pnpm ios:build
 ```
 
+For first-time Xcode setup:
+
+```bash
+pnpm ios:setup
+pnpm ios:open
+```
+
 ## Environment
 
 Copy `.env.example` into `apps/web/.env.local` for local web development. The waitlist API needs Supabase and Resend credentials before it can persist signups or send email.
@@ -53,6 +60,7 @@ The global Vercel CLI is not required; deployment uses `npx vercel` and the `bra
 - [AI architecture](docs/ai-architecture.md)
 - [Account architecture](docs/account-architecture.md)
 - [Engineering standards](docs/engineering-standards.md)
+- [iOS Xcode setup](docs/ios-xcode-setup.md)
 - [Analytics plan](docs/analytics-plan.md)
 - [Privacy data map](docs/privacy-data-map.md)
 - [Security standards](docs/security-standards.md)

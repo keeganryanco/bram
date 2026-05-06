@@ -17,6 +17,7 @@ DerivedData/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
+apps/ios/Bram 2.xcodeproj/
 .vercel/
 .playwright-mcp/
 supabase/.temp/
