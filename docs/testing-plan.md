@@ -16,7 +16,8 @@ Manual checks:
 - Landing page fits normal desktop and mobile viewports without page scroll.
 - Waitlist accepts valid email.
 - Invalid email returns a clear error.
-- Duplicate email returns success without revealing duplication.
+- Duplicate email returns a clear already-on-waitlist message.
+- New waitlist signup sends the branded Resend welcome email and records `welcome_email_sent_at`.
 - Privacy and terms pages load.
 - Contact link opens `mailto:support@trybram.app`.
 

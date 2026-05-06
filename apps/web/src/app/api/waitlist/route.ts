@@ -5,8 +5,12 @@ import {
   WaitlistConfigError,
 } from "@/lib/waitlist";
 
-const successResponse = {
-  message: "You are on the list. We will send early access updates soon.",
+const createdResponse = {
+  message: "You are on the list. Check your email for a note from Keegan.",
+};
+
+const duplicateResponse = {
+  message: "That email is already on the waitlist.",
 };
 
 export async function POST(request: Request) {
@@ -35,14 +39,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    await joinWaitlist({
+    const result = await joinWaitlist({
       email: emailResult.data,
       source: "website",
       userAgent: request.headers.get("user-agent"),
       referrer: request.headers.get("referer"),
     });
 
-    return NextResponse.json(successResponse);
+    return NextResponse.json(
+      result.status === "duplicate" ? duplicateResponse : createdResponse,
+    );
   } catch (error) {
     if (error instanceof WaitlistConfigError) {
       return NextResponse.json(

@@ -29,12 +29,12 @@ The repo does not require a global Vercel CLI. The script uses `npx vercel` from
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `RESEND_API_KEY`
+- `RESEND_API_KEY` or `RESEND_API`
 - `RESEND_FROM_EMAIL`
 - `WAITLIST_NOTIFY_EMAIL` optional
 - `NEXT_PUBLIC_SITE_URL`
 
-Current status: no Vercel environment variables are configured yet for `keegan-ryans-projects/bram`, so production waitlist submissions will return the intentional `503` configuration response until Supabase and Resend values are added.
+Current status: production has `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API`, `RESEND_FROM_EMAIL`, and `NEXT_PUBLIC_SITE_URL` configured. `WAITLIST_NOTIFY_EMAIL` is still optional.
 
 ## Domain
 
