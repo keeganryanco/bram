@@ -1,0 +1,16 @@
+{
+  "name": "bram",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
+    "typecheck": "pnpm --filter web typecheck",
+    "test": "pnpm --filter web test",
+    "ios:generate": "xcodegen generate --spec apps/ios/project.yml",
+    "ios:build": "xcodebuild -project apps/ios/Bram.xcodeproj -scheme Bram -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build",
+    "vercel:deploy": "npx vercel --cwd apps/web --prod"
+  }
+}
