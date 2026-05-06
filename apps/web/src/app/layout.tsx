@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     template: "%s | Bram",
   },
   description:
-    "Bram turns natural workout notes into simple strength tracking, progress memory, and calmer training insights.",
+    "Bram is the simplest workout tracker ever: as easy as Notes, with progress insights like a personal trainer.",
   applicationName: "Bram",
   appleWebApp: {
     capable: true,
@@ -88,7 +88,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Bram: Workout Notes",
     description:
-      "Write your workout naturally. Bram tracks the rest.",
+      "The simplest workout tracker ever. As easy as Notes, with insights like a personal trainer.",
     url: "https://trybram.app",
     siteName: "Bram",
     images: [

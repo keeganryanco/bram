@@ -3,7 +3,7 @@ import Link from "next/link";
 import { WaitlistForm } from "@/components/waitlist-form";
 
 const footerLinks = [
-  { href: "/privacy", label: "Privacy" },
+  { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms" },
   { href: "mailto:support@trybram.app", label: "Contact" },
 ];
@@ -20,20 +20,16 @@ export default function Home() {
           >
             Bram
           </Link>
-          <span className="hidden text-sm font-medium text-[var(--muted)] sm:block">
-            Workout Notes
-          </span>
         </header>
 
         <section className="grid min-h-0 items-center gap-8 py-4 md:grid-cols-[1.05fr_0.95fr] md:gap-12 lg:gap-20">
           <div className="max-w-xl">
             <h1 className="text-balance text-[clamp(2.45rem,6vw,5.8rem)] font-semibold leading-[0.94] tracking-normal text-[var(--foreground)]">
-              Write your workout. Bram tracks the rest.
+              The simplest workout tracker ever.
             </h1>
             <p className="mt-5 max-w-lg text-pretty text-base leading-7 text-[var(--muted)] sm:text-lg sm:leading-8">
-              A simpler strength tracker for lifters who already write in
-              Notes. Log naturally, keep your history organized, and see
-              progress without building a spreadsheet.
+              As easy as Notes. Smart enough to remember every lift, track your
+              progress, and surface insights like a personal trainer.
             </p>
             <WaitlistForm />
           </div>
