@@ -4,13 +4,17 @@
 
 Framework: Next.js App Router under `apps/web`.
 
-Production target: `https://trybram.app`.
+Production target: `https://www.trybram.app`, with `https://trybram.app` redirecting to the `www` host.
 
-Initial production deployment:
+Vercel project:
 
-- URL: `https://web-j8qbu3ojp-keegan-ryans-projects.vercel.app`
-- Inspector: `https://vercel.com/keegan-ryans-projects/web/BJBDqvVYA2cgHZhuFLDLd6PsT2F1`
-- SSO deployment protection: disabled for the public waitlist site.
+- Project: `keegan-ryans-projects/bram`
+- Framework preset: Next.js
+- Root directory: `apps/web`
+- Output directory: Next.js default
+- Latest deployment: `https://bram-ipe2z8gtm-keegan-ryans-projects.vercel.app`
+- Inspector: `https://vercel.com/keegan-ryans-projects/bram/FLCN1np21G6eYvMHxz36FtS1roDN`
+- Deployment protection: generated Vercel URLs may require Vercel login, but the custom domain is public.
 
 Deploy with:
 
@@ -19,7 +23,7 @@ pnpm build
 pnpm vercel:deploy
 ```
 
-The repo does not require a global Vercel CLI. The script uses `npx vercel`.
+The repo does not require a global Vercel CLI. The script uses `npx vercel` from the repository root and relies on the `bram` project Root Directory setting.
 
 ## Required Vercel Environment Variables
 
@@ -30,10 +34,8 @@ The repo does not require a global Vercel CLI. The script uses `npx vercel`.
 - `WAITLIST_NOTIFY_EMAIL` optional
 - `NEXT_PUBLIC_SITE_URL`
 
-Current status: no Vercel environment variables are configured yet, so production waitlist submissions will return the intentional `503` configuration response until Supabase and Resend values are added.
+Current status: no Vercel environment variables are configured yet for `keegan-ryans-projects/bram`, so production waitlist submissions will return the intentional `503` configuration response until Supabase and Resend values are added.
 
 ## Domain
 
-Attach `trybram.app` after the Vercel project is linked and DNS ownership is available.
-
-Current status: `trybram.app` exists in the Vercel team but is already assigned to another project. Vercel reports current nameservers as Cloudflare (`macy.ns.cloudflare.com`, `rayden.ns.cloudflare.com`) while intended Vercel nameservers are `ns1.vercel-dns.com` and `ns2.vercel-dns.com`. Do not force-move the domain without confirming the target project.
+Current status: `www.trybram.app` is assigned to the `bram` project and serving the waitlist site. `https://trybram.app` redirects to `https://www.trybram.app`.

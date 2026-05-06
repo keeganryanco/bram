@@ -35,14 +35,14 @@ Copy `.env.example` into `apps/web/.env.local` for local web development. The wa
 
 ## Deployment
 
-Production target: `https://trybram.app`.
+Production target: `https://www.trybram.app`.
 
 ```bash
 pnpm build
 pnpm vercel:deploy
 ```
 
-The global Vercel CLI is not required; deployment uses `npx vercel`.
+The global Vercel CLI is not required; deployment uses `npx vercel` and the `bram` Vercel project points at `apps/web`.
 
 ## Core Docs
 
