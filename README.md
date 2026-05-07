@@ -66,4 +66,5 @@ The global Vercel CLI is not required; deployment uses `npx vercel` and the `bra
 - [Security standards](docs/security-standards.md)
 - [Testing plan](docs/testing-plan.md)
 - [Deployment plan](docs/deployment-plan.md)
+- [App Store Connect setup](docs/app-store-connect-setup.md)
 - [App Store plan](docs/app-store-plan.md)

@@ -13,6 +13,8 @@
     "ios:resolve": "xcodebuild -resolvePackageDependencies -project apps/ios/Bram.xcodeproj -scheme Bram",
     "ios:build": "xcodebuild -project apps/ios/Bram.xcodeproj -scheme Bram -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build",
     "ios:test": "xcodebuild -project apps/ios/Bram.xcodeproj -scheme Bram -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test",
+    "ios:archive": "xcodebuild -project apps/ios/Bram.xcodeproj -scheme Bram -destination 'generic/platform=iOS' -archivePath build/Bram.xcarchive archive",
+    "ios:open-archive": "open build/Bram.xcarchive",
     "ios:open": "open apps/ios/Bram.xcodeproj",
     "ios:setup": "pnpm ios:generate && pnpm ios:resolve && pnpm ios:build",
     "vercel:deploy": "npx vercel --prod"

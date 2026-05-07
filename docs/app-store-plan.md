@@ -3,6 +3,8 @@
 ## Metadata
 
 - Title: `Bram: Workout Notes`
+- Bundle ID: `app.trybram.Bram`
+- SKU: `app.trybram.Bram`
 - Subtitle candidates:
   - Simple strength tracking
   - Workout notes that track progress
@@ -28,3 +30,7 @@ Initial screenshot story:
 ## Submission Readiness
 
 Before submission, verify subscriptions, deletion/export, analytics disclosures, AI processing disclosure, and final legal review.
+
+## Setup
+
+Use [App Store Connect setup](app-store-connect-setup.md) to create the app record and upload the first TestFlight build.

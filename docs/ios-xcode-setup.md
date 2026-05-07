@@ -39,6 +39,17 @@ pnpm ios:test
 
 Run these before committing iOS feature work.
 
+## App Store Archive
+
+After the App Store Connect app record exists:
+
+```bash
+pnpm ios:archive
+pnpm ios:open-archive
+```
+
+Use Xcode Organizer to upload the archive to App Store Connect/TestFlight.
+
 ## Project Rules
 
 - `apps/ios/project.yml` is the source of truth for targets, bundle identifiers, packages, fonts, and build settings.
