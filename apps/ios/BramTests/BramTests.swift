@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import UIKit
 @testable import Bram
 
 struct BramTests {
@@ -34,5 +35,9 @@ struct BramTests {
         #expect(note.body.isEmpty)
         #expect(note.metrics.parseState == .empty)
         #expect(note.parsedSummary == nil)
+    }
+
+    @Test func bramLogoAssetIsBundled() {
+        #expect(UIImage(named: "BramLogo") != nil)
     }
 }

@@ -4,13 +4,12 @@ struct HomeHeader: View {
     let date: Date
     let streakDays: Int
     let openCalendar: () -> Void
+    let openProgress: () -> Void
     let openSettings: () -> Void
 
     var body: some View {
         HStack(alignment: .center) {
-            Text("Bram")
-                .font(BramFont.wordmark(size: 30))
-                .foregroundStyle(BramColor.violet)
+            BramLogoMark(size: 44)
                 .frame(width: 76, alignment: .leading)
 
             Spacer()
@@ -23,7 +22,7 @@ struct HomeHeader: View {
             Spacer()
 
             HStack(spacing: 8) {
-                Button(action: openCalendar) {
+                Button(action: openProgress) {
                     Label("\(streakDays)", systemImage: "flame.fill")
                         .labelStyle(.titleAndIcon)
                         .font(BramFont.button())
@@ -59,7 +58,7 @@ struct HomeHeader: View {
 }
 
 #Preview {
-    HomeHeader(date: .now, streakDays: 4, openCalendar: {}, openSettings: {})
+    HomeHeader(date: .now, streakDays: 4, openCalendar: {}, openProgress: {}, openSettings: {})
         .padding()
         .background(BramColor.appBackground)
 }

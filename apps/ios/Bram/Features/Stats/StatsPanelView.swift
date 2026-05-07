@@ -2,7 +2,12 @@ import SwiftUI
 
 struct StatsPanelView: View {
     let stats: StatsWeekSnapshot
-    @State private var selectedMode: StatsMode = .stats
+    @State private var selectedMode: StatsMode
+
+    init(stats: StatsWeekSnapshot, initialMode: StatsMode = .stats) {
+        self.stats = stats
+        _selectedMode = State(initialValue: initialMode)
+    }
 
     var body: some View {
         BramPanelChrome(title: "Progress") {
@@ -21,7 +26,7 @@ struct StatsPanelView: View {
     }
 }
 
-private enum StatsMode {
+enum StatsMode {
     case stats
     case streaks
 }

@@ -54,5 +54,7 @@ Use Xcode Organizer to upload the archive to App Store Connect/TestFlight.
 
 - `apps/ios/project.yml` is the source of truth for targets, bundle identifiers, packages, fonts, and build settings.
 - `apps/ios/Bram.xcodeproj/project.pbxproj` is generated output and should only change after `pnpm ios:generate`.
+- Reusable app images belong in `apps/ios/Bram/Assets.xcassets` as named image sets, then load through SwiftUI with `Image("AssetName")`.
+- Brand-critical images should have a small SwiftUI wrapper with a text or system fallback, as `BramLogoMark` does for the header mark.
 - Rive is currently included as a future-ready Swift package dependency, but no real `.riv` asset is wired yet.
 - Supabase, RevenueCat, PostHog, Apple Health, and OpenAI calls should stay behind service protocols until production integration work begins.

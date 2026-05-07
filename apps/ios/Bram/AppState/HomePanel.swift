@@ -2,7 +2,8 @@ import Foundation
 
 enum HomePanel: String, Identifiable {
     case calendar
-    case stats
+    case dayStats
+    case progress
     case settings
 
     var id: String { rawValue }

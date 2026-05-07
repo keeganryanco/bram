@@ -5,24 +5,17 @@ struct WorkoutNoteEditor: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        TextEditor(text: $noteBody)
+        TextField("Write what you did. Bram will sort it out.", text: $noteBody, axis: .vertical)
             .focused($isFocused)
-            .scrollContentBackground(.hidden)
             .font(BramFont.body(size: 20))
             .foregroundStyle(BramColor.textPrimary)
             .tint(BramColor.violet)
-            .frame(minHeight: 270, alignment: .topLeading)
-            .overlay(alignment: .topLeading) {
-                if noteBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("Write what you did. Bram will sort it out.")
-                        .font(BramFont.body(size: 20))
-                        .foregroundStyle(BramColor.textTertiary)
-                        .padding(.top, 8)
-                        .padding(.leading, 5)
-                        .allowsHitTesting(false)
-                }
-            }
+            .lineLimit(12...240)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, minHeight: 270, alignment: .topLeading)
             .padding(.top, 20)
+            .textInputAutocapitalization(.sentences)
+            .autocorrectionDisabled(false)
             .accessibilityLabel("Workout note")
     }
 }

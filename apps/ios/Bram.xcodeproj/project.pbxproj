@@ -13,6 +13,7 @@
 		0A755A77FF8B22AE1F70C7D3 /* WorkoutNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8754E1258EEEF312F699ECC /* WorkoutNote.swift */; };
 		1CF1FFD1B4E91BD5B8D586E2 /* WorkoutNoteEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 932E6358A2029023F9EC17B4 /* WorkoutNoteEditor.swift */; };
 		1E88BFB0B1124D5F0D02E472 /* RiveRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = F112AD5709567F429E50C55D /* RiveRuntime */; };
+		1F79D267A31C110A85DCEC4A /* DailyWorkoutStatsPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E8397782E64FCC5588780B3 /* DailyWorkoutStatsPanelView.swift */; };
 		26170587033BB9756E418B39 /* WorkoutSuggestionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EECA5C27E11964BAC9A96B1D /* WorkoutSuggestionCard.swift */; };
 		2AFD80EFC4E2E0574FDD6380 /* SuisseIntl-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 8DC2E71AFE6E3B1C60A3D865 /* SuisseIntl-Bold.otf */; };
 		2FCE84FBD99DB6FE355F1681 /* ServicePlaceholders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20FE1B72BBFB65BDC735C020 /* ServicePlaceholders.swift */; };
@@ -43,6 +44,7 @@
 		DBA14A5D03903E52D5BCBE0B /* BramTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 871BD9145790E50ECBA2E312 /* BramTests.swift */; };
 		DFAFB31FA4FCBDA73258895E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03CCBAC2D1BF86ECDAF8C4F /* SettingsView.swift */; };
 		E4A337251BB3650D1819B429 /* AccountSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F2089FF64A66F45D80DC73 /* AccountSnapshot.swift */; };
+		EA43C8BB49F8543D7E53CA19 /* BramLogoMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FF1EEAB4695E8FAEF992A54 /* BramLogoMark.swift */; };
 		EF8FCC981BF219B6EDEBF975 /* RiveMascotPlaceholder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18014349AA7506E36FD3C582 /* RiveMascotPlaceholder.swift */; };
 		F2C5B849C11134F72AD880E8 /* WorkoutLoadBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD2FE9B17C1CDA26A1E2564 /* WorkoutLoadBar.swift */; };
 		FE4BABD931480B35832CB4A0 /* HomeHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19AE2D51B31CE764AEA51A0C /* HomeHeader.swift */; };
@@ -71,12 +73,14 @@
 		2572C0D243C86713B874CCF2 /* SuisseIntl-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Medium.otf"; sourceTree = "<group>"; };
 		2DC905C1EF1285533957BFEA /* BramTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BramTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2F87A1012A402EA85D104103 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		3E8397782E64FCC5588780B3 /* DailyWorkoutStatsPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWorkoutStatsPanelView.swift; sourceTree = "<group>"; };
 		41A4668272501B851CB8F7A6 /* BramPreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramPreviewData.swift; sourceTree = "<group>"; };
 		46B005EC835121B4DD018517 /* SuisseIntl-Book.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Book.otf"; sourceTree = "<group>"; };
 		53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Semibold.otf"; sourceTree = "<group>"; };
 		5DD2FE9B17C1CDA26A1E2564 /* WorkoutLoadBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutLoadBar.swift; sourceTree = "<group>"; };
 		607DA913FB66384CF350D64A /* BramApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramApp.swift; sourceTree = "<group>"; };
 		6AF7702C5D615B37354AF652 /* CalendarPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPanelView.swift; sourceTree = "<group>"; };
+		6FF1EEAB4695E8FAEF992A54 /* BramLogoMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramLogoMark.swift; sourceTree = "<group>"; };
 		75D8EA3B5EF9141732E59EAF /* BramCapsuleButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramCapsuleButton.swift; sourceTree = "<group>"; };
 		7C0A99928993546D26B7125C /* SuisseIntl-RegularItalic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-RegularItalic.otf"; sourceTree = "<group>"; };
 		7DB33F0A73E4B91B68AE5964 /* DailyWorkoutModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWorkoutModels.swift; sourceTree = "<group>"; };
@@ -149,6 +153,7 @@
 		442AECF2E3876F30D38E9301 /* Home */ = {
 			isa = PBXGroup;
 			children = (
+				3E8397782E64FCC5588780B3 /* DailyWorkoutStatsPanelView.swift */,
 				19AE2D51B31CE764AEA51A0C /* HomeHeader.swift */,
 				93437CBD164CAECCAB70F2C1 /* HomeView.swift */,
 				057A5BDB2AEB506DF6CAC1FE /* ParsedWorkoutSummaryCard.swift */,
@@ -188,6 +193,7 @@
 			isa = PBXGroup;
 			children = (
 				75D8EA3B5EF9141732E59EAF /* BramCapsuleButton.swift */,
+				6FF1EEAB4695E8FAEF992A54 /* BramLogoMark.swift */,
 				F0564BEF8BD2AC3572C1D764 /* BramPanelChrome.swift */,
 				FDE9BF9C8CBA0B3C4C2B4359 /* MetricColor.swift */,
 				18014349AA7506E36FD3C582 /* RiveMascotPlaceholder.swift */,
@@ -398,10 +404,12 @@
 				DB14FAC3AAB6F5CF8C9C904B /* BramCard.swift in Sources */,
 				B88F2A6C6CA3E73FDC34870F /* BramColor.swift in Sources */,
 				0174C98C4996BD35AC305130 /* BramFont.swift in Sources */,
+				EA43C8BB49F8543D7E53CA19 /* BramLogoMark.swift in Sources */,
 				648C11E10B447D91BC13E9AC /* BramPanelChrome.swift in Sources */,
 				5A3F515D20485B4DFBB2C0F6 /* BramPreviewData.swift in Sources */,
 				D7BA7D7AE4A84E505523325C /* CalendarPanelView.swift in Sources */,
 				5656B210B6AFCB20F71B5FC2 /* DailyWorkoutModels.swift in Sources */,
+				1F79D267A31C110A85DCEC4A /* DailyWorkoutStatsPanelView.swift in Sources */,
 				FE4BABD931480B35832CB4A0 /* HomeHeader.swift in Sources */,
 				4C7ECAC533595B40F83E2E4E /* HomePanel.swift in Sources */,
 				D3EFF7DB54F15F1DF74D4C29 /* HomeView.swift in Sources */,
