@@ -90,24 +90,25 @@ private struct MuscleSetCard: View {
                     .foregroundStyle(BramColor.textPrimary)
 
                 ForEach(stats.setVolumeByMuscle) { metric in
-                    HStack {
-                        Text(metric.muscleGroup)
-                            .font(BramFont.label())
-                            .foregroundStyle(BramColor.textPrimary)
-                        Spacer()
-                        Text("\(metric.sets) sets")
-                            .font(BramFont.label(size: 13))
-                            .foregroundStyle(BramColor.textSecondary)
-                    }
-                    .overlay(alignment: .bottomLeading) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(metric.muscleGroup)
+                                .font(BramFont.label())
+                                .foregroundStyle(BramColor.textPrimary)
+                            Spacer()
+                            Text("\(metric.sets) sets")
+                                .font(BramFont.label(size: 13))
+                                .foregroundStyle(BramColor.textSecondary)
+                        }
+
                         GeometryReader { geometry in
                             Capsule()
                                 .fill(metric.colorRole.color.opacity(0.85))
-                                .frame(width: geometry.size.width * min(CGFloat(metric.sets) / 18, 1), height: 3)
-                                .offset(y: 9)
+                                .frame(width: geometry.size.width * min(CGFloat(metric.sets) / 18, 1), height: 4)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
+                        .frame(height: 4)
                     }
-                    .padding(.bottom, 8)
                 }
             }
         }

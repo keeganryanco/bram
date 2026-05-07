@@ -16,27 +16,6 @@ struct DailyWorkoutStatsPanelView: View {
                     DayMetricCard(title: "PRs", value: "\(note.metrics.prCount)", icon: "trophy.fill", color: BramColor.warning)
                     DayMetricCard(title: "State", value: note.metrics.parseState.rawValue, icon: "sparkles", color: BramColor.recovery)
                 }
-
-                if let summary = note.parsedSummary {
-                    BramCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(summary.title)
-                                .font(BramFont.headline())
-                                .foregroundStyle(BramColor.textPrimary)
-
-                            ForEach(summary.exercises) { exercise in
-                                HStack {
-                                    Text(exercise.name)
-                                        .font(BramFont.label())
-                                    Spacer()
-                                    Text("\(exercise.setSummary) / \(exercise.loadSummary)")
-                                        .font(BramFont.label(size: 13))
-                                        .foregroundStyle(BramColor.textSecondary)
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }

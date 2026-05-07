@@ -62,7 +62,7 @@ struct HomeView: View {
         case .dayStats:
             DailyWorkoutStatsPanelView(note: note)
         case .progress:
-            StatsPanelView(stats: BramPreviewData.stats, initialMode: .streaks)
+            StatsPanelView(stats: BramPreviewData.stats, initialMode: .stats)
         case .settings:
             SettingsView(account: BramPreviewData.account)
         }
