@@ -33,7 +33,7 @@ targets:
         BramAIDevRouteToken: ""
         BramAPIBaseURL: https://trybram.app
         BramSupabaseURL: https://njotbjmpcostgktjjihv.supabase.co
-        BramSupabasePublishableKey: ""
+        BramSupabasePublishableKey: sb_publishable_LovuYXBzXPbXevP8FuHSLA_wen7RoSQ
         BramAuthRedirectScheme: app.trybram.Bram
         CFBundleURLTypes:
           - CFBundleURLName: app.trybram.Bram

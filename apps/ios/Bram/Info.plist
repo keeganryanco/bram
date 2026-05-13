@@ -29,7 +29,7 @@
 	<key>BramSupabaseURL</key>
 	<string>https://njotbjmpcostgktjjihv.supabase.co</string>
 	<key>BramSupabasePublishableKey</key>
-	<string></string>
+	<string>sb_publishable_LovuYXBzXPbXevP8FuHSLA_wen7RoSQ</string>
 	<key>BramAuthRedirectScheme</key>
 	<string>app.trybram.Bram</string>
 	<key>CFBundleURLTypes</key>

@@ -32,6 +32,8 @@ The iOS app uses the custom redirect scheme `app.trybram.Bram`. Add this redirec
 
 The iOS bundle may include the Supabase project URL and publishable key. It must never include the service-role key.
 
+Password reset requests are sent through the website, not the generic Supabase email. The app links to `https://trybram.app/reset-password`; the website calls Supabase Auth Admin from a server route to generate a recovery link, sends the branded email through Resend, then lets the user set a new password on `/reset-password`. The website requires `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and a Resend API key in deployment. Add `https://trybram.app/reset-password` to the Supabase Auth redirect allowlist.
+
 ## Tables
 
 | Object | Purpose | Client access |

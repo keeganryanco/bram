@@ -63,6 +63,10 @@ struct AccountGateView: View {
                     .font(BramFont.label())
                     .foregroundStyle(BramColor.violet)
                     .disabled(isSubmitting || email.isEmpty || password.isEmpty)
+
+                    Link("Forgot password?", destination: passwordResetURL)
+                        .font(BramFont.callout(size: 13))
+                        .foregroundStyle(BramColor.textTertiary)
                 }
 
                 HStack(spacing: 10) {
@@ -91,6 +95,18 @@ struct AccountGateView: View {
                 isSubmitting = false
             }
         }
+    }
+
+    private var passwordResetURL: URL {
+        if email.isEmpty {
+            return URL(string: "https://trybram.app/reset-password")!
+        }
+
+        var components = URLComponents(string: "https://trybram.app/reset-password")!
+        components.queryItems = [
+            URLQueryItem(name: "email", value: email.trimmingCharacters(in: .whitespacesAndNewlines))
+        ]
+        return components.url!
     }
 }
 
