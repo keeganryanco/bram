@@ -20,6 +20,31 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>BramAIBackendEnabled</key>
+	<false/>
+	<key>BramAIDevRouteToken</key>
+	<string></string>
+	<key>BramAPIBaseURL</key>
+	<string>https://trybram.app</string>
+	<key>BramSupabaseURL</key>
+	<string>https://njotbjmpcostgktjjihv.supabase.co</string>
+	<key>BramSupabasePublishableKey</key>
+	<string></string>
+	<key>BramAuthRedirectScheme</key>
+	<string>app.trybram.Bram</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.trybram.Bram</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>app.trybram.Bram</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Bram reads workouts, active energy, heart rate, distance, and bodyweight to connect workout notes to progress.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AdobeCaslonPro-Regular.otf</string>

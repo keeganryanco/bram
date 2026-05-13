@@ -3,6 +3,7 @@ import RiveRuntime
 
 struct RiveMascotPlaceholder: View {
     let moment: MascotMoment
+    var showsLabel: Bool = true
 
     var body: some View {
         VStack(spacing: 10) {
@@ -13,9 +14,11 @@ struct RiveMascotPlaceholder: View {
                 .background(BramColor.elevated)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
-            Text("Rive-ready")
-                .font(BramFont.label(size: 12))
-                .foregroundStyle(BramColor.textTertiary)
+            if showsLabel {
+                Text("Rive-ready")
+                    .font(BramFont.label(size: 12))
+                    .foregroundStyle(BramColor.textTertiary)
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Bram animation placeholder")

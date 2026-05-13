@@ -9,13 +9,9 @@ struct WorkoutLoadBar: View {
             HStack(spacing: 12) {
                 MetricToken(icon: "number", value: "\(metrics.totalSets)", label: "sets", color: BramColor.violet)
                 SeparatorDot()
-                MetricToken(icon: "scalemass.fill", value: volumeText, label: "vol", color: BramColor.energy)
+                MetricToken(icon: "flame.fill", value: energyText, label: energyLabel, color: BramColor.energy)
                 SeparatorDot()
                 MetricToken(icon: "trophy.fill", value: "\(metrics.prCount)", label: "PR", color: BramColor.warning)
-                Spacer(minLength: 4)
-                Text(metrics.parseState.rawValue)
-                    .font(BramFont.label(size: 12))
-                    .foregroundStyle(BramColor.textSecondary)
             }
             .padding(.horizontal, 18)
             .frame(height: 62)
@@ -31,13 +27,15 @@ struct WorkoutLoadBar: View {
         .accessibilityLabel("Open workout stats")
     }
 
-    private var volumeText: String {
-        if metrics.estimatedVolume >= 1000 {
-            "\(metrics.estimatedVolume / 1000)k"
-        } else {
-            "\(metrics.estimatedVolume)"
-        }
+    private var energyText: String {
+        guard let energy = metrics.activeEnergyCalories else { return "--" }
+        return "\(energy)"
     }
+
+    private var energyLabel: String {
+        metrics.energyIsEstimated ? "est." : "cal"
+    }
+
 }
 
 private struct MetricToken: View {

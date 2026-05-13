@@ -29,6 +29,171 @@ struct BramTests {
         #expect(account.hasDeveloperAccess)
     }
 
+    @Test func accountSnapshotDecodesSupabaseDateStrings() throws {
+        let data = """
+        {
+          "user_id": "11111111-1111-4111-8111-111111111111",
+          "email": "keegan@trybram.app",
+          "display_name": "Keegan",
+          "preferred_units": "lb",
+          "onboarding_completed_at": "2026-05-13T12:00:00Z",
+          "account_tier": "FREE_PREMIUM",
+          "subscription_status": "FREE_PREMIUM",
+          "entitlement_source": "MANUAL",
+          "is_developer": true,
+          "founder_offer_eligible": true,
+          "premium_expires_at": null,
+          "entitlements_updated_at": "2026-05-13T12:05:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let account = try JSONDecoder().decode(AccountSnapshot.self, from: data)
+
+        #expect(account.email == "keegan@trybram.app")
+        #expect(account.hasPremiumAccess)
+        #expect(account.onboardingCompletedAt != nil)
+    }
+
+    @Test func freeAccountDoesNotUnlockPremiumSurfaces() {
+        let account = AccountSnapshot(
+            userId: UUID(),
+            email: "free@trybram.app",
+            displayName: nil,
+            preferredUnits: "lb",
+            onboardingCompletedAt: nil,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .none,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+
+        let access = BramEntitlementPolicy.access(for: account)
+
+        #expect(!access.canUseInterpretation)
+        #expect(!access.canUseStats)
+        #expect(!access.canUseHealth)
+        #expect(!access.canUseSuggestions)
+        #expect(!access.canUseDeveloperFeatures)
+    }
+
+    @Test func trainingGoalsProfileMapsToSupabasePayloads() {
+        let userId = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let completedAt = Date(timeIntervalSince1970: 1_777_777_777)
+        let profile = TrainingGoalsProfile(
+            primaryGoal: .stronger,
+            weeklyTrainingDays: 5,
+            sessionLengthMinutes: 75,
+            trainingStyles: [.running, .gym],
+            equipment: [.barbell, .dumbbells],
+            heightValue: 72,
+            currentWeightValue: 190,
+            targetWeightValue: 185,
+            currentWeightLoggedAt: completedAt,
+            currentWeightSource: .manual,
+            sex: .male,
+            preferredUnits: .imperial,
+            estimatedDailyCalories: 2_700
+        )
+
+        let training = TrainingGoalsSupabaseMapper.trainingUpsert(
+            from: profile,
+            userId: userId,
+            onboardingCompletedAt: completedAt
+        )
+        let profileUpdate = TrainingGoalsSupabaseMapper.profileUpdate(
+            from: profile,
+            onboardingCompletedAt: completedAt
+        )
+
+        #expect(training.userId == userId)
+        #expect(training.primaryGoal == "stronger")
+        #expect(training.weeklyTrainingDays == 5)
+        #expect(training.sessionLengthMinutes == 75)
+        #expect(training.trainingStyles == ["gym", "running"])
+        #expect(training.availableEquipment == ["barbell", "dumbbells"])
+        #expect(profileUpdate.preferredUnits == "lb")
+        #expect(profileUpdate.bodyweightValue == 190)
+        #expect(profileUpdate.heightUnit == "in")
+        #expect(profileUpdate.sex == "male")
+        #expect(profileUpdate.estimatedDailyCalories == 2_700)
+    }
+
+    @MainActor
+    @Test func accountBootstrapStateMovesSignedInUserToOnboarding() async {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "new@trybram.app",
+            displayName: nil,
+            preferredUnits: "lb",
+            onboardingCompletedAt: nil,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .none,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile()))
+        )
+
+        await state.start()
+
+        #expect(state.status == .needsOnboarding)
+        #expect(state.account?.email == "new@trybram.app")
+    }
+
+    @MainActor
+    @Test func accountBootstrapStateMovesSignedInUserToReady() async {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "ready@trybram.app",
+            displayName: "Ready",
+            preferredUnits: "kg",
+            onboardingCompletedAt: .now,
+            accountTier: .premium,
+            subscriptionStatus: .active,
+            entitlementSource: .appStore,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile()))
+        )
+
+        await state.start()
+
+        #expect(state.status == .ready)
+        #expect(state.featureAccess.canUseStats)
+        #expect(state.settingsAccount.email == "ready@trybram.app")
+    }
+
+    @MainActor
+    @Test func accountBootstrapStateSurfacesAuthErrors() async {
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: nil, error: AccountSessionError.accountServicesUnavailable),
+            bootstrapService: MockBootstrapService(result: nil)
+        )
+
+        await state.signIn(email: "broken@trybram.app", password: "password")
+
+        if case .failed(let message) = state.status {
+            #expect(message.contains("Account services"))
+        } else {
+            Issue.record("Expected failed account state.")
+        }
+    }
+
     @Test func emptyDailyWorkoutNoteStartsReady() {
         let note = DailyWorkoutNote()
 
@@ -37,7 +202,1275 @@ struct BramTests {
         #expect(note.parsedSummary == nil)
     }
 
+    @Test func heuristicInterpreterMapsStrengthCardioAndHeartRate() async {
+        let note = DailyWorkoutNote(
+            body: """
+            Bench 185 3x8
+            Bike 20 min
+            avg HR 142
+            """
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+
+        #expect(result.metrics.totalSets == 3)
+        #expect(result.metrics.estimatedVolume == 4_440)
+        #expect(result.metrics.prCount == 1)
+        #expect(result.metrics.cardioMinutes == 20)
+        #expect(result.metrics.averageHeartRate == 142)
+        #expect(result.lines.map(\.chipText).contains("PR"))
+        #expect(result.lines.map(\.chipText).contains("20 min"))
+        #expect(result.lines.map(\.chipText).contains("HR 142"))
+    }
+
+    @Test func heuristicInterpreterTracksDistanceOnlyCardio() async {
+        let note = DailyWorkoutNote(body: "1 mile run")
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+
+        #expect(result.metrics.cardioMinutes == 10)
+        #expect(result.metrics.workoutDurationMinutes == 10)
+        #expect(result.cardioEntries.first?.activityType == "Running")
+        #expect(result.cardioEntries.first?.distance == 1)
+        #expect(result.cardioEntries.first?.distanceUnit == "mi")
+        #expect(result.lines.first?.chipText == "1 mi")
+        #expect(result.lines.first?.cardioEntry?.activityType == "Running")
+    }
+
+    @Test func heuristicInterpreterKeepsSameDayCardioAndLiftDistinct() async {
+        let note = DailyWorkoutNote(
+            body: """
+            Morning run
+            1 mile run
+
+            Evening lift
+            Bench
+            1 - 185 for 8
+            2 - 185 for 8
+            """
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+
+        #expect(result.metrics.totalSets == 2)
+        #expect(result.metrics.cardioMinutes == 10)
+        #expect(result.cardioEntries.first?.sessionName == "Morning run")
+        #expect(result.cardioEntries.first?.sessionIndex == 1)
+    }
+
+    @Test func exerciseMatcherNormalizesCommonAliases() {
+        let matcher = DefaultExerciseMatchingService()
+
+        #expect(matcher.normalize("Single Arm Preacher").exerciseKey == "single_arm_preacher_curl")
+        #expect(matcher.normalize("SA Preacher").exerciseKey == "single_arm_preacher_curl")
+        #expect(matcher.normalize("Preacher Curl").exerciseKey == "single_arm_preacher_curl")
+    }
+
+    @Test func epleyEstimateAndPRDetectionUseEstimatedOneRepMax() {
+        let matcher = DefaultExerciseMatchingService()
+        let exercise = matcher.normalize("Bench")
+        let set = StrengthSetRecord(
+            exerciseKey: exercise.exerciseKey,
+            exerciseName: exercise.displayName,
+            reps: 8,
+            load: 185
+        )
+        let result = DefaultPRDetectionService().detectPR(for: exercise, sets: [set])
+
+        #expect(Int(set.estimatedOneRepMax.rounded()) == 234)
+        #expect(result.isPR)
+        #expect(result.badge?.label == "PR")
+    }
+
+    @Test func blockStyleWorkoutCreatesExerciseAnchorWithoutConfidenceUIText() async {
+        let note = DailyWorkoutNote(
+            body: """
+            Single Arm Preacher
+            1 - 30 for 10
+            2 - 35 for 8
+            """
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let headerLine = result.lines.first { $0.lineIndex == 0 }
+        let prSetLine = result.lines.first { $0.lineIndex == 2 }
+
+        #expect(headerLine?.exerciseAnchor?.exerciseKey == "single_arm_preacher_curl")
+        #expect(headerLine?.badges.isEmpty == true)
+        #expect(prSetLine?.badges.first?.label == "PR")
+        #expect(headerLine?.detailText.contains("%") == false)
+    }
+
+    @Test func blockStyleWorkoutPutsPRBadgeOnBestSetLine() async {
+        let note = DailyWorkoutNote(
+            body: """
+            Cable Pullover
+            1 - 40 for 8
+            2 - 45 for 8
+            3 - 40 for 10
+            """
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let headerLine = result.lines.first { $0.lineIndex == 0 }
+        let bestSetLine = result.lines.first { $0.lineIndex == 2 }
+
+        #expect(headerLine?.badges.isEmpty == true)
+        #expect(bestSetLine?.chipText == "PR")
+        #expect(bestSetLine?.badges.first?.label == "PR")
+    }
+
+    @Test func legDayWorkoutParsesSupersetAndBodyweightSets() async {
+        let note = DailyWorkoutNote(
+            body: """
+            May 7 Leg Day
+            Weight at 7 am 192
+            Warm up Banded Squats - 10, banded side to side walks 10, 135 bar 10
+
+            Squats
+            1 - 225 lbs for 8
+            2 - 245 for 8
+            3 - 275 for 4
+            4 - 245 for 6
+
+            RDLs barbell
+            1 - 155 for 6
+            2 - 155 for 7
+            3 - 155 for 5
+
+            Superset
+            Leg Curls
+            1 - 20 for 8
+            2 - 30 for 5
+            3 - 30 for 5
+            Sissy Squats
+            1 - BW for 8
+            2 - BW for 6
+            3 - BW for 6
+            """
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let exerciseKeys = result.lines.compactMap(\.exerciseAnchor?.exerciseKey)
+
+        #expect(result.metrics.totalSets == 13)
+        #expect(exerciseKeys.contains("back_squat"))
+        #expect(exerciseKeys.contains("barbell_romanian_deadlift"))
+        #expect(exerciseKeys.contains("leg_curl"))
+        #expect(exerciseKeys.contains("sissy_squat"))
+    }
+
+    @Test func supersetCreatesGroupAnchorAndIndividualExerciseAnchors() async {
+        let note = DailyWorkoutNote(
+            body: """
+            Superset
+            Sissy Squats
+            1 - 8
+            2 - 7
+            3 - 8
+            4 - 8
+            Reverse Nordic
+            1 - 4
+            2 - 5
+            3 - 4
+            4 - 3
+            """
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let group = result.lines.first { $0.lineIndex == 0 }?.exerciseAnchor
+        let exerciseKeys = result.lines.compactMap(\.exerciseAnchor?.exerciseKey)
+
+        #expect(result.metrics.totalSets == 8)
+        #expect(group?.isSupersetGroup == true)
+        #expect(group?.groupMembers.map(\.exerciseKey) == ["sissy_squat", "reverse_nordic"])
+        #expect(exerciseKeys.contains("sissy_squat"))
+        #expect(exerciseKeys.contains("reverse_nordic"))
+    }
+
+    @Test func parserLinksCurrentMissingExerciseExamples() async {
+        let note = DailyWorkoutNote(
+            body: """
+            Calf Raises
+            1 - 40
+
+            Tricep Overhead DB
+            1 - 30s for 6
+            2 - 30s for 10
+            3 - 30s for 10
+
+            Single Arm Tricep Overhead DB
+            1 - 30s for 7, 20s for 5
+            2 - 20s for 6
+
+            Shoulder Flies DB Standing
+            1 - 30s for 10
+            2 - 30s for 7
+
+            Hanging Leg Raises
+            1 - 7
+            2 - 6
+            3 - 5
+            """
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let exerciseKeys = result.lines.compactMap(\.exerciseAnchor?.exerciseKey)
+
+        #expect(result.metrics.totalSets == 11)
+        #expect(exerciseKeys.contains("calf_raise"))
+        #expect(exerciseKeys.contains("dumbbell_overhead_triceps_extension"))
+        #expect(exerciseKeys.contains("single_arm_dumbbell_overhead_triceps_extension"))
+        #expect(exerciseKeys.contains("standing_dumbbell_lateral_raise"))
+        #expect(exerciseKeys.contains("hanging_leg_raise"))
+    }
+
+    @Test func unknownExerciseHeaderStillBecomesStableAnchorWhenFollowedBySets() async {
+        let note = DailyWorkoutNote(
+            body: """
+            Weird Keegan Press
+            1 - 44 for 9
+            2 - 44 for 8
+            """
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let anchor = result.lines.first?.exerciseAnchor
+
+        #expect(result.metrics.totalSets == 2)
+        #expect(anchor?.displayName == "Weird Keegan Press")
+        #expect(anchor?.exerciseKey == "weird_keegan_press")
+    }
+
+    @Test func sqliteWorkoutStorePersistsAutosavedNote() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = "Bench 185 3x8"
+
+        try await store.save(note)
+
+        let loaded = try await store.note(for: date)
+        #expect(loaded.body == "Bench 185 3x8")
+        #expect(loaded.metrics.totalSets == 3)
+        #expect(loaded.metrics.estimatedVolume == 4_440)
+        #expect(loaded.interpretedLines.first?.chipText == "PR")
+    }
+
+    @Test func sqliteWorkoutStoreBuildsCalendarMarkersFromSavedNotes() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramCalendarTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let prDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let emptyDate = Date(timeIntervalSince1970: 1_800_086_400)
+
+        var prNote = try await store.note(for: prDate)
+        prNote.body = "Bench 185 3x8"
+        try await store.save(prNote)
+
+        var emptyNote = try await store.note(for: emptyDate)
+        emptyNote.body = "   "
+        try await store.save(emptyNote)
+
+        let days = try await store.calendarWorkoutDays()
+
+        #expect(days.count == 1)
+        #expect(Calendar.current.isDate(days[0].date, inSameDayAs: prDate))
+        #expect(days[0].hasWorkout)
+        #expect(days[0].hadPR)
+    }
+
+    @Test func sqliteWorkoutStoreDoesNotCountBodyweightOnlyNotesAsWorkouts() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramBodyweightOnlyWorkoutTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = "190 lbs at 8 am weighed"
+
+        try await store.save(note)
+
+        let days = try await store.calendarWorkoutDays()
+        let stats = try await store.statsWeek(containing: date)
+        let profile = try await store.trainingGoalsProfile()
+
+        #expect(days.isEmpty)
+        #expect(stats.workoutDaysInPeriod == 0)
+        #expect(stats.currentStreak == 0)
+        #expect(stats.setVolumeByMuscle.isEmpty)
+        #expect(stats.bodyweightTrend.contains { Int($0.value.rounded()) == 190 && $0.source == .note })
+        #expect(profile.currentWeightValue == 190)
+    }
+
+    @Test func sqliteWorkoutStoreCountsCardioOnlyNotesAsWorkouts() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramCardioOnlyWorkoutTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = "1 mile run"
+
+        try await store.save(note)
+
+        let days = try await store.calendarWorkoutDays()
+        let stats = try await store.statsWeek(containing: date)
+
+        #expect(days.count == 1)
+        #expect(days.first?.hasWorkout == true)
+        #expect(stats.workoutDaysInPeriod == 1)
+        #expect(stats.loadByDay.contains { ($0.durationMinutes ?? 0) > 0 || ($0.energyCalories ?? 0) > 0 })
+    }
+
+    @Test func sqliteWorkoutStoreDerivesProgressStatsFromStructuredSets() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramStatsTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        let previousDate = date.addingTimeInterval(-7 * 86_400)
+        var previousNote = try await store.note(for: previousDate)
+        previousNote.body = "Bench 135 2x8"
+        try await store.save(previousNote)
+
+        var note = try await store.note(for: date)
+        note.body = "Bench 185 3x8"
+        try await store.save(note)
+
+        let stats = try await store.statsWeek(containing: date)
+
+        #expect(stats.loadByDay.contains { $0.volume == 4_440 })
+        #expect(stats.setVolumeByMuscle.contains { $0.muscleGroup == "Chest" && $0.sets == 3 })
+        #expect(stats.macroSetVolumeByMuscle.contains { $0.muscleGroup == "Chest" && $0.sets == 3 })
+        #expect(stats.prCount == 1)
+        #expect(stats.recentPRLabels.contains("Bench"))
+        #expect(stats.priorWorkoutDaysInPeriod == 1)
+        #expect(stats.setVolumeDelta == 1)
+        #expect(stats.progressSignals.contains { $0.label == "PRs" && $0.value == "1" })
+        #expect(stats.progressSignals.contains { $0.label == "Workouts" && $0.value == "1/4" })
+        #expect(stats.progressSignals.contains { $0.label == "Chest" && $0.value == "+1 sets" })
+        #expect(stats.insight?.kind == .progression)
+    }
+
+    @Test func sqliteWorkoutStoreMapsDirectCoreWorkToAbs() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramAbsStatsTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = """
+        Cable Crunches
+        1 - 80 for 12
+        2 - 90 for 10
+        """
+
+        try await store.save(note)
+
+        let stats = try await store.statsWeek(containing: date)
+
+        #expect(stats.setVolumeByMuscle.contains { $0.muscleGroup == "Abs" && $0.sets == 2 })
+        #expect(stats.loadByDay.contains { day in
+            day.muscleBreakdown.contains { $0.muscleGroup == "Abs" && $0.sets == 2 }
+        })
+    }
+
+    @Test func sqliteWorkoutStoreClassifiesRealisticChestDayWithoutOther() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramChestDayStatsTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = """
+        Chest Barbell Bench
+        Weighed 11 am 192.2
+
+        Barbell Chest
+        1 - 185 lbs for 8
+        2 - 205 lbs for 4
+        3 - 195 for 6
+        4 - 185 lbs for 6
+
+        Incline barbell chest
+        1 - 155 lbs for 7
+        2 - 165 lbs for 3
+        3 - 135 lbs for 12
+
+        Incline Flies
+        1 - 35 lbs for 8
+        2 - 35 lbs for 6
+        3 - 35 lbs for 5, 30 for 3 , 20 for 3
+
+        Tricep Pushdown
+        1 - 70 for 8
+        2 - 70 for 7
+        3 - 70 for 4, 50 for 6
+
+        Superset
+        DB Tricep pullovers
+        1 - 30 each for 8
+        2 - 30 for 8
+        3 - 30 for 7
+        4 - 30 for 4, 20 for 4
+        Tricep Dips
+        1 - BW for 4
+        2 - BW for 2, descending 1
+        3 - BW for 1, descending 1
+        4 - BW descending for 1
+
+        Delt Raises
+        1 - 30 for 6
+        2 - 20 for 9
+        3 - 20 for 8
+        4 - 20 for 7, 10 for 6
+
+        Cable Crunches
+        1 - 70 for 8
+        2 - 70 for 6
+        3 - 70 for 6
+        4 - 70 for 6
+        """
+
+        try await store.save(note)
+
+        let stats = try await store.statsWeek(containing: date)
+        let groups = Dictionary(uniqueKeysWithValues: stats.setVolumeByMuscle.map { ($0.muscleGroup, $0.sets) })
+
+        #expect(groups["Chest"] == 10)
+        #expect(groups["Triceps"] == 11)
+        #expect(groups["Shoulders"] == 4)
+        #expect(groups["Abs"] == 4)
+        #expect(groups["Other"] == nil)
+    }
+
+    @Test func sqliteWorkoutStoreBreaksArmsIntoSubgroupsForProgress() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramArmSubgroupTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = """
+        Preacher Curl
+        1 - 35 for 8
+        2 - 35 for 7
+
+        Tricep Pushdown
+        1 - 70 for 8
+        2 - 70 for 7
+        """
+
+        try await store.save(note)
+        let stats = try await store.statsWeek(containing: date)
+        let groups = Dictionary(uniqueKeysWithValues: stats.setVolumeByMuscle.map { ($0.muscleGroup, $0.sets) })
+        let macroGroups = Dictionary(uniqueKeysWithValues: stats.macroSetVolumeByMuscle.map { ($0.muscleGroup, $0.sets) })
+
+        #expect(groups["Biceps"] == 2)
+        #expect(groups["Triceps"] == 2)
+        #expect(groups["Arms"] == nil)
+        #expect(macroGroups["Arms"] == 4)
+        #expect(macroGroups["Biceps"] == nil)
+        #expect(macroGroups["Triceps"] == nil)
+    }
+
+    @Test func sqliteWorkoutStoreDoesNotCreateWeakInsightWithoutUsefulData() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramEmptyStatsInsightTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let stats = try await store.statsWeek(containing: date)
+
+        #expect(stats.prCount == 0)
+        #expect(stats.workoutDaysInPeriod == 0)
+        #expect(stats.setVolumeDelta == 0)
+        #expect(stats.insight == nil)
+    }
+
+    @Test func sqliteWorkoutStoreIncludesBodyweightTrendAndStreakRepairs() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramProgressBodyweightTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let firstDate = Calendar.current.date(from: DateComponents(year: 2026, month: 5, day: 4))!
+        let thirdDate = firstDate.addingTimeInterval(2 * 86_400)
+
+        try await store.save(
+            TrainingGoalsProfile(
+                weeklyTrainingDays: 3,
+                currentWeightValue: 192,
+                targetWeightValue: 185,
+                currentWeightLoggedAt: thirdDate,
+                currentWeightSource: .note
+            )
+        )
+
+        var firstNote = try await store.note(for: firstDate)
+        firstNote.body = "Bench 185 3x8"
+        try await store.save(firstNote)
+
+        var thirdNote = try await store.note(for: thirdDate)
+        thirdNote.body = "Squat 225 3x5"
+        try await store.save(thirdNote)
+
+        let stats = try await store.statsWeek(containing: firstDate)
+
+        #expect(stats.bodyweightTrend.last?.value == 192)
+        #expect(stats.targetWeight == 185)
+        #expect(stats.weeklyTarget == 3)
+        #expect(stats.workoutDaysInPeriod == 2)
+        #expect(stats.streakRepairCount == 1)
+        #expect(stats.streakTitle == "Keep the week alive")
+        #expect(stats.streakSubtitle == "1 more workout keeps this week on target.")
+        #expect(stats.streakAwards.contains { $0.title == "Comeback Ready" && $0.isUnlocked })
+    }
+
+    @Test func sqliteWorkoutStoreAwardsGoalBasedWeeklyStreaks() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramGoalStreakAwardsTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let startDate = Calendar.current.date(from: DateComponents(year: 2026, month: 5, day: 4))!
+
+        try await store.save(TrainingGoalsProfile(weeklyTrainingDays: 2))
+
+        var firstNote = try await store.note(for: startDate)
+        firstNote.body = "Bench 185 3x8"
+        try await store.save(firstNote)
+
+        var secondNote = try await store.note(for: startDate.addingTimeInterval(86_400))
+        secondNote.body = "Run 1 mile"
+        try await store.save(secondNote)
+
+        let stats = try await store.statsWeek(containing: startDate)
+
+        #expect(stats.streakTitle == "On track")
+        #expect(stats.streakSubtitle == "2 of 2 workouts logged. Planned rest days stay neutral.")
+        #expect(stats.streakAwards.contains { $0.title == "On Track" && $0.isUnlocked })
+        #expect(stats.streakAwards.contains { $0.title == "Record Spark" && $0.isUnlocked })
+    }
+
+    @Test func sqliteWorkoutStoreBuildsExerciseHistoryFromSavedSets() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramExerciseHistoryTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let firstDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let secondDate = firstDate.addingTimeInterval(7 * 86_400)
+
+        var firstNote = try await store.note(for: firstDate)
+        firstNote.body = "Bench 185 3x8"
+        try await store.save(firstNote)
+
+        var secondNote = try await store.note(for: secondDate)
+        secondNote.body = "Bench 205 3x5"
+        try await store.save(secondNote)
+
+        let exercise = DefaultExerciseMatchingService().normalize("Bench")
+        let anchor = ExerciseAnchor(
+            id: UUID(),
+            displayName: exercise.displayName,
+            normalizedName: exercise.canonicalName,
+            exerciseKey: exercise.exerciseKey,
+            history: .placeholder(for: exercise)
+        )
+
+        let history = try await store.exerciseHistory(for: anchor)
+
+        #expect(history.recentSessions.count == 2)
+        #expect(history.recentSessions.first?.bestSetText == "205 x 5")
+        #expect(history.bestSetText == "205 x 5")
+        #expect(Int((history.estimatedOneRepMax ?? 0).rounded()) == 239)
+    }
+
+    @Test func sqliteWorkoutStoreBuildsCardioHistoryFromSavedEntries() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramCardioHistoryTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let firstDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let secondDate = firstDate.addingTimeInterval(7 * 86_400)
+
+        var firstNote = try await store.note(for: firstDate)
+        firstNote.body = "1 mile run"
+        try await store.save(firstNote)
+
+        var secondNote = try await store.note(for: secondDate)
+        secondNote.body = "2 mile run 22 min"
+        try await store.save(secondNote)
+
+        let history = try await store.cardioHistory(for: "Running")
+
+        #expect(history.activityType == "Running")
+        #expect(history.recentSessions.count == 2)
+        #expect(history.recentSessions.first?.distance == 2)
+        #expect(history.recentSessions.first?.durationMinutes == 22)
+        #expect(history.bestDistanceText == "2 mi")
+        #expect(history.estimatedCaloriesText != "--")
+    }
+
+    @Test func exerciseSuggestionUsesUpwardTrendForConcreteTarget() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let sessions = [
+            ExerciseHistorySession(
+                id: UUID(),
+                date: now,
+                bestSetText: "205 x 5",
+                estimatedOneRepMax: 239,
+                volume: 3_075
+            ),
+            ExerciseHistorySession(
+                id: UUID(),
+                date: now.addingTimeInterval(-7 * 86_400),
+                bestSetText: "185 x 5",
+                estimatedOneRepMax: 216,
+                volume: 2_775
+            )
+        ]
+
+        let suggestion = LocalSuggestionEngine.exerciseSuggestion(
+            exerciseKey: "barbell_bench_press",
+            sessions: sessions,
+            goals: TrainingGoalsProfile(primaryGoal: .stronger)
+        )
+
+        #expect(suggestion.text.contains("small load jump") || suggestion.text.contains("add one rep"))
+        #expect(suggestion.target == "210 x 4-5")
+        #expect(suggestion.evidence.contains("upward_trend"))
+    }
+
+    @Test func exerciseSuggestionHandlesBodyweightProgression() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let sessions = [
+            ExerciseHistorySession(
+                id: UUID(),
+                date: now,
+                bestSetText: "BW x 8",
+                estimatedOneRepMax: 0,
+                volume: 0
+            )
+        ]
+
+        let suggestion = LocalSuggestionEngine.exerciseSuggestion(
+            exerciseKey: "sissy_squat",
+            sessions: sessions
+        )
+
+        #expect(suggestion.target == "9 clean reps")
+        #expect(suggestion.evidence.contains("thin_history"))
+    }
+
+    @Test func suggestionDraftsAreDisabledForCardsOnlyHomeSuggestions() {
+        let note = DailyWorkoutNote(
+            body: "Leg Day\nI feel tired today\nSquats\n1 - 225 for 8\n2 - 245 for 6",
+            metrics: WorkoutMetricSnapshot(
+                totalSets: 2,
+                estimatedVolume: 3_270,
+                prCount: 0,
+                streakDays: 0,
+                parseState: .parsed
+            )
+        )
+
+        let draft = LocalSuggestionEngine.draft(
+            for: note,
+            goals: TrainingGoalsProfile(primaryGoal: .buildMuscle)
+        )
+
+        #expect(draft == nil)
+    }
+
+    @Test func suggestionContextBuilderExcludesRawNoteTextAndIncludesStructuredContext() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramSuggestionContextTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let firstDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let secondDate = firstDate.addingTimeInterval(7 * 86_400)
+
+        var firstNote = try await store.note(for: firstDate)
+        firstNote.body = "Bench 185 3x8"
+        try await store.save(firstNote)
+
+        var secondNote = try await store.note(for: secondDate)
+        secondNote.body = "I feel strong today\nBench 205 3x5\n1 mile run"
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: secondNote)
+        let context = await SuggestionContextBuilder.build(
+            installId: "install-test-123",
+            note: secondNote,
+            result: result,
+            goals: TrainingGoalsProfile(primaryGoal: .stronger, weeklyTrainingDays: 4),
+            store: store
+        )
+
+        #expect(context.installId == "install-test-123")
+        #expect(context.metrics.totalSets == 3)
+        #expect(context.cardioSummaries.first?.activityType == "Running")
+        #expect(context.currentMuscleSets.contains { $0.muscleGroup == "Chest" && $0.sets == 3 })
+        #expect(context.exerciseSummaries.first?.exerciseKey == "bench_press")
+        #expect(context.readinessHint == "high")
+        #expect(context.sessionKind == "mixed")
+        #expect(String(describing: context).contains("I feel strong today") == false)
+    }
+
+    @Test func dailySuggestionUsesExerciseHistoryBeforeGenericVolumeAdvice() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let sessions = [
+            ExerciseHistorySession(id: UUID(), date: now, bestSetText: "205 x 5", estimatedOneRepMax: 239, volume: 3_075),
+            ExerciseHistorySession(id: UUID(), date: now.addingTimeInterval(-7 * 86_400), bestSetText: "185 x 5", estimatedOneRepMax: 216, volume: 2_775)
+        ]
+        let exerciseSuggestion = LocalSuggestionEngine.exerciseSuggestion(
+            exerciseKey: "barbell_bench_press",
+            sessions: sessions,
+            goals: TrainingGoalsProfile(primaryGoal: .stronger)
+        )
+        let context = WorkoutSuggestionRequestContext(
+            installId: "install-test-123",
+            metrics: WorkoutMetricSnapshot(totalSets: 14, estimatedVolume: 12_000, prCount: 0, streakDays: 0, parseState: .parsed),
+            goals: TrainingGoalsProfile(primaryGoal: .stronger),
+            currentMuscleSets: [MuscleSetMetric(muscleGroup: "Chest", sets: 14, colorRole: .chest)],
+            exerciseSummaries: [
+                ExerciseHistorySummary(
+                    id: UUID(),
+                    exerciseKey: "barbell_bench_press",
+                    displayName: "Barbell Bench Press",
+                    estimatedOneRepMax: 239,
+                    bestSetText: "205 x 5",
+                    recentDates: sessions.map(\.date),
+                    recentSessions: sessions,
+                    recommendation: "Repeat the last clean setup.",
+                    primarySuggestion: exerciseSuggestion
+                )
+            ],
+            cardioSummaries: [],
+            readinessHint: nil,
+            equipmentHint: nil,
+            constraintHint: nil,
+            cardioIntent: nil,
+            sessionKind: "strength",
+            recentFeedbackSummary: [:]
+        )
+
+        let suggestion = LocalSuggestionEngine.dailySuggestion(context: context)
+
+        #expect(suggestion?.kind == .progression)
+        #expect(suggestion?.text.contains("Barbell Bench Press") == true)
+        #expect(suggestion?.text.contains("210 x 4-5") == true)
+        #expect(suggestion?.text.contains("Volume is high") == false)
+    }
+
+    @Test func dailySuggestionNamesHighVolumeMuscleGroup() {
+        let context = WorkoutSuggestionRequestContext(
+            installId: "install-test-123",
+            metrics: WorkoutMetricSnapshot(totalSets: 12, estimatedVolume: 8_000, prCount: 0, streakDays: 0, parseState: .parsed),
+            goals: TrainingGoalsProfile(primaryGoal: .buildMuscle),
+            currentMuscleSets: [MuscleSetMetric(muscleGroup: "Chest", sets: 10, colorRole: .chest)],
+            exerciseSummaries: [],
+            cardioSummaries: [],
+            readinessHint: nil,
+            equipmentHint: nil,
+            constraintHint: nil,
+            cardioIntent: nil,
+            sessionKind: "strength",
+            recentFeedbackSummary: [:]
+        )
+
+        let suggestion = LocalSuggestionEngine.dailySuggestion(context: context)
+
+        #expect(suggestion?.kind == .balance)
+        #expect(suggestion?.text.contains("Chest") == true)
+        #expect(suggestion?.text.contains("10 sets") == true)
+    }
+
+    @Test func suggestionFeedbackPayloadDoesNotNeedRawNoteText() {
+        let feedback = SuggestionFeedback(
+            installId: "install-test-123",
+            suggestionId: UUID(),
+            suggestionType: "draft",
+            action: .thumbsDown,
+            source: .local,
+            coarseContext: ["readiness": "low", "setBucket": "moderate"]
+        )
+
+        #expect(feedback.coarseContext["noteText"] == nil)
+        #expect(feedback.coarseContext["readiness"] == "low")
+    }
+
+    @Test func sqliteWorkoutStoreAwardsPRsAgainstAllTimeExerciseHistory() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramAllTimePRTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let firstDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let repeatDate = firstDate.addingTimeInterval(7 * 86_400)
+        let prDate = firstDate.addingTimeInterval(14 * 86_400)
+
+        var firstNote = try await store.note(for: firstDate)
+        firstNote.body = "Bench 185 3x8"
+        try await store.save(firstNote)
+        let firstBeforeLaterWorkouts = try await store.note(for: firstDate)
+
+        var repeatNote = try await store.note(for: repeatDate)
+        repeatNote.body = "Bench 185 3x8"
+        try await store.save(repeatNote)
+
+        var prNote = try await store.note(for: prDate)
+        prNote.body = "Bench 205 3x5"
+        try await store.save(prNote)
+
+        let loadedFirst = try await store.note(for: firstDate)
+        let loadedRepeat = try await store.note(for: repeatDate)
+        let loadedPR = try await store.note(for: prDate)
+
+        #expect(firstBeforeLaterWorkouts.metrics.prCount == 1)
+        #expect(loadedFirst.metrics.prCount == 0)
+        #expect(!loadedFirst.interpretedLines.contains { $0.chipText == "PR" })
+        #expect(loadedRepeat.metrics.prCount == 0)
+        #expect(!loadedRepeat.interpretedLines.contains { $0.chipText == "PR" })
+        #expect(loadedPR.metrics.prCount == 1)
+        #expect(loadedPR.interpretedLines.contains { $0.chipText == "PR" })
+    }
+
+    @Test func sqliteWorkoutStorePersistsTrainingGoalsProfile() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramGoalsTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let profile = TrainingGoalsProfile(
+            primaryGoal: .betterCardio,
+            weeklyTrainingDays: 5,
+            sessionLengthMinutes: 45,
+            trainingStyles: [.gym, .running],
+            equipment: [.fullGym, .cardioEquipment],
+            heightValue: 72,
+            currentWeightValue: 192.5,
+            targetWeightValue: 185,
+            sex: .male,
+            preferredUnits: .imperial,
+            estimatedDailyCalories: 2_750
+        )
+
+        try await store.save(profile)
+        let loaded = try await store.trainingGoalsProfile()
+
+        #expect(loaded.primaryGoal == .betterCardio)
+        #expect(loaded.weeklyTrainingDays == 5)
+        #expect(loaded.sessionLengthMinutes == 45)
+        #expect(loaded.trainingStyles == [.gym, .running])
+        #expect(loaded.equipment == [.fullGym, .cardioEquipment])
+        #expect(loaded.currentWeightValue == 192.5)
+        #expect(loaded.settingsSubtitle == "Cardio, 5 days/week")
+    }
+
+    @Test func noteBodyweightUpdatesGoalsProfileWhenExplicit() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramNoteBodyweightTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = "body weight 192.4 lbs"
+
+        try await store.save(note)
+        let profile = try await store.trainingGoalsProfile()
+
+        #expect(profile.currentWeightValue == 192.4)
+        #expect(profile.currentWeightSource == .note)
+        #expect(profile.currentWeightLoggedAt == date)
+
+        let stats = try await store.statsWeek(containing: date)
+        #expect(stats.bodyweightTrend.contains { $0.value == 192.4 && $0.source == .note })
+    }
+
+    @Test func noteBodyweightInfersStandaloneWeightNearExistingProfile() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramInferredBodyweightTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        try await store.save(TrainingGoalsProfile(currentWeightValue: 190, currentWeightLoggedAt: date.addingTimeInterval(-86_400), currentWeightSource: .manual))
+        var note = try await store.note(for: date)
+        note.body = "192 lb"
+
+        try await store.save(note)
+        let profile = try await store.trainingGoalsProfile()
+
+        #expect(profile.currentWeightValue == 192)
+        #expect(profile.currentWeightSource == .note)
+
+        let stats = try await store.statsWeek(containing: date)
+        #expect(stats.bodyweightTrend.contains { $0.value == 192 && $0.source == .note })
+    }
+
+    @Test func noteBodyweightDoesNotTreatExerciseLoadAsProfileWeight() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramBodyweightGuardTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        try await store.save(TrainingGoalsProfile(currentWeightValue: 190, currentWeightLoggedAt: date.addingTimeInterval(-86_400), currentWeightSource: .manual))
+        var note = try await store.note(for: date)
+        note.body = "Bench\n1 - 185 lbs for 8"
+
+        try await store.save(note)
+        let profile = try await store.trainingGoalsProfile()
+
+        #expect(profile.currentWeightValue == 190)
+        #expect(profile.currentWeightSource == .manual)
+    }
+
+    @Test func healthBodyweightDoesNotOverwriteNewerManualSameDayWeight() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramBodyweightRecencyTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let dayStart = Calendar.current.startOfDay(for: Date(timeIntervalSince1970: 1_800_000_000))
+        let manualTime = dayStart.addingTimeInterval(18 * 60 * 60)
+        try await store.save(
+            TrainingGoalsProfile(
+                currentWeightValue: 191.8,
+                currentWeightLoggedAt: manualTime,
+                currentWeightSource: .manual
+            )
+        )
+
+        try await store.save(
+            HealthDailyMetric(
+                date: dayStart,
+                bodyweightValue: 192.4,
+                bodyweightUnit: "lb"
+            )
+        )
+
+        let profile = try await store.trainingGoalsProfile()
+
+        #expect(profile.currentWeightValue == 191.8)
+        #expect(profile.currentWeightSource == .manual)
+        #expect(profile.currentWeightLoggedAt == manualTime)
+    }
+
+    @Test func healthBodyweightBecomesCurrentWhenNewerThanProfile() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramLatestHealthBodyweightTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let oldDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let newerDate = oldDate.addingTimeInterval(2 * 86_400)
+        try await store.save(
+            TrainingGoalsProfile(
+                currentWeightValue: 193,
+                currentWeightLoggedAt: oldDate,
+                currentWeightSource: .manual
+            )
+        )
+
+        try await store.save(
+            HealthDailyMetric(
+                date: newerDate,
+                bodyweightValue: 191.6,
+                bodyweightUnit: "lb"
+            )
+        )
+
+        let profile = try await store.trainingGoalsProfile()
+        let stats = try await store.statsWeek(containing: newerDate)
+
+        #expect(profile.currentWeightValue == 191.6)
+        #expect(profile.currentWeightSource == .appleHealth)
+        #expect(stats.bodyweightTrend.last?.value == 191.6)
+        #expect(stats.bodyweightTrend.last?.source == .appleHealth)
+    }
+
+    @Test func manualBodyweightPersistsAsChartObservation() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramManualBodyweightChartTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let loggedAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        try await store.save(
+            TrainingGoalsProfile(
+                currentWeightValue: 193,
+                targetWeightValue: 195,
+                currentWeightLoggedAt: loggedAt,
+                currentWeightSource: .manual
+            )
+        )
+
+        let stats = try await store.statsWeek(containing: loggedAt)
+
+        #expect(stats.bodyweightTrend.count == 1)
+        #expect(stats.bodyweightTrend.first?.value == 193)
+        #expect(stats.bodyweightTrend.first?.source == .manual)
+        #expect(stats.targetWeight == 195)
+    }
+
+    @Test func trainingGoalsSubtitleHandlesDefaultsAndSingularDay() {
+        let defaultProfile = TrainingGoalsProfile()
+        let oneDayProfile = TrainingGoalsProfile(primaryGoal: .stronger, weeklyTrainingDays: 1)
+
+        #expect(defaultProfile.settingsSubtitle == "Build muscle, 4 days/week")
+        #expect(oneDayProfile.settingsSubtitle == "Strength, 1 day/week")
+    }
+
+    @Test func healthEnergyEstimatorUsesHealthEnergyBeforeEstimates() {
+        let metrics = WorkoutMetricSnapshot(
+            totalSets: 10,
+            estimatedVolume: 12_000,
+            prCount: 0,
+            streakDays: 0,
+            parseState: .parsed
+        )
+        let health = HealthDailyMetric(
+            date: .now,
+            activeEnergyCalories: 420,
+            averageHeartRate: 138,
+            workoutDurationMinutes: 55
+        )
+
+        let result = HealthEnergyEstimator.applyingEnergy(
+            to: metrics,
+            goals: TrainingGoalsProfile(currentWeightValue: 200),
+            dailyHealth: health
+        )
+
+        #expect(result.activeEnergyCalories == 420)
+        #expect(!result.energyIsEstimated)
+        #expect(result.averageHeartRate == 138)
+        #expect(result.workoutDurationMinutes == 55)
+    }
+
+    @Test func healthEnergyEstimatorUsesGoalsBodyweightThenFallback() {
+        let metrics = WorkoutMetricSnapshot(
+            totalSets: 10,
+            estimatedVolume: 12_000,
+            prCount: 0,
+            streakDays: 0,
+            parseState: .parsed
+        )
+
+        let withWeight = HealthEnergyEstimator.estimateEnergyCalories(
+            metrics: metrics,
+            goals: TrainingGoalsProfile(sessionLengthMinutes: 60, currentWeightValue: 200)
+        )
+        let fallback = HealthEnergyEstimator.estimateEnergyCalories(
+            metrics: metrics,
+            goals: TrainingGoalsProfile(sessionLengthMinutes: 60, currentWeightValue: nil)
+        )
+
+        #expect(withWeight > fallback)
+        #expect(fallback > 0)
+    }
+
+    @Test func healthEnergyEstimatorUsesPlausibleTrackingTimeForDuration() {
+        let startedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let note = DailyWorkoutNote(
+            body: "Bench\n1 - 185 for 8",
+            createdAt: startedAt,
+            updatedAt: startedAt.addingTimeInterval(42 * 60)
+        )
+        let metrics = WorkoutMetricSnapshot(
+            totalSets: 8,
+            estimatedVolume: 9_200,
+            prCount: 0,
+            streakDays: 0,
+            parseState: .parsed
+        )
+
+        let result = HealthEnergyEstimator.applyingEnergy(
+            to: metrics,
+            goals: TrainingGoalsProfile(sessionLengthMinutes: 60, currentWeightValue: 190),
+            dailyHealth: nil,
+            note: note
+        )
+
+        #expect(result.workoutDurationMinutes == 42)
+        #expect(result.energyIsEstimated)
+    }
+
+    @Test func healthEnergyEstimatorIgnoresImplausiblePasteDuration() {
+        let startedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let note = DailyWorkoutNote(
+            body: "Bench\n1 - 185 for 8\n2 - 185 for 8\n3 - 185 for 8",
+            createdAt: startedAt,
+            updatedAt: startedAt.addingTimeInterval(60)
+        )
+        let metrics = WorkoutMetricSnapshot(
+            totalSets: 3,
+            estimatedVolume: 4_440,
+            prCount: 0,
+            streakDays: 0,
+            parseState: .parsed
+        )
+
+        let result = HealthEnergyEstimator.applyingEnergy(
+            to: metrics,
+            goals: TrainingGoalsProfile(sessionLengthMinutes: 60),
+            dailyHealth: nil,
+            note: note
+        )
+
+        #expect(result.workoutDurationMinutes == 20)
+    }
+
+    @Test func healthWorkoutMatcherReturnsPlainLanguageMatchQuality() {
+        let endDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let note = DailyWorkoutNote(
+            date: endDate,
+            body: "Run 3 miles 30 min",
+            updatedAt: endDate.addingTimeInterval(5 * 60),
+            metrics: WorkoutMetricSnapshot(
+                totalSets: 0,
+                estimatedVolume: 0,
+                prCount: 0,
+                streakDays: 0,
+                cardioMinutes: 30,
+                workoutDurationMinutes: 30,
+                parseState: .parsed
+            )
+        )
+        let workout = HealthWorkoutSample(
+            healthWorkoutId: "health-run-1",
+            activityType: "Running",
+            startDate: endDate.addingTimeInterval(-30 * 60),
+            endDate: endDate,
+            durationMinutes: 30,
+            activeEnergyCalories: 330,
+            distanceValue: 3.1,
+            distanceUnit: "mi"
+        )
+
+        let match = HealthWorkoutMatcher.bestMatch(for: note, workouts: [workout])
+
+        #expect(match?.matchQuality == .strong)
+        #expect(match?.matchQuality.label == "strong match")
+        #expect(match?.matchQuality.label.contains("%") == false)
+    }
+
+    @Test func healthAuthorizationStateTreatsReadRequestAsRefreshable() {
+        #expect(HealthAuthorizationState.notRequested.canAttemptRefresh)
+        #expect(HealthAuthorizationState.requested.canAttemptRefresh)
+        #expect(HealthAuthorizationState.connected.canAttemptRefresh)
+        #expect(HealthAuthorizationState.connectedNoRecentData.canAttemptRefresh)
+        #expect(!HealthAuthorizationState.unavailable.canAttemptRefresh)
+    }
+
+    @Test func healthAuthorizationStateSeparatesConnectedEmptyFromAccessReview() {
+        #expect(HealthAuthorizationState.afterSuccessfulRefresh(hasImportedHealthData: true) == .connected)
+        #expect(HealthAuthorizationState.afterSuccessfulRefresh(hasImportedHealthData: false) == .connectedNoRecentData)
+        #expect(HealthAuthorizationState.connectedNoRecentData.isConnectedLike)
+        #expect(!HealthAuthorizationState.accessNeedsReview.isConnectedLike)
+    }
+
+    @Test func localHealthDataPromotesRequestedStateToConnected() {
+        #expect(
+            HealthAuthorizationState.afterLocalLoad(
+                currentState: .requested,
+                hasLocalHealthData: true
+            ) == .connected
+        )
+        #expect(
+            HealthAuthorizationState.afterLocalLoad(
+                currentState: .requested,
+                hasLocalHealthData: false
+            ) == .requested
+        )
+    }
+
+    @Test func sqliteWorkoutStorePersistsHealthMetricsAndEnergyStats() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramHealthTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = "Bench 185 3x8"
+        try await store.save(note)
+
+        try await store.save(
+            HealthDailyMetric(
+                date: date,
+                activeEnergyCalories: 410,
+                averageHeartRate: 136,
+                workoutDurationMinutes: 50
+            )
+        )
+        try await store.save(note)
+
+        let loaded = try await store.note(for: date)
+        let stats = try await store.statsWeek(containing: date)
+
+        #expect(loaded.metrics.activeEnergyCalories == 410)
+        #expect(loaded.metrics.energyIsEstimated == false)
+        #expect(stats.loadByDay.contains { $0.energyCalories == 410 && !$0.energyIsEstimated })
+        #expect(stats.healthMetricsConnected)
+    }
+
+    @Test func weeklyTargetStreakSemanticsAllowPlannedRestDays() {
+        let fourDayGoal = TrainingGoalsProfile(weeklyTrainingDays: 4)
+        let dailyGoal = TrainingGoalsProfile(weeklyTrainingDays: 7)
+
+        #expect(fourDayGoal.respectsPlannedRestDays)
+        #expect(!dailyGoal.respectsPlannedRestDays)
+    }
+
     @Test func bramLogoAssetIsBundled() {
         #expect(UIImage(named: "BramLogo") != nil)
+    }
+}
+
+private struct MockAuthService: BramAuthServicing {
+    var restoredUserId: UUID?
+    var error: Error?
+
+    func restoreSessionUserId() async throws -> UUID? {
+        if let error { throw error }
+        return restoredUserId
+    }
+
+    func signUp(email: String, password: String) async throws -> UUID? {
+        if let error { throw error }
+        return restoredUserId ?? UUID()
+    }
+
+    func signIn(email: String, password: String) async throws -> UUID {
+        if let error { throw error }
+        return restoredUserId ?? UUID()
+    }
+
+    func signInWithOAuth(_ provider: BramOAuthProvider) async throws -> UUID? {
+        if let error { throw error }
+        return restoredUserId ?? UUID()
+    }
+
+    func handleCallbackURL(_ url: URL) async throws -> UUID {
+        if let error { throw error }
+        return restoredUserId ?? UUID()
+    }
+
+    func signOut() async throws {
+        if let error { throw error }
+    }
+}
+
+private struct MockBootstrapService: AccountBootstrapServicing {
+    var result: AccountBootstrapResult?
+
+    func bootstrap(userId: UUID) async throws -> AccountBootstrapResult {
+        guard let result else { throw AccountSessionError.accountServicesUnavailable }
+        return result
+    }
+
+    func saveOnboarding(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult {
+        guard var result else { throw AccountSessionError.accountServicesUnavailable }
+        result.goalsProfile = profile
+        return result
     }
 }

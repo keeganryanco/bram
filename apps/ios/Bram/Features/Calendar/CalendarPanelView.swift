@@ -44,11 +44,12 @@ struct CalendarPanelView: View {
                 }
             }
 
-            BramCard {
-                Label("Completed workout days use quiet dots; PR days add a small orange mark.", systemImage: "circle.grid.3x3.fill")
-                    .font(BramFont.callout())
-                    .foregroundStyle(BramColor.textSecondary)
+            HStack(spacing: 18) {
+                CalendarLegendItem(color: BramColor.violet, label: "Workout")
+                CalendarLegendItem(color: BramColor.energy, label: "PR")
+                Spacer()
             }
+            .padding(.horizontal, 4)
         }
     }
 
@@ -91,6 +92,22 @@ struct CalendarPanelView: View {
         withAnimation(.snappy) {
             selectedDate = date
             displayedMonth = Calendar.current.startOfMonth(for: date)
+        }
+    }
+}
+
+private struct CalendarLegendItem: View {
+    let color: Color
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(label)
+                .font(BramFont.label())
+                .foregroundStyle(BramColor.textSecondary)
         }
     }
 }

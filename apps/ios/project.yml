@@ -14,6 +14,9 @@ packages:
   RiveRuntime:
     url: https://github.com/rive-app/rive-ios.git
     from: 6.9.5
+  Supabase:
+    url: https://github.com/supabase/supabase-swift.git
+    from: 2.0.0
 targets:
   Bram:
     type: application
@@ -26,8 +29,19 @@ targets:
         CFBundleDisplayName: Bram
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        BramAIBackendEnabled: false
+        BramAIDevRouteToken: ""
+        BramAPIBaseURL: https://trybram.app
+        BramSupabaseURL: https://njotbjmpcostgktjjihv.supabase.co
+        BramSupabasePublishableKey: ""
+        BramAuthRedirectScheme: app.trybram.Bram
+        CFBundleURLTypes:
+          - CFBundleURLName: app.trybram.Bram
+            CFBundleURLSchemes:
+              - app.trybram.Bram
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
+        NSHealthShareUsageDescription: Bram reads workouts, active energy, heart rate, distance, and bodyweight to connect workout notes to progress.
         UIAppFonts:
           - AdobeCaslonPro-Regular.otf
           - AdobeCaslonPro-Semibold.otf
@@ -44,8 +58,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.trybram.Bram
         PRODUCT_NAME: Bram
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: Bram/Bram.entitlements
+        DEVELOPMENT_TEAM: 963UAMD46W
     dependencies:
       - package: RiveRuntime
+      - package: Supabase
+      - sdk: libsqlite3.tbd
+      - sdk: HealthKit.framework
     scheme:
       testTargets:
         - BramTests
@@ -60,3 +79,4 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.trybram.BramTests
         GENERATE_INFOPLIST_FILE: YES
+        DEVELOPMENT_TEAM: 963UAMD46W

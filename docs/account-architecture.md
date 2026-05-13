@@ -26,15 +26,31 @@ Email confirmation should be disabled for the intended first-pass UX. Confirm th
 
 Apple and Google require provider/client configuration in the Supabase dashboard and native iOS URL handling. Do not commit OAuth secrets.
 
+The iOS app uses the custom redirect scheme `app.trybram.Bram`. Add this redirect allowlist in Supabase before testing OAuth:
+
+`app.trybram.Bram://**`
+
+The iOS bundle may include the Supabase project URL and publishable key. It must never include the service-role key.
+
 ## Tables
 
 | Object | Purpose | Client access |
 | --- | --- | --- |
 | `profiles` | User-editable account profile and onboarding basics. | Authenticated users can read their own row and update approved profile columns only. |
+| `training_profiles` | Goal, weekly target, session length, training styles, and equipment context. | Authenticated users can manage their own row. Future AI uses it as private personalization context. |
 | `account_entitlements` | Service-role managed premium/dev/founder/subscription flags. | Authenticated users can read their own row only. No client writes. |
 | `subscription_events` | Append-only purchase/subscription history for App Store, RevenueCat, or manual actions. | Authenticated users can read their own rows only. No client writes. |
 | `account_snapshot` | Read-only joined account state for app startup/settings. | Authenticated users can read their own state through underlying RLS. |
 | `waitlist_signups` | Landing-site waitlist and founder-offer eligibility. | No public client reads/writes. Website writes through the server route. |
+
+## Onboarding Contract
+
+The app stores onboarding in two places:
+
+- `profiles`: identity-adjacent and body/unit fields: email, display name, preferred units, height, current bodyweight, target bodyweight, bodyweight source/logged timestamp, sex, optional sex self-description, optional daily calorie estimate, and `onboarding_completed_at`.
+- `training_profiles`: training intent fields: primary goal, weekly training days, typical session length, training styles, and available equipment.
+
+`profiles.preferred_units` remains the startup unit source exposed through `account_snapshot`. `training_profiles` is fetched after account bootstrap and is editable from Settings. Both tables are private account data and must not be sent to analytics as raw values.
 
 ## Automatic Signup Flow
 
@@ -134,24 +150,35 @@ order by w.created_at nulls last, p.created_at;
 
 At app startup after login:
 
-1. Read `account_snapshot` for the current user.
-2. Treat `account_tier in ('PREMIUM', 'FREE_PREMIUM')` as premium.
-3. Treat `is_developer = true` as the switch for dev-only UI.
-4. Keep App Store subscription state synced to `account_entitlements` through a trusted server or RevenueCat webhook later.
+1. Restore the Supabase Auth session from the iOS keychain-backed client.
+2. Read `account_snapshot` for the current user.
+3. Fetch `training_profiles`; if missing, create a default row for the authenticated user.
+4. If `account_snapshot.onboarding_completed_at` is null, show onboarding before the normal home surface.
+5. Treat `account_tier in ('PREMIUM', 'FREE_PREMIUM')` as premium.
+6. Treat `is_developer = true` as the switch for dev-only UI.
+7. Keep App Store subscription state synced to `account_entitlements` through a trusted server or RevenueCat webhook later.
 
 Do not let the SwiftUI client update `account_entitlements` directly.
 
 ## Future Tables
 
-The next Supabase migrations should add user-owned workout data:
+The next Supabase migrations should continue expanding user-owned workout data:
 
 - `training_profiles`
+- `exercise_catalog`
+- `user_exercise_aliases`
 - `workout_notes`
-- `parsed_workouts`
-- `exercise_entries`
-- `exercise_aliases`
-- `weekly_reviews`
+- `workout_note_lines`
+- `strength_entries`
+- `cardio_entries`
+- `daily_workout_metrics`
+- `workout_prs`
+- `exercise_history_summaries`
+- `health_daily_metrics`
+- `health_workout_matches`
 - `suggestions`
 - `ai_usage_events`
 
 Every user-owned table must use RLS with `auth.uid()` and indexes on foreign keys used by RLS.
+
+See `docs/workout-data-architecture.md` for the local-first SQLite shape and the Supabase table contract.

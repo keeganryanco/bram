@@ -12,9 +12,9 @@ struct DailyWorkoutStatsPanelView: View {
 
                 LazyVGrid(columns: columns, spacing: 12) {
                     DayMetricCard(title: "Sets", value: "\(note.metrics.totalSets)", icon: "number", color: BramColor.violet)
-                    DayMetricCard(title: "Volume", value: volumeText, icon: "scalemass.fill", color: BramColor.energy)
+                    DayMetricCard(title: energyTitle, value: energyText, icon: "flame.fill", color: BramColor.energy)
                     DayMetricCard(title: "PRs", value: "\(note.metrics.prCount)", icon: "trophy.fill", color: BramColor.warning)
-                    DayMetricCard(title: "State", value: note.metrics.parseState.rawValue, icon: "sparkles", color: BramColor.recovery)
+                    DayMetricCard(title: fourthMetricTitle, value: fourthMetricValue, icon: fourthMetricIcon, color: BramColor.recovery)
                 }
             }
         }
@@ -24,8 +24,33 @@ struct DailyWorkoutStatsPanelView: View {
         [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
     }
 
-    private var volumeText: String {
-        note.metrics.estimatedVolume >= 1000 ? "\(note.metrics.estimatedVolume / 1000)k" : "\(note.metrics.estimatedVolume)"
+    private var energyTitle: String {
+        note.metrics.energyIsEstimated ? "Est. Energy" : "Energy"
+    }
+
+    private var energyText: String {
+        guard let energy = note.metrics.activeEnergyCalories else { return "--" }
+        return "\(energy)"
+    }
+
+    private var fourthMetricTitle: String {
+        if note.metrics.averageHeartRate != nil { return "Heart Rate" }
+        if note.metrics.cardioMinutes > 0 { return "Cardio" }
+        if note.metrics.workoutDurationMinutes != nil { return "Duration" }
+        return "Duration"
+    }
+
+    private var fourthMetricValue: String {
+        if let heartRate = note.metrics.averageHeartRate { return "\(heartRate)" }
+        if note.metrics.cardioMinutes > 0 { return "\(note.metrics.cardioMinutes)m" }
+        if let duration = note.metrics.workoutDurationMinutes { return "\(duration)m" }
+        return "--"
+    }
+
+    private var fourthMetricIcon: String {
+        if note.metrics.averageHeartRate != nil { return "heart.fill" }
+        if note.metrics.cardioMinutes > 0 { return "figure.run" }
+        return "clock"
     }
 }
 

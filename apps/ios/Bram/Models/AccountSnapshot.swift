@@ -48,6 +48,50 @@ struct AccountSnapshot: Codable, Equatable {
         isDeveloper
     }
 
+    init(
+        userId: UUID,
+        email: String,
+        displayName: String?,
+        preferredUnits: String,
+        onboardingCompletedAt: Date?,
+        accountTier: BramAccountTier,
+        subscriptionStatus: BramSubscriptionStatus,
+        entitlementSource: BramEntitlementSource,
+        isDeveloper: Bool,
+        founderOfferEligible: Bool,
+        premiumExpiresAt: Date?,
+        entitlementsUpdatedAt: Date
+    ) {
+        self.userId = userId
+        self.email = email
+        self.displayName = displayName
+        self.preferredUnits = preferredUnits
+        self.onboardingCompletedAt = onboardingCompletedAt
+        self.accountTier = accountTier
+        self.subscriptionStatus = subscriptionStatus
+        self.entitlementSource = entitlementSource
+        self.isDeveloper = isDeveloper
+        self.founderOfferEligible = founderOfferEligible
+        self.premiumExpiresAt = premiumExpiresAt
+        self.entitlementsUpdatedAt = entitlementsUpdatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        userId = try container.decode(UUID.self, forKey: .userId)
+        email = try container.decode(String.self, forKey: .email)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+        preferredUnits = try container.decode(String.self, forKey: .preferredUnits)
+        onboardingCompletedAt = try container.decodeFlexibleDateIfPresent(forKey: .onboardingCompletedAt)
+        accountTier = try container.decode(BramAccountTier.self, forKey: .accountTier)
+        subscriptionStatus = try container.decode(BramSubscriptionStatus.self, forKey: .subscriptionStatus)
+        entitlementSource = try container.decode(BramEntitlementSource.self, forKey: .entitlementSource)
+        isDeveloper = try container.decode(Bool.self, forKey: .isDeveloper)
+        founderOfferEligible = try container.decode(Bool.self, forKey: .founderOfferEligible)
+        premiumExpiresAt = try container.decodeFlexibleDateIfPresent(forKey: .premiumExpiresAt)
+        entitlementsUpdatedAt = try container.decodeFlexibleDate(forKey: .entitlementsUpdatedAt)
+    }
+
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case email
@@ -61,5 +105,56 @@ struct AccountSnapshot: Codable, Equatable {
         case founderOfferEligible = "founder_offer_eligible"
         case premiumExpiresAt = "premium_expires_at"
         case entitlementsUpdatedAt = "entitlements_updated_at"
+    }
+}
+
+extension KeyedDecodingContainer {
+    func decodeFlexibleDate(forKey key: Key) throws -> Date {
+        if let date = try? decode(Date.self, forKey: key) {
+            return date
+        }
+        let value = try decode(String.self, forKey: key)
+        if let date = Date.bramDate(from: value) {
+            return date
+        }
+        throw DecodingError.dataCorruptedError(
+            forKey: key,
+            in: self,
+            debugDescription: "Expected ISO-8601 date string."
+        )
+    }
+
+    func decodeFlexibleDateIfPresent(forKey key: Key) throws -> Date? {
+        if try decodeNil(forKey: key) {
+            return nil
+        }
+        if let date = try? decode(Date.self, forKey: key) {
+            return date
+        }
+        guard let value = try decodeIfPresent(String.self, forKey: key), !value.isEmpty else {
+            return nil
+        }
+        if let date = Date.bramDate(from: value) {
+            return date
+        }
+        throw DecodingError.dataCorruptedError(
+            forKey: key,
+            in: self,
+            debugDescription: "Expected optional ISO-8601 date string."
+        )
+    }
+}
+
+private extension Date {
+    static func bramDate(from value: String) -> Date? {
+        let fractionalFormatter = ISO8601DateFormatter()
+        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractionalFormatter.date(from: value) {
+            return date
+        }
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: value)
     }
 }
