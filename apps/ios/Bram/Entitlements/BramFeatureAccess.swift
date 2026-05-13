@@ -28,7 +28,7 @@ enum BramEntitlementPolicy {
     static func access(for account: AccountSnapshot?) -> BramFeatureAccess {
         guard let account else { return .free }
 
-        let premium = account.hasPremiumAccess
+        let premium = account.hasPremiumAccess || account.hasDeveloperAccess
         return BramFeatureAccess(
             canUseInterpretation: premium,
             canUseStats: premium,

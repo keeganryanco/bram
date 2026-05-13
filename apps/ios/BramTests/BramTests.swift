@@ -79,6 +79,31 @@ struct BramTests {
         #expect(!access.canUseDeveloperFeatures)
     }
 
+    @Test func developerAccountUnlocksAllPremiumSurfacesWithoutSubscription() {
+        let account = AccountSnapshot(
+            userId: UUID(),
+            email: "dev@trybram.app",
+            displayName: "Dev",
+            preferredUnits: "lb",
+            onboardingCompletedAt: .now,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .dev,
+            isDeveloper: true,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+
+        let access = BramEntitlementPolicy.access(for: account)
+
+        #expect(access.canUseInterpretation)
+        #expect(access.canUseStats)
+        #expect(access.canUseHealth)
+        #expect(access.canUseSuggestions)
+        #expect(access.canUseDeveloperFeatures)
+    }
+
     @Test func trainingGoalsProfileMapsToSupabasePayloads() {
         let userId = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
         let completedAt = Date(timeIntervalSince1970: 1_777_777_777)
