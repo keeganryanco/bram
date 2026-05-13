@@ -17,6 +17,9 @@ packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift.git
     from: 2.0.0
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios-spm.git
+    from: 5.0.0
 targets:
   Bram:
     type: application
@@ -32,6 +35,7 @@ targets:
         BramAIBackendEnabled: false
         BramAIDevRouteToken: ""
         BramAPIBaseURL: https://trybram.app
+        BramRevenueCatAPIKey: ""
         BramSupabaseURL: https://njotbjmpcostgktjjihv.supabase.co
         BramSupabasePublishableKey: sb_publishable_LovuYXBzXPbXevP8FuHSLA_wen7RoSQ
         BramAuthRedirectScheme: app.trybram.Bram
@@ -63,6 +67,8 @@ targets:
     dependencies:
       - package: RiveRuntime
       - package: Supabase
+      - package: RevenueCat
+        product: RevenueCat
       - sdk: libsqlite3.tbd
       - sdk: HealthKit.framework
     scheme:

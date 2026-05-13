@@ -25,6 +25,7 @@
 - User-owned tables must use Supabase RLS.
 - App must provide deletion and export paths before App Store submission.
 - Entitlement/admin flags must be service-role managed, not user editable.
+- RevenueCat purchase state may be linked to the Supabase user ID for entitlement sync. The app must not write entitlement flags directly; webhook/server refresh routes update Supabase with service-role privileges.
 
 ## App Store Copy Anchor
 

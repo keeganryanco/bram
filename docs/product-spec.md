@@ -26,7 +26,7 @@ For MVP readiness, Bram must understand cardio as first-class workout data, not 
 
 ## Launch Surfaces
 
-- Onboarding: email/account entry, goals, desired weekly training frequency, typical session length, training styles, equipment, height, current weight, optional target weight, optional sex, preferred units, and optional calorie estimate.
+- Onboarding: account creation, first name, primary goal, desired weekly training frequency, typical session length, training styles, equipment, preferred units, current weight, optional target weight, a quick note-parsing preview, baseline recap, and premium paywall.
 - Daily home: weekly date strip and note editor.
 - Inline interpretation: exercise anchors, PR badges, sets, cardio, Health-linked chips when they attach cleanly.
 - Progress: PRs, weekly target completion, muscle set volume, bodyweight trend, consistency, streak repairs, and recent exercise history, with energy as supporting Health context.
@@ -44,6 +44,8 @@ No social feed, public profiles, comments, full routine marketplace, macro track
 Bram has one user-facing `Goals` surface in Settings. It combines training intent and light profile context so the app can personalize progress without feeling like a medical form.
 
 The local-first Goals profile should include primary goal, weekly workout target, typical session length, training styles, equipment context, preferred units, height, current weight, optional target weight, optional sex, bodyweight source/logged timestamp, and optional daily calorie estimate. Supabase stores identity/body/unit fields in `profiles` and training intent/equipment fields in `training_profiles`.
+
+First-run onboarding sets the baseline for Goals but is not the full Goals editor. It should feel like classic product onboarding: one action per screen, a fixed bottom continue control, motivating but specific copy, a fast moment showing that natural workout notes become structured progress, and then a hard premium gate. Settings keeps the fuller editable Goals surface, including advanced optional fields such as sex and daily calorie estimate.
 
 Weekly consistency should eventually use the user's desired weekly workout target. Planned rest days should not feel like broken streaks; missing the intended weekly target is the meaningful consistency signal.
 

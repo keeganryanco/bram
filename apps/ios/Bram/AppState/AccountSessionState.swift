@@ -4,6 +4,7 @@ enum AccountSessionStatus: Equatable {
     case initializing
     case signedOut
     case needsOnboarding
+    case needsPaywall
     case ready
     case failed(String)
 }
@@ -13,9 +14,13 @@ final class AccountSessionState: ObservableObject {
     @Published private(set) var status: AccountSessionStatus = .initializing
     @Published private(set) var account: AccountSnapshot?
     @Published private(set) var goalsProfile = BramPreviewData.goalsProfile
+    @Published private(set) var onboardingDraft = OnboardingDraft()
 
     private let authService: (any BramAuthServicing)?
     private let bootstrapService: (any AccountBootstrapServicing)?
+    private let localStore: any WorkoutLocalStore
+    private let paywallService: (any BramPaywallServicing)?
+    private let entitlementRefreshService: (any BramEntitlementRefreshing)?
     private let configurationError: Error?
     private var userId: UUID?
     private var didStart = false
@@ -23,10 +28,16 @@ final class AccountSessionState: ObservableObject {
     init(
         authService: (any BramAuthServicing)?,
         bootstrapService: (any AccountBootstrapServicing)?,
+        localStore: any WorkoutLocalStore = SQLiteWorkoutLocalStore.shared,
+        paywallService: (any BramPaywallServicing)? = nil,
+        entitlementRefreshService: (any BramEntitlementRefreshing)? = nil,
         configurationError: Error? = nil
     ) {
         self.authService = authService
         self.bootstrapService = bootstrapService
+        self.localStore = localStore
+        self.paywallService = paywallService
+        self.entitlementRefreshService = entitlementRefreshService
         self.configurationError = configurationError
     }
 
@@ -36,7 +47,10 @@ final class AccountSessionState: ObservableObject {
             let client = BramSupabaseClientFactory.makeClient(configuration: configuration)
             return AccountSessionState(
                 authService: BramAuthService(client: client, configuration: configuration),
-                bootstrapService: AccountBootstrapService(client: client)
+                bootstrapService: AccountBootstrapService(client: client),
+                localStore: SQLiteWorkoutLocalStore.shared,
+                paywallService: RevenueCatPaywallService.configuredFromBundle(),
+                entitlementRefreshService: BramRevenueCatEntitlementRefreshClient.configuredFromBundle()
             )
         } catch {
             return AccountSessionState(
@@ -138,6 +152,17 @@ final class AccountSessionState: ObservableObject {
     }
 
     func completeOnboarding(with profile: TrainingGoalsProfile) async {
+        await completeOnboarding(firstName: onboardingDraft.firstName, profile: profile)
+    }
+
+    func saveOnboardingProgress(draft: OnboardingDraft, profile: TrainingGoalsProfile) async {
+        onboardingDraft = draft.sanitized
+        goalsProfile = profile.sanitized
+        try? await localStore.save(onboardingDraft)
+        try? await localStore.save(goalsProfile)
+    }
+
+    func completeOnboarding(firstName: String, profile: TrainingGoalsProfile) async {
         guard let userId, let bootstrapService else {
             status = .failed(AccountSessionError.accountServicesUnavailable.localizedDescription)
             return
@@ -145,7 +170,13 @@ final class AccountSessionState: ObservableObject {
 
         status = .initializing
         do {
-            let result = try await bootstrapService.saveOnboarding(profile: profile, userId: userId)
+            let cleanName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cleanProfile = profile.sanitized
+            try await localStore.save(OnboardingDraft(firstName: cleanName, step: .paywall))
+            try await localStore.save(cleanProfile)
+            let result = try await bootstrapService.saveOnboarding(firstName: cleanName, profile: cleanProfile, userId: userId)
+            try? await localStore.clearOnboardingDraft()
+            await configurePaywallIfPossible(userId: userId)
             apply(result)
         } catch {
             status = .failed(error.localizedDescription)
@@ -155,11 +186,33 @@ final class AccountSessionState: ObservableObject {
     func saveGoalsProfile(_ profile: TrainingGoalsProfile) async {
         guard let userId, let bootstrapService else { return }
         do {
-            let result = try await bootstrapService.saveOnboarding(profile: profile, userId: userId)
+            try await localStore.save(profile.sanitized)
+            let result = try await bootstrapService.saveGoalsProfile(profile: profile, userId: userId)
             apply(result)
         } catch {
             status = .failed(error.localizedDescription)
         }
+    }
+
+    func loadPaywall() async throws -> BramPaywallSnapshot {
+        guard let paywallService else { throw BramPaywallError.notConfigured }
+        return try await paywallService.loadPaywall()
+    }
+
+    func purchase(packageId: String) async {
+        await runPaywallAction {
+            try await paywallService?.purchase(packageId: packageId)
+        }
+    }
+
+    func restorePurchases() async {
+        await runPaywallAction {
+            try await paywallService?.restorePurchases()
+        }
+    }
+
+    func redeemCode() {
+        paywallService?.presentCodeRedemption()
     }
 
     func signOut() async {
@@ -171,6 +224,7 @@ final class AccountSessionState: ObservableObject {
         }
         userId = nil
         account = nil
+        onboardingDraft = OnboardingDraft()
         status = .signedOut
     }
 
@@ -190,13 +244,58 @@ final class AccountSessionState: ObservableObject {
         }
         let result = try await bootstrapService.bootstrap(userId: userId)
         self.userId = userId
+        if result.needsOnboarding {
+            onboardingDraft = (try? await localStore.onboardingDraft()) ?? OnboardingDraft()
+            goalsProfile = (try? await localStore.trainingGoalsProfile()) ?? result.goalsProfile
+        } else {
+            onboardingDraft = OnboardingDraft(firstName: result.account.displayName ?? "", step: .paywall)
+            goalsProfile = result.goalsProfile
+            await configurePaywallIfPossible(userId: userId)
+        }
         apply(result)
     }
 
     private func apply(_ result: AccountBootstrapResult) {
         account = result.account
-        goalsProfile = result.goalsProfile
-        status = result.needsOnboarding ? .needsOnboarding : .ready
+        if !result.needsOnboarding {
+            goalsProfile = result.goalsProfile
+        }
+        if result.needsOnboarding {
+            status = .needsOnboarding
+        } else if Self.canEnterApp(account: result.account) {
+            status = .ready
+        } else {
+            status = .needsPaywall
+        }
+    }
+
+    private static func canEnterApp(account: AccountSnapshot) -> Bool {
+        account.hasPremiumAccess || account.hasDeveloperAccess
+    }
+
+    private func configurePaywallIfPossible(userId: UUID) async {
+        try? paywallService?.configure(userId: userId)
+    }
+
+    private func runPaywallAction(_ action: () async throws -> Void) async {
+        do {
+            guard let userId else { throw AccountSessionError.accountServicesUnavailable }
+            try await action()
+            guard let token = try await authService?.currentAccessToken() else {
+                throw BramPaywallError.refreshFailed
+            }
+            if let refreshed = try await entitlementRefreshService?.refresh(accessToken: token) {
+                let result = AccountBootstrapResult(account: refreshed, goalsProfile: goalsProfile)
+                apply(result)
+            } else if let bootstrapService {
+                let result = try await bootstrapService.bootstrap(userId: userId)
+                apply(result)
+            }
+        } catch BramPaywallError.purchaseCancelled {
+            status = .needsPaywall
+        } catch {
+            status = .failed(error.localizedDescription)
+        }
     }
 }
 

@@ -8,6 +8,7 @@ enum BramOAuthProvider: Equatable {
 
 protocol BramAuthServicing: Sendable {
     func restoreSessionUserId() async throws -> UUID?
+    func currentAccessToken() async throws -> String?
     func signUp(email: String, password: String) async throws -> UUID?
     func signIn(email: String, password: String) async throws -> UUID
     func signInWithOAuth(_ provider: BramOAuthProvider) async throws -> UUID?
@@ -31,6 +32,10 @@ struct BramAuthService: BramAuthServicing {
         } catch {
             return nil
         }
+    }
+
+    func currentAccessToken() async throws -> String? {
+        try await client.auth.session.accessToken
     }
 
     func signUp(email: String, password: String) async throws -> UUID? {

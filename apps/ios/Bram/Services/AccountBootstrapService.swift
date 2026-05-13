@@ -12,7 +12,8 @@ struct AccountBootstrapResult: Equatable {
 
 protocol AccountBootstrapServicing: Sendable {
     func bootstrap(userId: UUID) async throws -> AccountBootstrapResult
-    func saveOnboarding(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult
+    func saveOnboarding(firstName: String, profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult
+    func saveGoalsProfile(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult
 }
 
 struct AccountBootstrapService: AccountBootstrapServicing {
@@ -28,13 +29,34 @@ struct AccountBootstrapService: AccountBootstrapServicing {
         return AccountBootstrapResult(account: account, goalsProfile: profile)
     }
 
-    func saveOnboarding(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult {
-        let completedAt = Date()
+    func saveOnboarding(firstName: String, profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult {
+        try await saveProfile(
+            profile,
+            userId: userId,
+            displayName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
+            onboardingCompletedAt: Date()
+        )
+        return try await bootstrap(userId: userId)
+    }
+
+    func saveGoalsProfile(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult {
+        try await saveProfile(profile, userId: userId, displayName: nil, onboardingCompletedAt: nil)
+        return try await bootstrap(userId: userId)
+    }
+
+    private func saveProfile(
+        _ profile: TrainingGoalsProfile,
+        userId: UUID,
+        displayName: String?,
+        onboardingCompletedAt: Date?
+    ) async throws {
+        let completedAt = onboardingCompletedAt
         try await client
             .from("profiles")
             .update(
                 TrainingGoalsSupabaseMapper.profileUpdate(
                     from: profile,
+                    displayName: displayName,
                     onboardingCompletedAt: completedAt
                 )
             )
@@ -52,8 +74,6 @@ struct AccountBootstrapService: AccountBootstrapServicing {
                 onConflict: "user_id"
             )
             .execute()
-
-        return try await bootstrap(userId: userId)
     }
 
     private func fetchAccountSnapshot() async throws -> AccountSnapshot {

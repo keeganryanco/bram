@@ -2,7 +2,7 @@
 
 ## Intent
 
-Bram uses Supabase Auth for identity and Supabase Postgres for user-owned backup/sync data. Native iOS subscriptions stay native/App Store-first, with RevenueCat reserved as the subscription-state adapter later.
+Bram uses Supabase Auth for identity and Supabase Postgres for user-owned backup/sync data. Native iOS subscriptions stay native/App Store-first, with RevenueCat as the subscription-state adapter.
 
 The account model must make these operations simple:
 
@@ -52,7 +52,18 @@ The app stores onboarding in two places:
 - `profiles`: identity-adjacent and body/unit fields: email, display name, preferred units, height, current bodyweight, target bodyweight, bodyweight source/logged timestamp, sex, optional sex self-description, optional daily calorie estimate, and `onboarding_completed_at`.
 - `training_profiles`: training intent fields: primary goal, weekly training days, typical session length, training styles, and available equipment.
 
-`profiles.preferred_units` remains the startup unit source exposed through `account_snapshot`. `training_profiles` is fetched after account bootstrap and is editable from Settings. Both tables are private account data and must not be sent to analytics as raw values.
+First-run onboarding collects first name, goal, weekly target, session length, training styles, equipment, preferred units, current weight, and optional target weight. It saves a local draft first, then syncs `profiles.display_name`, `profiles.onboarding_completed_at`, body/unit fields, and `training_profiles` after completion. `profiles.preferred_units` remains the startup unit source exposed through `account_snapshot`. `training_profiles` is fetched after account bootstrap and is editable from Settings. Both tables are private account data and must not be sent to analytics as raw values.
+
+## Subscription Entitlement Flow
+
+iOS configures RevenueCat with the Supabase user UUID as the App User ID. The client can load offerings, purchase, restore purchases, and open Apple code redemption, but it never writes `account_entitlements`.
+
+Trusted entitlement writes happen through:
+
+- `POST /api/revenuecat/refresh`: authenticated by the user's Supabase bearer token, fetches the RevenueCat subscriber, and updates `account_entitlements` with the service-role key.
+- `POST /api/revenuecat/webhook`: protected by `REVENUECAT_WEBHOOK_AUTH_HEADER`, appends `subscription_events`, then refreshes `account_entitlements` from RevenueCat's current subscriber state.
+
+RevenueCat defaults are entitlement `premium`, current/default offering, and product IDs `app.trybram.premium.monthly` and `app.trybram.premium.yearly`. App Store/RevenueCat dashboard setup owns the 3-day trial, pricing, promo codes, and future cancellation/winback offers.
 
 ## Automatic Signup Flow
 
@@ -158,7 +169,8 @@ At app startup after login:
 4. If `account_snapshot.onboarding_completed_at` is null, show onboarding before the normal home surface.
 5. Treat `account_tier in ('PREMIUM', 'FREE_PREMIUM')` as premium.
 6. Treat `is_developer = true` as the switch for dev-only UI.
-7. Keep App Store subscription state synced to `account_entitlements` through a trusted server or RevenueCat webhook later.
+7. If onboarding is complete but the account is not premium/free-premium/developer, show the hard RevenueCat paywall.
+8. Keep App Store subscription state synced to `account_entitlements` through `/api/revenuecat/refresh` and the RevenueCat webhook.
 
 Do not let the SwiftUI client update `account_entitlements` directly.
 

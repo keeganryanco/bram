@@ -140,7 +140,8 @@ struct BramTests {
         )
         let state = AccountSessionState(
             authService: MockAuthService(restoredUserId: userId),
-            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile()))
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: MockLocalStore()
         )
 
         await state.start()
@@ -168,7 +169,8 @@ struct BramTests {
         )
         let state = AccountSessionState(
             authService: MockAuthService(restoredUserId: userId),
-            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile()))
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: MockLocalStore()
         )
 
         await state.start()
@@ -179,10 +181,67 @@ struct BramTests {
     }
 
     @MainActor
+    @Test func accountBootstrapStateMovesCompletedFreeUserToPaywall() async {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "free@trybram.app",
+            displayName: "Free",
+            preferredUnits: "lb",
+            onboardingCompletedAt: .now,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .none,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: MockLocalStore()
+        )
+
+        await state.start()
+
+        #expect(state.status == .needsPaywall)
+    }
+
+    @MainActor
+    @Test func developerAccountBypassesPaywall() async {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "dev@trybram.app",
+            displayName: "Dev",
+            preferredUnits: "lb",
+            onboardingCompletedAt: .now,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .dev,
+            isDeveloper: true,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: MockLocalStore()
+        )
+
+        await state.start()
+
+        #expect(state.status == .ready)
+    }
+
+    @MainActor
     @Test func accountBootstrapStateSurfacesAuthErrors() async {
         let state = AccountSessionState(
             authService: MockAuthService(restoredUserId: nil, error: AccountSessionError.accountServicesUnavailable),
-            bootstrapService: MockBootstrapService(result: nil)
+            bootstrapService: MockBootstrapService(result: nil),
+            localStore: MockLocalStore()
         )
 
         await state.signIn(email: "broken@trybram.app", password: "password")
@@ -1424,6 +1483,26 @@ struct BramTests {
     @Test func bramLogoAssetIsBundled() {
         #expect(UIImage(named: "BramLogo") != nil)
     }
+
+    @Test func sqliteWorkoutStorePersistsOnboardingDraft() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramOnboardingTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let draft = OnboardingDraft(firstName: " Keegan ", step: .training)
+
+        try await store.save(draft)
+        let loaded = try await store.onboardingDraft()
+
+        #expect(loaded.firstName == "Keegan")
+        #expect(loaded.step == .training)
+    }
+
+    @Test func onboardingDraftRequiresNameOnFirstStep() {
+        #expect(!OnboardingDraft(firstName: "", step: .name).canContinueFromCurrentStep)
+        #expect(OnboardingDraft(firstName: "Keegan", step: .name).canContinueFromCurrentStep)
+        #expect(OnboardingDraft(firstName: "", step: .goal).canContinueFromCurrentStep)
+    }
 }
 
 private struct MockAuthService: BramAuthServicing {
@@ -1433,6 +1512,11 @@ private struct MockAuthService: BramAuthServicing {
     func restoreSessionUserId() async throws -> UUID? {
         if let error { throw error }
         return restoredUserId
+    }
+
+    func currentAccessToken() async throws -> String? {
+        if let error { throw error }
+        return "test-token"
     }
 
     func signUp(email: String, password: String) async throws -> UUID? {
@@ -1468,9 +1552,42 @@ private struct MockBootstrapService: AccountBootstrapServicing {
         return result
     }
 
-    func saveOnboarding(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult {
+    func saveOnboarding(firstName: String, profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult {
+        guard var result else { throw AccountSessionError.accountServicesUnavailable }
+        result.account.displayName = firstName
+        result.account.onboardingCompletedAt = .now
+        result.goalsProfile = profile
+        return result
+    }
+
+    func saveGoalsProfile(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult {
         guard var result else { throw AccountSessionError.accountServicesUnavailable }
         result.goalsProfile = profile
         return result
     }
+}
+
+private actor MockLocalStore: WorkoutLocalStore {
+    var draft = OnboardingDraft()
+    var profile = TrainingGoalsProfile()
+
+    func note(for date: Date) async throws -> DailyWorkoutNote { DailyWorkoutNote(date: date) }
+    func trainingGoalsProfile() async throws -> TrainingGoalsProfile { profile }
+    func healthDailyMetric(for date: Date) async throws -> HealthDailyMetric? { nil }
+    func healthWorkoutSamples(on date: Date) async throws -> [HealthWorkoutSample] { [] }
+    func healthWorkoutMatch(for noteId: UUID) async throws -> HealthWorkoutMatch? { nil }
+    func calendarWorkoutDays() async throws -> [CalendarWorkoutDay] { [] }
+    func statsWeek(containing date: Date) async throws -> StatsWeekSnapshot { BramPreviewData.stats }
+    func stats(for period: StatsPeriod, containing date: Date) async throws -> StatsWeekSnapshot { BramPreviewData.stats }
+    func exerciseHistory(for exercise: ExerciseAnchor) async throws -> ExerciseHistorySummary { exercise.history }
+    func cardioHistory(for activityType: String) async throws -> CardioHistorySummary { CardioHistorySummary(activityType: activityType) }
+    func save(_ note: DailyWorkoutNote) async throws {}
+    func save(_ profile: TrainingGoalsProfile) async throws { self.profile = profile }
+    func onboardingDraft() async throws -> OnboardingDraft { draft }
+    func save(_ draft: OnboardingDraft) async throws { self.draft = draft.sanitized }
+    func clearOnboardingDraft() async throws { draft = OnboardingDraft() }
+    func save(_ metric: HealthDailyMetric) async throws {}
+    func save(_ workouts: [HealthWorkoutSample]) async throws {}
+    func save(_ match: HealthWorkoutMatch) async throws {}
+    func delete(_ note: DailyWorkoutNote) async throws {}
 }

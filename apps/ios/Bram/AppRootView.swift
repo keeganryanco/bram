@@ -17,10 +17,21 @@ struct AppRootView: View {
             case .signedOut:
                 accountGate(message: nil)
             case .needsOnboarding:
-                OnboardingGateView(
+                OnboardingFlowView(
                     account: accountState.settingsAccount,
-                    goalsProfile: accountState.goalsProfile,
+                    initialDraft: accountState.onboardingDraft,
+                    initialProfile: accountState.goalsProfile,
+                    saveProgress: accountState.saveOnboardingProgress,
                     complete: accountState.completeOnboarding,
+                    signOut: accountState.signOut
+                )
+            case .needsPaywall:
+                PaywallGateView(
+                    account: accountState.settingsAccount,
+                    load: accountState.loadPaywall,
+                    purchase: accountState.purchase,
+                    restore: accountState.restorePurchases,
+                    redeem: accountState.redeemCode,
                     signOut: accountState.signOut
                 )
             case .ready:

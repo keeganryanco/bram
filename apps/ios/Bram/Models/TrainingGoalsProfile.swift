@@ -295,6 +295,7 @@ struct RemoteTrainingProfileUpsert: Encodable, Equatable {
 }
 
 struct RemoteProfileOnboardingUpdate: Encodable, Equatable {
+    var displayName: String?
     var preferredUnits: String
     var bodyweightValue: Double?
     var bodyweightUnit: String?
@@ -309,6 +310,7 @@ struct RemoteProfileOnboardingUpdate: Encodable, Equatable {
     var estimatedDailyCalories: Int?
 
     enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
         case preferredUnits = "preferred_units"
         case bodyweightValue = "bodyweight_value"
         case bodyweightUnit = "bodyweight_unit"
@@ -327,10 +329,12 @@ struct RemoteProfileOnboardingUpdate: Encodable, Equatable {
 enum TrainingGoalsSupabaseMapper {
     static func profileUpdate(
         from profile: TrainingGoalsProfile,
+        displayName: String? = nil,
         onboardingCompletedAt: Date?
     ) -> RemoteProfileOnboardingUpdate {
         let sanitized = profile.sanitized
         return RemoteProfileOnboardingUpdate(
+            displayName: displayName?.nilIfBlank,
             preferredUnits: sanitized.preferredUnits.weightUnit,
             bodyweightValue: sanitized.currentWeightValue,
             bodyweightUnit: sanitized.currentWeightValue == nil ? nil : sanitized.preferredUnits.weightUnit,
@@ -404,5 +408,12 @@ private extension MeasurementUnitPreference {
         case .imperial: "in"
         case .metric: "cm"
         }
+    }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

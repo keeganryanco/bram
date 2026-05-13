@@ -13,6 +13,9 @@ protocol WorkoutLocalStore: Sendable {
     func cardioHistory(for activityType: String) async throws -> CardioHistorySummary
     func save(_ note: DailyWorkoutNote) async throws
     func save(_ profile: TrainingGoalsProfile) async throws
+    func onboardingDraft() async throws -> OnboardingDraft
+    func save(_ draft: OnboardingDraft) async throws
+    func clearOnboardingDraft() async throws
     func save(_ metric: HealthDailyMetric) async throws
     func save(_ workouts: [HealthWorkoutSample]) async throws
     func save(_ match: HealthWorkoutMatch) async throws
@@ -58,6 +61,19 @@ protocol AccountStateProviding {
 
 protocol EntitlementProviding {
     func featureAccess() async throws -> BramFeatureAccess
+}
+
+@MainActor
+protocol BramPaywallServicing {
+    func configure(userId: UUID) throws
+    func loadPaywall() async throws -> BramPaywallSnapshot
+    func purchase(packageId: String) async throws
+    func restorePurchases() async throws
+    func presentCodeRedemption()
+}
+
+protocol BramEntitlementRefreshing: Sendable {
+    func refresh(accessToken: String) async throws -> AccountSnapshot
 }
 
 protocol AnalyticsTracking {

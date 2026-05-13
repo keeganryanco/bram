@@ -418,6 +418,18 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         try saveBodyweightObservationIfPresent(profile)
     }
 
+    func onboardingDraft() async throws -> OnboardingDraft {
+        try onboardingDraftSync()
+    }
+
+    func save(_ draft: OnboardingDraft) async throws {
+        try saveSync(draft)
+    }
+
+    func clearOnboardingDraft() async throws {
+        try database.execute("delete from onboarding_draft where id = 'local';")
+    }
+
     func save(_ metric: HealthDailyMetric) async throws {
         try saveSync(metric)
         try updateBodyweightFromHealthIfNeeded(metric)
@@ -530,6 +542,49 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             try database.bind(profile.preferredUnits.rawValue, to: 13, in: statement)
             try database.bind(profile.estimatedDailyCalories, to: 14, in: statement)
             try database.bind(profile.updatedAt, to: 15, in: statement)
+            _ = try database.step(statement)
+        }
+    }
+
+    private func onboardingDraftSync() throws -> OnboardingDraft {
+        let sql = """
+        select first_name, current_step, updated_at
+        from onboarding_draft
+        where id = 'local'
+        limit 1;
+        """
+
+        var draft: OnboardingDraft?
+        try database.withStatement(sql) { statement in
+            if try database.step(statement) {
+                draft = OnboardingDraft(
+                    firstName: database.string(at: 0, in: statement) ?? "",
+                    step: database.int(at: 1, in: statement).flatMap(OnboardingStep.init(rawValue:)) ?? .name,
+                    updatedAt: database.date(at: 2, in: statement) ?? .now
+                )
+            }
+        }
+
+        return draft ?? OnboardingDraft()
+    }
+
+    private func saveSync(_ draft: OnboardingDraft) throws {
+        let draft = draft.sanitized
+        let sql = """
+        insert into onboarding_draft (
+          id, first_name, current_step, updated_at
+        )
+        values ('local', ?, ?, ?)
+        on conflict(id) do update set
+          first_name = excluded.first_name,
+          current_step = excluded.current_step,
+          updated_at = excluded.updated_at;
+        """
+
+        try database.withStatement(sql) { statement in
+            try database.bind(draft.firstName, to: 1, in: statement)
+            try database.bind(draft.step.rawValue, to: 2, in: statement)
+            try database.bind(draft.updatedAt, to: 3, in: statement)
             _ = try database.step(statement)
         }
     }
@@ -1739,6 +1794,13 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
           sex_self_description text,
           preferred_units text not null,
           estimated_daily_calories integer,
+          updated_at text not null
+        );
+
+        create table if not exists onboarding_draft (
+          id text primary key,
+          first_name text not null default '',
+          current_step integer not null default 0,
           updated_at text not null
         );
 
