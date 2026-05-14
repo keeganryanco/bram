@@ -259,6 +259,9 @@ final class AccountSessionState: ObservableObject {
             }
             try await accountDeletionService.deleteAccount(accessToken: token)
             try? await localStore.clearLocalAccountData()
+            if let userId {
+                try? KeychainWorkoutNoteBodyKeyStore().deleteKey(userId: userId)
+            }
             try? await authService?.signOut()
             userId = nil
             account = nil

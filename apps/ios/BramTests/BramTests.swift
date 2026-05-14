@@ -54,6 +54,24 @@ struct BramTests {
         #expect(account.onboardingCompletedAt != nil)
     }
 
+    @Test func workoutNoteBodyEncryptionKeepsPlaintextOutOfSyncPayloadFields() throws {
+        let userId = UUID()
+        let key = Data(repeating: 7, count: 32)
+        let encryptor = WorkoutNoteBodyEncryptionService(
+            keyStore: InMemoryWorkoutNoteBodyKeyStore(key: key)
+        )
+
+        let encrypted = try #require(try encryptor.encrypt("Bench 185 3x8", userId: userId))
+
+        #expect(encrypted.algorithm == "AES-256-GCM")
+        #expect(encrypted.keyVersion == 1)
+        #expect(encrypted.ciphertext.contains("Bench") == false)
+        #expect(encrypted.nonce.isEmpty == false)
+
+        #expect(Data(base64Encoded: encrypted.nonce)?.count == 12)
+        #expect(Data(base64Encoded: encrypted.ciphertext)?.isEmpty == false)
+    }
+
     @Test func freeAccountDoesNotUnlockPremiumSurfaces() {
         let account = AccountSnapshot(
             userId: UUID(),
@@ -1733,5 +1751,13 @@ private actor MockAccountDeletionService: BramAccountDeleting {
 
     func deleteAccount(accessToken: String) async throws {
         deletedAccessToken = accessToken
+    }
+}
+
+private struct InMemoryWorkoutNoteBodyKeyStore: WorkoutNoteBodyKeyStoring {
+    var key: Data
+
+    func keyData(userId: UUID) throws -> Data {
+        key
     }
 }

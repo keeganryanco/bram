@@ -6,7 +6,7 @@
 - Account info: Supabase Auth, `profiles`, `account_entitlements`.
 - Purchases: RevenueCat, App Store.
 - Product analytics: PostHog.
-- Workout notes: Supabase user-owned tables.
+- Workout notes: local SQLite and Supabase user-owned tables. Raw free-text note bodies are encrypted on-device before Supabase upload.
 - Parsed workouts: Supabase user-owned tables.
 - Goals/profile context: primary training goal, weekly target, session length, training styles, equipment context, body basics, preferred units, and optional calorie estimate.
 - Apple Health data: workouts, active energy, heart rate, distance, duration, and bodyweight when the user connects Health.
@@ -18,6 +18,8 @@
 - Bram does not sell workout data.
 - Bram does not use workout notes for advertising.
 - Analytics must not include raw workout notes.
+- Supabase workout tables must store notes under `user_id` only and must not duplicate direct identity fields such as email or display name.
+- Free-text workout note bodies are highly sensitive private data. V1 clients encrypt note bodies before Supabase upload and keep derived workout metrics queryable separately.
 - Analytics must not include raw goals/profile freeform text, body measurements, target weight, sex, or calorie estimates.
 - Onboarding body basics and goal settings are private account data in Supabase `profiles` and `training_profiles`. Product analytics may record completion or coarse UI actions, but not raw measurements, sex, calorie estimates, target weight, or freeform self-description.
 - HealthKit data must not be used for advertising, marketing, analytics profiling, or ad attribution.

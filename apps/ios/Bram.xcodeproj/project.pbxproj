@@ -14,6 +14,7 @@
 		08C4F04C27D915A7B3B0E201 /* SuggestionDraftControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3223EA3225A0FA490DAAF134 /* SuggestionDraftControls.swift */; };
 		0A755A77FF8B22AE1F70C7D3 /* WorkoutNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8754E1258EEEF312F699ECC /* WorkoutNote.swift */; };
 		1CF1FFD1B4E91BD5B8D586E2 /* WorkoutNoteEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 932E6358A2029023F9EC17B4 /* WorkoutNoteEditor.swift */; };
+		1D1EB3317BD538B116C3802B /* WorkoutNoteBodyEncryptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CE319598171FD66864CC5C /* WorkoutNoteBodyEncryptionService.swift */; };
 		1E88BFB0B1124D5F0D02E472 /* RiveRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = F112AD5709567F429E50C55D /* RiveRuntime */; };
 		1F79D267A31C110A85DCEC4A /* DailyWorkoutStatsPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E8397782E64FCC5588780B3 /* DailyWorkoutStatsPanelView.swift */; };
 		1F821C7EE1A875DF74E0BAD4 /* ExerciseHistorySheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BD4102C0B72653B60B704F /* ExerciseHistorySheetView.swift */; };
@@ -102,6 +103,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		04CE319598171FD66864CC5C /* WorkoutNoteBodyEncryptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutNoteBodyEncryptionService.swift; sourceTree = "<group>"; };
 		057A5BDB2AEB506DF6CAC1FE /* ParsedWorkoutSummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsedWorkoutSummaryCard.swift; sourceTree = "<group>"; };
 		0C7A61A147B60A558FAE19DA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0C83C9ABCCD29339DE3F2EF0 /* AdobeCaslonPro-Semibold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "AdobeCaslonPro-Semibold.otf"; sourceTree = "<group>"; };
@@ -448,6 +450,7 @@
 				20FE1B72BBFB65BDC735C020 /* ServicePlaceholders.swift */,
 				F49BA2201D752F2FDEE120AA /* SuggestionContextBuilder.swift */,
 				0D2D126E989C988EA990ACA7 /* SupabaseWorkoutSyncService.swift */,
+				04CE319598171FD66864CC5C /* WorkoutNoteBodyEncryptionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -626,6 +629,7 @@
 				EC3D537C5793E89320A922E2 /* WorkoutDomainModels.swift in Sources */,
 				F2C5B849C11134F72AD880E8 /* WorkoutLoadBar.swift in Sources */,
 				0A755A77FF8B22AE1F70C7D3 /* WorkoutNote.swift in Sources */,
+				1D1EB3317BD538B116C3802B /* WorkoutNoteBodyEncryptionService.swift in Sources */,
 				1CF1FFD1B4E91BD5B8D586E2 /* WorkoutNoteEditor.swift in Sources */,
 				26170587033BB9756E418B39 /* WorkoutSuggestionCard.swift in Sources */,
 			);

@@ -4,10 +4,16 @@ import Supabase
 struct SupabaseWorkoutSyncService: WorkoutSyncService {
     private let client: SupabaseClient
     private let localStore: any WorkoutLocalStore
+    private let bodyEncryptor: any WorkoutNoteBodyEncrypting
 
-    init(client: SupabaseClient, localStore: any WorkoutLocalStore) {
+    init(
+        client: SupabaseClient,
+        localStore: any WorkoutLocalStore,
+        bodyEncryptor: any WorkoutNoteBodyEncrypting = WorkoutNoteBodyEncryptionService()
+    ) {
         self.client = client
         self.localStore = localStore
+        self.bodyEncryptor = bodyEncryptor
     }
 
     func syncPendingAccountData(userId: UUID) async throws {
@@ -25,9 +31,10 @@ struct SupabaseWorkoutSyncService: WorkoutSyncService {
 
     private func upsert(payload: WorkoutSyncPayload, userId: UUID, remoteId: UUID) async throws {
         let note = payload.note
+        let encryptedBody = try bodyEncryptor.encrypt(note.body, userId: userId)
         try await client
             .from("workout_notes")
-            .upsert(RemoteWorkoutNoteUpsert(note: note, remoteId: remoteId, userId: userId), onConflict: "id")
+            .upsert(RemoteWorkoutNoteUpsert(note: note, remoteId: remoteId, userId: userId, encryptedBody: encryptedBody), onConflict: "id")
             .execute()
 
         try await deleteStructuredRows(remoteId: remoteId)
@@ -94,17 +101,25 @@ private struct RemoteWorkoutNoteUpsert: Encodable {
     var workoutDate: String
     var timezoneIdentifier: String
     var body: String
+    var bodyCiphertext: String?
+    var bodyNonce: String?
+    var bodyKeyVersion: Int
+    var bodyEncryptionAlg: String
     var syncState: String
     var clientUpdatedAt: Date
     var deletedAt: Date?
 
-    init(note: DailyWorkoutNote, remoteId: UUID, userId: UUID) {
+    init(note: DailyWorkoutNote, remoteId: UUID, userId: UUID, encryptedBody: EncryptedWorkoutNoteBody?) {
         id = remoteId
         self.userId = userId
         clientLocalId = note.id
         workoutDate = SQLiteWorkoutLocalStore.dayKey(for: note.date)
         timezoneIdentifier = note.timezoneIdentifier
-        body = note.body
+        body = ""
+        bodyCiphertext = encryptedBody?.ciphertext
+        bodyNonce = encryptedBody?.nonce
+        bodyKeyVersion = encryptedBody?.keyVersion ?? 1
+        bodyEncryptionAlg = encryptedBody?.algorithm ?? "AES-256-GCM"
         syncState = note.deletedAt == nil ? WorkoutSyncState.synced.rawValue : WorkoutSyncState.deleted.rawValue
         clientUpdatedAt = note.updatedAt
         deletedAt = note.deletedAt
@@ -117,6 +132,10 @@ private struct RemoteWorkoutNoteUpsert: Encodable {
         case workoutDate = "workout_date"
         case timezoneIdentifier = "timezone_identifier"
         case body
+        case bodyCiphertext = "body_ciphertext"
+        case bodyNonce = "body_nonce"
+        case bodyKeyVersion = "body_key_version"
+        case bodyEncryptionAlg = "body_encryption_alg"
         case syncState = "sync_state"
         case clientUpdatedAt = "client_updated_at"
         case deletedAt = "deleted_at"

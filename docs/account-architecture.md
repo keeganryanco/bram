@@ -45,6 +45,8 @@ Password reset requests are sent through the website, not the generic Supabase e
 | `account_snapshot` | Read-only joined account state for app startup/settings. | Authenticated users can read their own state through underlying RLS. |
 | `waitlist_signups` | Landing-site waitlist and founder-offer eligibility. | No public client reads/writes. Website writes through the server route. |
 
+Workout tables are identity-separated. They are keyed by Supabase `user_id` and must not duplicate email, display name, provider IDs, or other direct identity fields. Identity-adjacent data belongs in Supabase Auth and `profiles`; subscription/admin flags belong in `account_entitlements`; workout logs and derived metrics belong in workout tables.
+
 ## Onboarding Contract
 
 The app stores onboarding in two places:
@@ -196,6 +198,10 @@ Bram's workout log is local-first. SQLite remains the immediate write path for t
 - `health_workout_matches`
 
 The upload path is triggered at account bootstrap and after note saves. Empty local placeholder notes are not uploaded. The client writes only rows owned by the authenticated user under RLS, using the publishable Supabase key.
+
+For V1, free-text workout note bodies are encrypted on-device before upload. `workout_notes.body` is a legacy/plaintext compatibility column and V1 clients write an empty string there. The encrypted body package is stored in `workout_notes.body_ciphertext` with `body_nonce`, `body_key_version`, and `body_encryption_alg`. The encryption key is generated per Supabase user UUID and stored in the iOS Keychain with this-device-only accessibility; the key is not stored in Supabase and is removed from the device after account deletion.
+
+Derived workout data remains plaintext and queryable in Supabase: sets, reps, cardio summaries, PRs, daily metrics, and Health-derived summaries. This keeps charts, entitlement-gated features, and future server-side summaries possible without exposing raw free-text note bodies to database admins or service-role tooling.
 
 Not yet implemented: remote-to-local restore/merge for a new device, syncing standalone Health workout samples, syncing interpreted line rows into `workout_note_lines`, and server-generated exercise history summaries. Those should remain local-first until the conflict model is explicit.
 
