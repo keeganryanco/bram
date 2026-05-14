@@ -22,6 +22,7 @@ struct HomeView: View {
     private let featureAccess: BramFeatureAccess
     private let account: SettingsAccountState
     private let onSignOut: () async -> Void
+    private let onDeleteAccount: () async -> Void
     private let onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)?
     private let onWorkoutDataSaved: (() async -> Void)?
 
@@ -34,6 +35,7 @@ struct HomeView: View {
         backendInterpreter: (any WorkoutInterpretationBackendClient)? = BramBackendWorkoutInterpretationClient.configuredFromBundle(),
         featureAccess: BramFeatureAccess = .previewPremium,
         onSignOut: @escaping () async -> Void = {},
+        onDeleteAccount: @escaping () async -> Void = {},
         onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)? = nil,
         onWorkoutDataSaved: (() async -> Void)? = nil
     ) {
@@ -45,6 +47,7 @@ struct HomeView: View {
         self.backendInterpreter = backendInterpreter
         self.featureAccess = featureAccess
         self.onSignOut = onSignOut
+        self.onDeleteAccount = onDeleteAccount
         self.onGoalsProfileSave = onGoalsProfileSave
         self.onWorkoutDataSaved = onWorkoutDataSaved
     }
@@ -181,6 +184,7 @@ struct HomeView: View {
                 canUseHealth: featureAccess.canUseHealth,
                 onGoalsSave: saveGoalsProfile,
                 onSignOut: onSignOut,
+                onDeleteAccount: onDeleteAccount,
                 onHealthUpdated: {
                     Task {
                         await loadNote(for: note.date)

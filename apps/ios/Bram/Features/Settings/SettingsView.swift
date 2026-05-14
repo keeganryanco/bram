@@ -9,9 +9,11 @@ struct SettingsView: View {
     let canUseHealth: Bool
     let onGoalsSave: (TrainingGoalsProfile) -> Void
     let onSignOut: () async -> Void
+    let onDeleteAccount: () async -> Void
     let onHealthUpdated: () -> Void
     let openGoals: () -> Void
     let openHealth: () -> Void
+    @State private var showingDeleteConfirmation = false
 
     init(
         account: SettingsAccountState,
@@ -22,6 +24,7 @@ struct SettingsView: View {
         canUseHealth: Bool = true,
         onGoalsSave: @escaping (TrainingGoalsProfile) -> Void = { _ in },
         onSignOut: @escaping () async -> Void = {},
+        onDeleteAccount: @escaping () async -> Void = {},
         onHealthUpdated: @escaping () -> Void = {},
         openGoals: @escaping () -> Void = {},
         openHealth: @escaping () -> Void = {}
@@ -34,6 +37,7 @@ struct SettingsView: View {
         self.canUseHealth = canUseHealth
         self.onGoalsSave = onGoalsSave
         self.onSignOut = onSignOut
+        self.onDeleteAccount = onDeleteAccount
         self.onHealthUpdated = onHealthUpdated
         self.openGoals = openGoals
         self.openHealth = openHealth
@@ -101,8 +105,20 @@ struct SettingsView: View {
                         await onSignOut()
                     }
                 }
-                SettingsDestructiveRow(title: "Delete Account", systemImage: "person.crop.circle.badge.xmark")
+                SettingsDestructiveRow(title: "Delete Account", systemImage: "person.crop.circle.badge.xmark") {
+                    showingDeleteConfirmation = true
+                }
             }
+        }
+        .alert("Delete account?", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                Task {
+                    await onDeleteAccount()
+                }
+            }
+        } message: {
+            Text("This permanently deletes your Bram account and synced account data. Local data on this device will also be cleared.")
         }
     }
 
@@ -343,17 +359,22 @@ private struct SettingsExternalLink: View {
 private struct SettingsDestructiveRow: View {
     let title: String
     let systemImage: String
+    let action: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .frame(width: 24)
-            Text(title)
-                .font(BramFont.label())
-            Spacer()
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .frame(width: 24)
+                Text(title)
+                    .font(BramFont.label())
+                Spacer()
+            }
+            .foregroundStyle(.red)
+            .padding(16)
+            .contentShape(Rectangle())
         }
-        .foregroundStyle(.red)
-        .padding(16)
+        .buttonStyle(.plain)
     }
 }
 

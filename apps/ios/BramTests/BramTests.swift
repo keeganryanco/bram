@@ -262,6 +262,77 @@ struct BramTests {
     }
 
     @MainActor
+    @Test func accountBootstrapUsesAccountScopedLocalStore() async throws {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "scoped@trybram.app",
+            displayName: nil,
+            preferredUnits: "lb",
+            onboardingCompletedAt: nil,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .none,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let scopedStore = MockLocalStore()
+        try await scopedStore.save(OnboardingDraft(firstName: "Scoped", step: .goal))
+        try await scopedStore.save(TrainingGoalsProfile(weeklyTrainingDays: 6))
+
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: MockLocalStore(),
+            localStoreFactory: { requestedUserId in
+                #expect(requestedUserId == userId)
+                return scopedStore
+            }
+        )
+
+        await state.start()
+
+        #expect(state.onboardingDraft.firstName == "Scoped")
+        #expect(state.goalsProfile.weeklyTrainingDays == 6)
+    }
+
+    @MainActor
+    @Test func deleteAccountCallsServerClearsLocalDataAndSignsOut() async throws {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "delete@trybram.app",
+            displayName: "Delete",
+            preferredUnits: "lb",
+            onboardingCompletedAt: .now,
+            accountTier: .premium,
+            subscriptionStatus: .active,
+            entitlementSource: .appStore,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let localStore = MockLocalStore()
+        let deletionService = MockAccountDeletionService()
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: localStore,
+            accountDeletionService: deletionService
+        )
+
+        await state.start()
+        await state.deleteAccount()
+
+        #expect(state.status == .signedOut)
+        #expect(await deletionService.deletedAccessToken == "test-token")
+        #expect(await localStore.didClearLocalAccountData)
+    }
+
+    @MainActor
     @Test func accountBootstrapStateSurfacesAuthErrors() async {
         let state = AccountSessionState(
             authService: MockAuthService(restoredUserId: nil, error: AccountSessionError.accountServicesUnavailable),
@@ -1630,6 +1701,7 @@ private struct MockBootstrapService: AccountBootstrapServicing {
 private actor MockLocalStore: WorkoutLocalStore {
     var draft = OnboardingDraft()
     var profile = TrainingGoalsProfile()
+    var didClearLocalAccountData = false
 
     func note(for date: Date) async throws -> DailyWorkoutNote { DailyWorkoutNote(date: date) }
     func trainingGoalsProfile() async throws -> TrainingGoalsProfile { profile }
@@ -1653,4 +1725,13 @@ private actor MockLocalStore: WorkoutLocalStore {
     func pendingWorkoutSyncPayloads(limit: Int) async throws -> [WorkoutSyncPayload] { [] }
     func markWorkoutSynced(localNoteId: UUID, remoteId: UUID, userId: UUID) async throws {}
     func markWorkoutSyncFailed(localNoteId: UUID, errorMessage: String) async throws {}
+    func clearLocalAccountData() async throws { didClearLocalAccountData = true }
+}
+
+private actor MockAccountDeletionService: BramAccountDeleting {
+    var deletedAccessToken: String?
+
+    func deleteAccount(accessToken: String) async throws {
+        deletedAccessToken = accessToken
+    }
 }

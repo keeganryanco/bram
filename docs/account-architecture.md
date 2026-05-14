@@ -175,6 +175,14 @@ At app startup after login:
 
 Do not let the SwiftUI client update `account_entitlements` directly.
 
+Local SQLite data is scoped by Supabase user UUID. The app opens an account-specific database after authentication, so notes, onboarding drafts, goals settings, Health summaries, and derived metrics from one signed-in account do not appear under another account on the same device.
+
+## Account Deletion
+
+The iOS Settings delete action calls `POST /api/account/delete` with the current Supabase bearer token. The website validates the token with Supabase Auth, then uses the service-role key server-side to delete only that authenticated `auth.users` row. User-owned public tables reference `auth.users(id) on delete cascade`, so profile, entitlement, subscription event, workout, goal, and Health-derived rows are removed by the database. Waitlist founder redemption links use `on delete set null`.
+
+After the server confirms deletion, iOS clears the current account-scoped SQLite database and signs out locally. The service-role key stays server-only and is never shipped in the app.
+
 ## Workout Sync
 
 Bram's workout log is local-first. SQLite remains the immediate write path for the note editor, parser output, charts, Health-derived summaries, and settings-driven goals. Once the user is authenticated, the iOS app uploads pending user-owned workout data to Supabase:

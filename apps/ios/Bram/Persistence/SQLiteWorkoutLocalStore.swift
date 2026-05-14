@@ -6,6 +6,10 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
     private let database: SQLiteDatabase
     private let interpreter: any WorkoutInterpretationService
 
+    static func accountScoped(userId: UUID) -> SQLiteWorkoutLocalStore {
+        SQLiteWorkoutLocalStore(path: accountDatabasePath(userId: userId))
+    }
+
     init(
         path: String = SQLiteWorkoutLocalStore.defaultDatabasePath(),
         interpreter: any WorkoutInterpretationService = HeuristicWorkoutInterpretationService()
@@ -23,6 +27,14 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         database = try SQLiteDatabase(path: databasePath)
         self.interpreter = interpreter
         try Self.migrate(database)
+    }
+
+    private static func accountDatabasePath(userId: UUID) -> String {
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Bram", isDirectory: true)
+            .appendingPathComponent("Accounts", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent("\(userId.uuidString.lowercased()).sqlite").path
     }
 
     func note(for date: Date) async throws -> DailyWorkoutNote {
@@ -524,6 +536,21 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             try database.bind(localNoteId.uuidString, to: 3, in: statement)
             _ = try database.step(statement)
         }
+    }
+
+    func clearLocalAccountData() async throws {
+        try database.execute("""
+        delete from health_workout_matches;
+        delete from health_workout_samples;
+        delete from health_daily_metrics;
+        delete from workout_pr_events;
+        delete from workout_cardio_entries;
+        delete from workout_strength_sets;
+        delete from workout_daily_metrics;
+        delete from workout_notes;
+        delete from onboarding_draft;
+        delete from training_goals_profile;
+        """)
     }
 
     private func saveSync(_ note: DailyWorkoutNote) throws {

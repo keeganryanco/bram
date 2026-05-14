@@ -18,10 +18,13 @@ final class AccountSessionState: ObservableObject {
 
     private let authService: (any BramAuthServicing)?
     private let bootstrapService: (any AccountBootstrapServicing)?
-    private let localStore: any WorkoutLocalStore
+    private(set) var localStore: any WorkoutLocalStore
     private let paywallService: (any BramPaywallServicing)?
     private let entitlementRefreshService: (any BramEntitlementRefreshing)?
-    private let workoutSyncService: (any WorkoutSyncService)?
+    private let accountDeletionService: (any BramAccountDeleting)?
+    private var workoutSyncService: (any WorkoutSyncService)?
+    private let localStoreFactory: ((UUID) -> any WorkoutLocalStore)?
+    private let workoutSyncServiceFactory: ((any WorkoutLocalStore) -> (any WorkoutSyncService)?)?
     private let configurationError: Error?
     private var userId: UUID?
     private var didStart = false
@@ -32,7 +35,10 @@ final class AccountSessionState: ObservableObject {
         localStore: any WorkoutLocalStore = SQLiteWorkoutLocalStore.shared,
         paywallService: (any BramPaywallServicing)? = nil,
         entitlementRefreshService: (any BramEntitlementRefreshing)? = nil,
+        accountDeletionService: (any BramAccountDeleting)? = nil,
         workoutSyncService: (any WorkoutSyncService)? = nil,
+        localStoreFactory: ((UUID) -> any WorkoutLocalStore)? = nil,
+        workoutSyncServiceFactory: ((any WorkoutLocalStore) -> (any WorkoutSyncService)?)? = nil,
         configurationError: Error? = nil
     ) {
         self.authService = authService
@@ -40,7 +46,10 @@ final class AccountSessionState: ObservableObject {
         self.localStore = localStore
         self.paywallService = paywallService
         self.entitlementRefreshService = entitlementRefreshService
+        self.accountDeletionService = accountDeletionService
         self.workoutSyncService = workoutSyncService
+        self.localStoreFactory = localStoreFactory
+        self.workoutSyncServiceFactory = workoutSyncServiceFactory
         self.configurationError = configurationError
     }
 
@@ -54,7 +63,9 @@ final class AccountSessionState: ObservableObject {
                 localStore: SQLiteWorkoutLocalStore.shared,
                 paywallService: RevenueCatPaywallService.configuredFromBundle(),
                 entitlementRefreshService: BramRevenueCatEntitlementRefreshClient.configuredFromBundle(),
-                workoutSyncService: SupabaseWorkoutSyncService(client: client, localStore: SQLiteWorkoutLocalStore.shared)
+                accountDeletionService: BramAccountDeletionClient.configuredFromBundle(),
+                localStoreFactory: { SQLiteWorkoutLocalStore.accountScoped(userId: $0) },
+                workoutSyncServiceFactory: { SupabaseWorkoutSyncService(client: client, localStore: $0) }
             )
         } catch {
             return AccountSessionState(
@@ -233,8 +244,30 @@ final class AccountSessionState: ObservableObject {
         }
         userId = nil
         account = nil
+        goalsProfile = BramPreviewData.goalsProfile
         onboardingDraft = OnboardingDraft()
         status = .signedOut
+    }
+
+    func deleteAccount() async {
+        do {
+            guard let token = try await authService?.currentAccessToken() else {
+                throw AccountSessionError.accountServicesUnavailable
+            }
+            guard let accountDeletionService else {
+                throw AccountSessionError.accountServicesUnavailable
+            }
+            try await accountDeletionService.deleteAccount(accessToken: token)
+            try? await localStore.clearLocalAccountData()
+            try? await authService?.signOut()
+            userId = nil
+            account = nil
+            goalsProfile = BramPreviewData.goalsProfile
+            onboardingDraft = OnboardingDraft()
+            status = .signedOut
+        } catch {
+            status = .failed(error.localizedDescription)
+        }
     }
 
     private func authenticate(_ operation: () async throws -> UUID) async {
@@ -251,6 +284,7 @@ final class AccountSessionState: ObservableObject {
         guard let bootstrapService else {
             throw AccountSessionError.accountServicesUnavailable
         }
+        configureLocalAccountStoreIfNeeded(userId: userId)
         let result = try await bootstrapService.bootstrap(userId: userId)
         self.userId = userId
         try? await workoutSyncService?.syncPendingAccountData(userId: userId)
@@ -285,6 +319,12 @@ final class AccountSessionState: ObservableObject {
 
     private func configurePaywallIfPossible(userId: UUID) async {
         try? paywallService?.configure(userId: userId)
+    }
+
+    private func configureLocalAccountStoreIfNeeded(userId: UUID) {
+        guard self.userId != userId, let localStoreFactory else { return }
+        localStore = localStoreFactory(userId)
+        workoutSyncService = workoutSyncServiceFactory?(localStore)
     }
 
     private func runPaywallAction(_ action: () async throws -> Void) async {

@@ -55,6 +55,7 @@
 		85A1C73230D91FF3B982825E /* HeuristicWorkoutInterpretationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3498F26DABA049C54061884 /* HeuristicWorkoutInterpretationService.swift */; };
 		95405E1AC91A69CB3DA7E456 /* InterpretedLineDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE787AD3B454AB07F62BA2C /* InterpretedLineDetailView.swift */; };
 		9694CB0EFBC6F10FC3DE3EA7 /* AdobeCaslonPro-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 17AB0B0A678F897312791616 /* AdobeCaslonPro-Bold.otf */; };
+		9BD5A0764C345400B676B112 /* BramAccountDeletionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D077F220AC1F6AB73DBA65 /* BramAccountDeletionClient.swift */; };
 		9F3A88AC0545AF749A61A2A7 /* HealthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FDFA49B51AFA8F341AED9DE /* HealthModels.swift */; };
 		A192132E3FDCA418DE46411E /* BramCapsuleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D8EA3B5EF9141732E59EAF /* BramCapsuleButton.swift */; };
 		A971E8974B54D660BA5EBFA5 /* AdobeCaslonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = FCAF644B58904EE3D59604C0 /* AdobeCaslonPro-Regular.otf */; };
@@ -162,6 +163,7 @@
 		951BBA2DD0BCCD1E65278379 /* PanelModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelModels.swift; sourceTree = "<group>"; };
 		96250692678EF920FD0F60F4 /* BramBackendWorkoutSuggestionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramBackendWorkoutSuggestionClient.swift; sourceTree = "<group>"; };
 		9FF10D98CB8B18D9B86B41FF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A1D077F220AC1F6AB73DBA65 /* BramAccountDeletionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramAccountDeletionClient.swift; sourceTree = "<group>"; };
 		B208DCCA2E59A18B135C6625 /* HomePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomePanel.swift; sourceTree = "<group>"; };
 		B6BD4102C0B72653B60B704F /* ExerciseHistorySheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseHistorySheetView.swift; sourceTree = "<group>"; };
 		B97EB29BCB4ACFAE2D0E11E4 /* Bram.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Bram.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -431,6 +433,7 @@
 				4E5E05652F6ED1BC5EFC9195 /* AppleHealthService.swift */,
 				18D369197B2C78659006927C /* AppServiceProtocols.swift */,
 				6A03C607A802137E0D16CA6A /* BodyweightNoteExtractor.swift */,
+				A1D077F220AC1F6AB73DBA65 /* BramAccountDeletionClient.swift */,
 				E9BAC6FF09C7B0DA208101F8 /* BramAuthService.swift */,
 				EA52D19FDAB0EDC9FB53137A /* BramBackendWorkoutInterpretationClient.swift */,
 				96250692678EF920FD0F60F4 /* BramBackendWorkoutSuggestionClient.swift */,
@@ -568,6 +571,7 @@
 				3473811A6998AF7C94454699 /* AppServiceProtocols.swift in Sources */,
 				77E15CE6C83182BB87BDA99E /* AppleHealthService.swift in Sources */,
 				62E11AA6D0D63DFB38B05196 /* BodyweightNoteExtractor.swift in Sources */,
+				9BD5A0764C345400B676B112 /* BramAccountDeletionClient.swift in Sources */,
 				D2D5694DA803CCD9B9A32B78 /* BramApp.swift in Sources */,
 				48013401B51A61D0F1D4BD0F /* BramAuthService.swift in Sources */,
 				4E65F537B5C8B0F3450AC246 /* BramBackendWorkoutInterpretationClient.swift in Sources */,

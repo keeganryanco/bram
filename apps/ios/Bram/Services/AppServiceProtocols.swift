@@ -23,6 +23,7 @@ protocol WorkoutLocalStore: Sendable {
     func pendingWorkoutSyncPayloads(limit: Int) async throws -> [WorkoutSyncPayload]
     func markWorkoutSynced(localNoteId: UUID, remoteId: UUID, userId: UUID) async throws
     func markWorkoutSyncFailed(localNoteId: UUID, errorMessage: String) async throws
+    func clearLocalAccountData() async throws
 }
 
 struct WorkoutSyncPayload: Sendable {
@@ -87,6 +88,10 @@ protocol BramPaywallServicing {
 
 protocol BramEntitlementRefreshing: Sendable {
     func refresh(accessToken: String) async throws -> AccountSnapshot
+}
+
+protocol BramAccountDeleting: Sendable {
+    func deleteAccount(accessToken: String) async throws
 }
 
 protocol AnalyticsTracking {

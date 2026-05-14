@@ -38,8 +38,10 @@ struct AppRootView: View {
                 HomeView(
                     account: accountState.settingsAccount,
                     initialGoalsProfile: accountState.goalsProfile,
+                    noteStore: accountState.localStore,
                     featureAccess: accountState.featureAccess,
                     onSignOut: accountState.signOut,
+                    onDeleteAccount: accountState.deleteAccount,
                     onGoalsProfileSave: accountState.saveGoalsProfile,
                     onWorkoutDataSaved: accountState.syncPendingWorkoutData
                 )
