@@ -30,6 +30,7 @@
 		3F17E3E75EF7763412919FE7 /* AdobeCaslonPro-Italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 8C57540D20D166C6851E6111 /* AdobeCaslonPro-Italic.otf */; };
 		4551BC054AD0430DD81151FA /* SuisseIntl-Book.otf in Resources */ = {isa = PBXBuildFile; fileRef = 46B005EC835121B4DD018517 /* SuisseIntl-Book.otf */; };
 		48013401B51A61D0F1D4BD0F /* BramAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9BAC6FF09C7B0DA208101F8 /* BramAuthService.swift */; };
+		4AE43E0DBB730B6CED4860BF /* SupabaseWorkoutSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2D126E989C988EA990ACA7 /* SupabaseWorkoutSyncService.swift */; };
 		4C7ECAC533595B40F83E2E4E /* HomePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B208DCCA2E59A18B135C6625 /* HomePanel.swift */; };
 		4CA25F091B17F69206FB447B /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 2158A67DFBFF9D36946472B3 /* Supabase */; };
 		4DB5AC0F05D911A9CCD1FF87 /* RevenueCatPaywallService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E1522C3122D719872D89AD /* RevenueCatPaywallService.swift */; };
@@ -103,6 +104,7 @@
 		057A5BDB2AEB506DF6CAC1FE /* ParsedWorkoutSummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsedWorkoutSummaryCard.swift; sourceTree = "<group>"; };
 		0C7A61A147B60A558FAE19DA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0C83C9ABCCD29339DE3F2EF0 /* AdobeCaslonPro-Semibold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "AdobeCaslonPro-Semibold.otf"; sourceTree = "<group>"; };
+		0D2D126E989C988EA990ACA7 /* SupabaseWorkoutSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseWorkoutSyncService.swift; sourceTree = "<group>"; };
 		0E07A855DC9B72493F32B54F /* AccountGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountGateView.swift; sourceTree = "<group>"; };
 		103E66536ADC454530E68260 /* Bram.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Bram.entitlements; sourceTree = "<group>"; };
 		166721B2F78AA000120206C1 /* GoalsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalsSettingsView.swift; sourceTree = "<group>"; };
@@ -442,6 +444,7 @@
 				83E1522C3122D719872D89AD /* RevenueCatPaywallService.swift */,
 				20FE1B72BBFB65BDC735C020 /* ServicePlaceholders.swift */,
 				F49BA2201D752F2FDEE120AA /* SuggestionContextBuilder.swift */,
+				0D2D126E989C988EA990ACA7 /* SupabaseWorkoutSyncService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -614,6 +617,7 @@
 				3C7A3E31D7566CFD519892C4 /* SuggestionContextBuilder.swift in Sources */,
 				08C4F04C27D915A7B3B0E201 /* SuggestionDraftControls.swift in Sources */,
 				2F983B4C8EDDA61001C98635 /* SuggestionModels.swift in Sources */,
+				4AE43E0DBB730B6CED4860BF /* SupabaseWorkoutSyncService.swift in Sources */,
 				C10A185661DD1B3C7E814744 /* TrainingGoalsProfile.swift in Sources */,
 				EC3D537C5793E89320A922E2 /* WorkoutDomainModels.swift in Sources */,
 				F2C5B849C11134F72AD880E8 /* WorkoutLoadBar.swift in Sources */,

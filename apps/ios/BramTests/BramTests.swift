@@ -900,6 +900,41 @@ struct BramTests {
         #expect(history.estimatedCaloriesText != "--")
     }
 
+    @Test func sqliteWorkoutStoreBuildsPendingWorkoutSyncPayloadAndMarksSynced() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramWorkoutSyncPayloadTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = """
+        Bench 185 3x8
+        Run 1 mile 10 min
+        """
+
+        try await store.save(note)
+
+        let payload = try #require(await store.pendingWorkoutSyncPayloads(limit: 10).first)
+
+        #expect(payload.note.id == note.id)
+        #expect(payload.note.body.contains("Bench"))
+        #expect(payload.metrics?.totalSets == 3)
+        #expect(payload.strengthSets.count == 3)
+        #expect(payload.cardioEntries.first?.activityType == "Running")
+
+        let remoteId = UUID()
+        let userId = UUID()
+        try await store.markWorkoutSynced(localNoteId: note.id, remoteId: remoteId, userId: userId)
+
+        let remainingPayloads = try await store.pendingWorkoutSyncPayloads(limit: 10)
+        let syncedNote = try await store.note(for: date)
+
+        #expect(remainingPayloads.isEmpty)
+        #expect(syncedNote.remoteId == remoteId)
+        #expect(syncedNote.userId == userId)
+        #expect(syncedNote.syncState == .synced)
+    }
+
     @Test func exerciseSuggestionUsesUpwardTrendForConcreteTarget() {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let sessions = [
@@ -1615,4 +1650,7 @@ private actor MockLocalStore: WorkoutLocalStore {
     func save(_ workouts: [HealthWorkoutSample]) async throws {}
     func save(_ match: HealthWorkoutMatch) async throws {}
     func delete(_ note: DailyWorkoutNote) async throws {}
+    func pendingWorkoutSyncPayloads(limit: Int) async throws -> [WorkoutSyncPayload] { [] }
+    func markWorkoutSynced(localNoteId: UUID, remoteId: UUID, userId: UUID) async throws {}
+    func markWorkoutSyncFailed(localNoteId: UUID, errorMessage: String) async throws {}
 }

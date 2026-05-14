@@ -23,6 +23,7 @@ struct HomeView: View {
     private let account: SettingsAccountState
     private let onSignOut: () async -> Void
     private let onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)?
+    private let onWorkoutDataSaved: (() async -> Void)?
 
     init(
         note: DailyWorkoutNote = BramPreviewData.populatedNote,
@@ -33,7 +34,8 @@ struct HomeView: View {
         backendInterpreter: (any WorkoutInterpretationBackendClient)? = BramBackendWorkoutInterpretationClient.configuredFromBundle(),
         featureAccess: BramFeatureAccess = .previewPremium,
         onSignOut: @escaping () async -> Void = {},
-        onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)? = nil
+        onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)? = nil,
+        onWorkoutDataSaved: (() async -> Void)? = nil
     ) {
         _note = State(initialValue: note)
         _goalsProfile = State(initialValue: initialGoalsProfile)
@@ -44,6 +46,7 @@ struct HomeView: View {
         self.featureAccess = featureAccess
         self.onSignOut = onSignOut
         self.onGoalsProfileSave = onGoalsProfileSave
+        self.onWorkoutDataSaved = onWorkoutDataSaved
     }
 
     var body: some View {
@@ -499,6 +502,7 @@ struct HomeView: View {
             try? await Task.sleep(for: .milliseconds(450))
             guard !Task.isCancelled else { return }
             try? await store.save(draft)
+            await onWorkoutDataSaved?()
             if let refreshed = try? await store.note(for: draft.date), !Task.isCancelled {
                 await MainActor.run {
                     note.interpretedLines = refreshed.interpretedLines
@@ -521,6 +525,7 @@ struct HomeView: View {
         let store = noteStore
         Task {
             try? await store.save(draft)
+            await onWorkoutDataSaved?()
             if let refreshed = try? await store.note(for: draft.date) {
                 await MainActor.run {
                     note.interpretedLines = refreshed.interpretedLines

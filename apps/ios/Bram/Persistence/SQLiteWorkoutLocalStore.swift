@@ -66,6 +66,10 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
     }
 
     func healthWorkoutMatch(for noteId: UUID) async throws -> HealthWorkoutMatch? {
+        try healthWorkoutMatchSync(noteId: noteId)
+    }
+
+    private func healthWorkoutMatchSync(noteId: UUID) throws -> HealthWorkoutMatch? {
         let sql = """
         select id, note_id, note_date, health_workout_id, match_quality, matched_at
         from health_workout_matches
@@ -457,6 +461,67 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             try database.bind(WorkoutSyncState.deleted.rawValue, to: 2, in: statement)
             try database.bind(now, to: 3, in: statement)
             try database.bind(note.id.uuidString, to: 4, in: statement)
+            _ = try database.step(statement)
+        }
+    }
+
+    func pendingWorkoutSyncPayloads(limit: Int = 25) async throws -> [WorkoutSyncPayload] {
+        let sql = """
+        select id, remote_id, user_id, workout_date, timezone_identifier, body,
+               created_at, updated_at, deleted_at, sync_state, last_sync_error
+        from workout_notes
+        where sync_state <> ?
+          and (body <> '' or deleted_at is not null)
+        order by updated_at asc
+        limit ?;
+        """
+        var notes: [DailyWorkoutNote] = []
+        try database.withStatement(sql) { statement in
+            try database.bind(WorkoutSyncState.synced.rawValue, to: 1, in: statement)
+            try database.bind(limit, to: 2, in: statement)
+            while try database.step(statement) {
+                notes.append(makeNote(from: statement))
+            }
+        }
+
+        return try notes.map { note in
+            WorkoutSyncPayload(
+                note: note,
+                metrics: try workoutMetricSnapshotSync(noteId: note.id),
+                strengthSets: try strengthSetsSync(noteId: note.id),
+                cardioEntries: try cardioEntriesSync(noteId: note.id),
+                prEvents: try prEventsSync(noteId: note.id),
+                healthDailyMetric: try healthDailyMetricSync(for: note.date),
+                healthWorkoutMatch: try healthWorkoutMatchSync(noteId: note.id)
+            )
+        }
+    }
+
+    func markWorkoutSynced(localNoteId: UUID, remoteId: UUID, userId: UUID) async throws {
+        let sql = """
+        update workout_notes
+        set remote_id = ?, user_id = ?, sync_state = ?, last_sync_error = null
+        where id = ?;
+        """
+        try database.withStatement(sql) { statement in
+            try database.bind(remoteId.uuidString, to: 1, in: statement)
+            try database.bind(userId.uuidString, to: 2, in: statement)
+            try database.bind(WorkoutSyncState.synced.rawValue, to: 3, in: statement)
+            try database.bind(localNoteId.uuidString, to: 4, in: statement)
+            _ = try database.step(statement)
+        }
+    }
+
+    func markWorkoutSyncFailed(localNoteId: UUID, errorMessage: String) async throws {
+        let sql = """
+        update workout_notes
+        set sync_state = ?, last_sync_error = ?
+        where id = ?;
+        """
+        try database.withStatement(sql) { statement in
+            try database.bind(WorkoutSyncState.failed.rawValue, to: 1, in: statement)
+            try database.bind(errorMessage, to: 2, in: statement)
+            try database.bind(localNoteId.uuidString, to: 3, in: statement)
             _ = try database.step(statement)
         }
     }
@@ -1677,6 +1742,127 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             syncState: syncState,
             lastSyncError: lastSyncError
         )
+    }
+
+    private func workoutMetricSnapshotSync(noteId: UUID) throws -> WorkoutMetricSnapshot? {
+        let sql = """
+        select total_sets, hard_sets, estimated_volume, pr_count, cardio_minutes,
+               active_energy_calories, energy_is_estimated, average_heart_rate,
+               workout_duration_minutes
+        from workout_daily_metrics
+        where note_id = ?
+        limit 1;
+        """
+        var metrics: WorkoutMetricSnapshot?
+        try database.withStatement(sql) { statement in
+            try database.bind(noteId.uuidString, to: 1, in: statement)
+            if try database.step(statement) {
+                metrics = WorkoutMetricSnapshot(
+                    totalSets: database.int(at: 0, in: statement) ?? 0,
+                    hardSets: database.int(at: 1, in: statement) ?? 0,
+                    estimatedVolume: database.int(at: 2, in: statement) ?? 0,
+                    prCount: database.int(at: 3, in: statement) ?? 0,
+                    streakDays: 0,
+                    cardioMinutes: database.int(at: 4, in: statement) ?? 0,
+                    activeEnergyCalories: database.int(at: 5, in: statement),
+                    energyIsEstimated: (database.int(at: 6, in: statement) ?? 0) == 1,
+                    averageHeartRate: database.int(at: 7, in: statement),
+                    workoutDurationMinutes: database.int(at: 8, in: statement),
+                    parseState: .parsed
+                )
+            }
+        }
+        return metrics
+    }
+
+    private func strengthSetsSync(noteId: UUID) throws -> [StrengthSetRecord] {
+        let sql = """
+        select id, exercise_key, exercise_name, line_index, set_number, reps,
+               load_value, load_unit, performed_at
+        from workout_strength_sets
+        where note_id = ?
+        order by line_index asc, set_number asc;
+        """
+        var sets: [StrengthSetRecord] = []
+        try database.withStatement(sql) { statement in
+            try database.bind(noteId.uuidString, to: 1, in: statement)
+            while try database.step(statement) {
+                sets.append(
+                    StrengthSetRecord(
+                        id: database.string(at: 0, in: statement).flatMap(UUID.init(uuidString:)) ?? UUID(),
+                        exerciseKey: database.string(at: 1, in: statement) ?? "unknown",
+                        exerciseName: database.string(at: 2, in: statement) ?? "Unknown",
+                        lineIndex: database.int(at: 3, in: statement),
+                        setNumber: database.int(at: 4, in: statement),
+                        reps: database.int(at: 5, in: statement) ?? 0,
+                        load: database.double(at: 6, in: statement) ?? 0,
+                        unit: database.string(at: 7, in: statement) ?? "lb",
+                        performedAt: database.date(at: 8, in: statement) ?? .now
+                    )
+                )
+            }
+        }
+        return sets
+    }
+
+    private func cardioEntriesSync(noteId: UUID) throws -> [CardioEntry] {
+        let sql = """
+        select id, line_index, session_index, session_name, activity_type,
+               duration_minutes, distance_value, distance_unit, average_heart_rate,
+               active_energy_calories
+        from workout_cardio_entries
+        where note_id = ?
+        order by line_index asc;
+        """
+        var entries: [CardioEntry] = []
+        try database.withStatement(sql) { statement in
+            try database.bind(noteId.uuidString, to: 1, in: statement)
+            while try database.step(statement) {
+                entries.append(
+                    CardioEntry(
+                        id: database.string(at: 0, in: statement).flatMap(UUID.init(uuidString:)) ?? UUID(),
+                        noteId: noteId,
+                        lineIndex: database.int(at: 1, in: statement),
+                        sessionIndex: database.int(at: 2, in: statement),
+                        sessionName: database.string(at: 3, in: statement),
+                        activityType: database.string(at: 4, in: statement) ?? "Cardio",
+                        durationMinutes: database.int(at: 5, in: statement),
+                        distance: database.double(at: 6, in: statement),
+                        distanceUnit: database.string(at: 7, in: statement),
+                        averageHeartRate: database.int(at: 8, in: statement),
+                        activeEnergyCalories: database.int(at: 9, in: statement)
+                    )
+                )
+            }
+        }
+        return entries
+    }
+
+    private func prEventsSync(noteId: UUID) throws -> [WorkoutPREvent] {
+        let sql = """
+        select id, exercise_name, kind, value, unit, achieved_at
+        from workout_pr_events
+        where note_id = ?
+        order by achieved_at asc;
+        """
+        var events: [WorkoutPREvent] = []
+        try database.withStatement(sql) { statement in
+            try database.bind(noteId.uuidString, to: 1, in: statement)
+            while try database.step(statement) {
+                events.append(
+                    WorkoutPREvent(
+                        id: database.string(at: 0, in: statement).flatMap(UUID.init(uuidString:)) ?? UUID(),
+                        noteId: noteId,
+                        exerciseName: database.string(at: 1, in: statement) ?? "Unknown",
+                        kind: database.string(at: 2, in: statement) ?? "estimated_one_rep_max",
+                        value: database.double(at: 3, in: statement) ?? 0,
+                        unit: database.string(at: 4, in: statement) ?? "lb",
+                        achievedAt: database.date(at: 5, in: statement) ?? .now
+                    )
+                )
+            }
+        }
+        return events
     }
 
     private func makeTrainingGoalsProfile(from statement: OpaquePointer?) -> TrainingGoalsProfile {

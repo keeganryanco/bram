@@ -171,28 +171,26 @@ At app startup after login:
 6. Treat `is_developer = true` as the switch for dev-only UI.
 7. If onboarding is complete but the account is not premium/free-premium/developer, show the hard RevenueCat paywall.
 8. Keep App Store subscription state synced to `account_entitlements` through `/api/revenuecat/refresh` and the RevenueCat webhook.
+9. Upload pending local workout notes and derived account data after bootstrap and after note saves.
 
 Do not let the SwiftUI client update `account_entitlements` directly.
 
-## Future Tables
+## Workout Sync
 
-The next Supabase migrations should continue expanding user-owned workout data:
+Bram's workout log is local-first. SQLite remains the immediate write path for the note editor, parser output, charts, Health-derived summaries, and settings-driven goals. Once the user is authenticated, the iOS app uploads pending user-owned workout data to Supabase:
 
-- `training_profiles`
-- `exercise_catalog`
-- `user_exercise_aliases`
 - `workout_notes`
-- `workout_note_lines`
 - `strength_entries`
 - `cardio_entries`
 - `daily_workout_metrics`
 - `workout_prs`
-- `exercise_history_summaries`
 - `health_daily_metrics`
 - `health_workout_matches`
-- `suggestions`
-- `ai_usage_events`
 
-Every user-owned table must use RLS with `auth.uid()` and indexes on foreign keys used by RLS.
+The upload path is triggered at account bootstrap and after note saves. Empty local placeholder notes are not uploaded. The client writes only rows owned by the authenticated user under RLS, using the publishable Supabase key.
+
+Not yet implemented: remote-to-local restore/merge for a new device, syncing standalone Health workout samples, syncing interpreted line rows into `workout_note_lines`, and server-generated exercise history summaries. Those should remain local-first until the conflict model is explicit.
+
+Every user-owned table must use RLS with `auth.uid()` and indexes on foreign keys used by RLS. The SwiftUI client must not write `account_entitlements`, server-only AI usage rows, or any service-role-only table.
 
 See `docs/workout-data-architecture.md` for the local-first SQLite shape and the Supabase table contract.

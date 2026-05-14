@@ -20,10 +20,23 @@ protocol WorkoutLocalStore: Sendable {
     func save(_ workouts: [HealthWorkoutSample]) async throws
     func save(_ match: HealthWorkoutMatch) async throws
     func delete(_ note: DailyWorkoutNote) async throws
+    func pendingWorkoutSyncPayloads(limit: Int) async throws -> [WorkoutSyncPayload]
+    func markWorkoutSynced(localNoteId: UUID, remoteId: UUID, userId: UUID) async throws
+    func markWorkoutSyncFailed(localNoteId: UUID, errorMessage: String) async throws
 }
 
-protocol WorkoutSyncService {
-    func syncPendingNotes() async throws
+struct WorkoutSyncPayload: Sendable {
+    var note: DailyWorkoutNote
+    var metrics: WorkoutMetricSnapshot?
+    var strengthSets: [StrengthSetRecord]
+    var cardioEntries: [CardioEntry]
+    var prEvents: [WorkoutPREvent]
+    var healthDailyMetric: HealthDailyMetric?
+    var healthWorkoutMatch: HealthWorkoutMatch?
+}
+
+protocol WorkoutSyncService: Sendable {
+    func syncPendingAccountData(userId: UUID) async throws
 }
 
 protocol WorkoutInterpretationService: Sendable {

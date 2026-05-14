@@ -40,7 +40,8 @@ struct AppRootView: View {
                     initialGoalsProfile: accountState.goalsProfile,
                     featureAccess: accountState.featureAccess,
                     onSignOut: accountState.signOut,
-                    onGoalsProfileSave: accountState.saveGoalsProfile
+                    onGoalsProfileSave: accountState.saveGoalsProfile,
+                    onWorkoutDataSaved: accountState.syncPendingWorkoutData
                 )
             case .failed(let message):
                 accountGate(message: message)

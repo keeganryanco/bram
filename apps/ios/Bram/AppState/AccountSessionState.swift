@@ -21,6 +21,7 @@ final class AccountSessionState: ObservableObject {
     private let localStore: any WorkoutLocalStore
     private let paywallService: (any BramPaywallServicing)?
     private let entitlementRefreshService: (any BramEntitlementRefreshing)?
+    private let workoutSyncService: (any WorkoutSyncService)?
     private let configurationError: Error?
     private var userId: UUID?
     private var didStart = false
@@ -31,6 +32,7 @@ final class AccountSessionState: ObservableObject {
         localStore: any WorkoutLocalStore = SQLiteWorkoutLocalStore.shared,
         paywallService: (any BramPaywallServicing)? = nil,
         entitlementRefreshService: (any BramEntitlementRefreshing)? = nil,
+        workoutSyncService: (any WorkoutSyncService)? = nil,
         configurationError: Error? = nil
     ) {
         self.authService = authService
@@ -38,6 +40,7 @@ final class AccountSessionState: ObservableObject {
         self.localStore = localStore
         self.paywallService = paywallService
         self.entitlementRefreshService = entitlementRefreshService
+        self.workoutSyncService = workoutSyncService
         self.configurationError = configurationError
     }
 
@@ -50,7 +53,8 @@ final class AccountSessionState: ObservableObject {
                 bootstrapService: AccountBootstrapService(client: client),
                 localStore: SQLiteWorkoutLocalStore.shared,
                 paywallService: RevenueCatPaywallService.configuredFromBundle(),
-                entitlementRefreshService: BramRevenueCatEntitlementRefreshClient.configuredFromBundle()
+                entitlementRefreshService: BramRevenueCatEntitlementRefreshClient.configuredFromBundle(),
+                workoutSyncService: SupabaseWorkoutSyncService(client: client, localStore: SQLiteWorkoutLocalStore.shared)
             )
         } catch {
             return AccountSessionState(
@@ -194,6 +198,11 @@ final class AccountSessionState: ObservableObject {
         }
     }
 
+    func syncPendingWorkoutData() async {
+        guard let userId, let workoutSyncService else { return }
+        try? await workoutSyncService.syncPendingAccountData(userId: userId)
+    }
+
     func loadPaywall() async throws -> BramPaywallSnapshot {
         guard let paywallService else { throw BramPaywallError.notConfigured }
         return try await paywallService.loadPaywall()
@@ -244,6 +253,7 @@ final class AccountSessionState: ObservableObject {
         }
         let result = try await bootstrapService.bootstrap(userId: userId)
         self.userId = userId
+        try? await workoutSyncService?.syncPendingAccountData(userId: userId)
         if result.needsOnboarding {
             onboardingDraft = (try? await localStore.onboardingDraft()) ?? OnboardingDraft()
             goalsProfile = (try? await localStore.trainingGoalsProfile()) ?? result.goalsProfile
