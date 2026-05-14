@@ -51,7 +51,13 @@ enum BramSupabaseClientFactory {
     static func makeClient(configuration: BramSupabaseConfiguration) -> SupabaseClient {
         SupabaseClient(
             supabaseURL: configuration.supabaseURL,
-            supabaseKey: configuration.publishableKey
+            supabaseKey: configuration.publishableKey,
+            options: SupabaseClientOptions(
+                auth: .init(
+                    redirectToURL: configuration.redirectURL,
+                    emitLocalSessionAsInitialSession: true
+                )
+            )
         )
     }
 }
