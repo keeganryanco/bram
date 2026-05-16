@@ -13,6 +13,7 @@ Weekly active workout note writers.
 - `onboarding_started`
 - `onboarding_step_viewed`
 - `onboarding_step_completed`
+- `onboarding_permission_set`
 - `onboarding_completed`
 - `home_note_focused`
 - `calendar_opened`

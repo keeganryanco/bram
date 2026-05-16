@@ -26,6 +26,8 @@ struct AppRootView: View {
                     saveProgress: accountState.saveOnboardingProgress,
                     complete: accountState.completeOnboarding,
                     signOut: accountState.signOut,
+                    requestHealthAccess: accountState.requestOnboardingHealthAccess,
+                    requestNotificationAccess: accountState.requestOnboardingNotificationAccess,
                     trackStepViewed: accountState.trackOnboardingStepViewed,
                     trackStepCompleted: accountState.trackOnboardingStepCompleted
                 )

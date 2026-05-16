@@ -270,6 +270,40 @@ final class AccountSessionState: ObservableObject {
         )
     }
 
+    func requestOnboardingHealthAccess() async {
+        do {
+            let state = try await AppleHealthService().requestAuthorization()
+            analytics.track(
+                AnalyticsEvent(
+                    name: "onboarding_permission_set",
+                    properties: [
+                        "permission": "apple_health",
+                        "state": state.rawValue
+                    ]
+                )
+            )
+        } catch {
+            reportNonFatal(source: "onboarding", eventName: "apple_health_permission_failed", error: error)
+        }
+    }
+
+    func requestOnboardingNotificationAccess() async {
+        do {
+            let granted = try await BramNotificationService().requestAuthorization()
+            analytics.track(
+                AnalyticsEvent(
+                    name: "onboarding_permission_set",
+                    properties: [
+                        "permission": "notifications",
+                        "granted": granted ? "true" : "false"
+                    ]
+                )
+            )
+        } catch {
+            reportNonFatal(source: "onboarding", eventName: "notification_permission_failed", error: error)
+        }
+    }
+
     func completeOnboarding(firstName: String, profile: TrainingGoalsProfile) async {
         guard let userId, let bootstrapService else {
             status = .failed(AccountSessionError.accountServicesUnavailable.localizedDescription)
@@ -669,6 +703,8 @@ private extension OnboardingStep {
         case .training: "training_setup"
         case .body: "body_baseline"
         case .notePreview: "note_preview"
+        case .appleHealth: "apple_health"
+        case .notifications: "notifications"
         case .recap: "recap"
         case .paywall: "paywall"
         }

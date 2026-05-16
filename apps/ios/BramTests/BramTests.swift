@@ -1777,6 +1777,14 @@ struct BramTests {
         #expect(OnboardingDraft(firstName: "Keegan", step: .name).canContinueFromCurrentStep)
         #expect(OnboardingDraft(firstName: "", step: .goal).canContinueFromCurrentStep)
     }
+
+    @Test func onboardingPermissionStepsAppearBeforeRecapWithoutChangingStoredRawValues() {
+        #expect(OnboardingStep.recap.rawValue == 6)
+        #expect(OnboardingStep.paywall.rawValue == 7)
+        #expect(OnboardingStep.flowSteps.suffix(3) == [.appleHealth, .notifications, .recap])
+        #expect(OnboardingStep.notePreview.nextStep == .appleHealth)
+        #expect(OnboardingStep.recap.previousStep == .notifications)
+    }
 }
 
 private struct MockAuthService: BramAuthServicing {

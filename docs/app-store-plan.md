@@ -39,6 +39,7 @@ Saturday, May 16:
 - Confirm RevenueCat public iOS SDK key is in `BRAM_IOS_REVENUECAT_API_KEY`; without it the native paywall cannot load offerings.
 - Verify the RevenueCat current/default offering contains `app.trybram.Bram.premium.year` and `app.trybram.Bram.premium.monthly` under entitlement `premium`.
 - Verify Settings can opt into local workout reminders and that saving a workout-like note schedules a contextual local reminder.
+- Verify onboarding permission screens trigger Apple Health and notification prompts before the baseline recap.
 
 Sunday, May 17:
 

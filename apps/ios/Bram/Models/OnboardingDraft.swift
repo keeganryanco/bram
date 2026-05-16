@@ -9,6 +9,34 @@ enum OnboardingStep: Int, Codable, CaseIterable, Equatable {
     case notePreview
     case recap
     case paywall
+    case appleHealth
+    case notifications
+
+    static let flowSteps: [OnboardingStep] = [
+        .name,
+        .goal,
+        .plan,
+        .training,
+        .body,
+        .notePreview,
+        .appleHealth,
+        .notifications,
+        .recap
+    ]
+
+    var nextStep: OnboardingStep? {
+        guard let index = Self.flowSteps.firstIndex(of: self),
+              index < Self.flowSteps.index(before: Self.flowSteps.endIndex)
+        else { return nil }
+        return Self.flowSteps[index + 1]
+    }
+
+    var previousStep: OnboardingStep? {
+        guard let index = Self.flowSteps.firstIndex(of: self),
+              index > Self.flowSteps.startIndex
+        else { return nil }
+        return Self.flowSteps[index - 1]
+    }
 }
 
 struct OnboardingDraft: Codable, Equatable, Hashable {

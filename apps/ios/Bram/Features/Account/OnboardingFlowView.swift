@@ -7,6 +7,8 @@ struct OnboardingFlowView: View {
     let saveProgress: (OnboardingDraft, TrainingGoalsProfile) async -> Void
     let complete: (String, TrainingGoalsProfile) async -> Void
     let signOut: () async -> Void
+    let requestHealthAccess: () async -> Void
+    let requestNotificationAccess: () async -> Void
     let trackStepViewed: (OnboardingStep) -> Void
     let trackStepCompleted: (OnboardingStep, TrainingGoalsProfile) -> Void
 
@@ -22,6 +24,8 @@ struct OnboardingFlowView: View {
         saveProgress: @escaping (OnboardingDraft, TrainingGoalsProfile) async -> Void,
         complete: @escaping (String, TrainingGoalsProfile) async -> Void,
         signOut: @escaping () async -> Void,
+        requestHealthAccess: @escaping () async -> Void = {},
+        requestNotificationAccess: @escaping () async -> Void = {},
         trackStepViewed: @escaping (OnboardingStep) -> Void = { _ in },
         trackStepCompleted: @escaping (OnboardingStep, TrainingGoalsProfile) -> Void = { _, _ in }
     ) {
@@ -31,6 +35,8 @@ struct OnboardingFlowView: View {
         self.saveProgress = saveProgress
         self.complete = complete
         self.signOut = signOut
+        self.requestHealthAccess = requestHealthAccess
+        self.requestNotificationAccess = requestNotificationAccess
         self.trackStepViewed = trackStepViewed
         self.trackStepCompleted = trackStepCompleted
         var resumableDraft = initialDraft
@@ -78,6 +84,10 @@ struct OnboardingFlowView: View {
             bodyStep
         case .notePreview:
             notePreviewStep
+        case .appleHealth:
+            appleHealthStep
+        case .notifications:
+            notificationsStep
         case .recap, .paywall:
             recapStep
         }
@@ -240,6 +250,34 @@ struct OnboardingFlowView: View {
         }
     }
 
+    private var appleHealthStep: some View {
+        OnboardingStepShell(
+            title: "Connect Apple Health for better context.",
+            mascotImageName: "BramBearTrainingSetup",
+            mascotSize: 136
+        ) {
+            OnboardingPermissionCard(
+                systemImage: "heart.fill",
+                title: "Energy, heart rate, and bodyweight",
+                detail: "Bram can connect saved workouts to progress without extra logging."
+            )
+        }
+    }
+
+    private var notificationsStep: some View {
+        OnboardingStepShell(
+            title: "Let Bram remind you at the right time.",
+            mascotImageName: "BramBearWeeklyRhythm",
+            mascotSize: 136
+        ) {
+            OnboardingPermissionCard(
+                systemImage: "bell.fill",
+                title: "Workout reminders",
+                detail: "A simple nudge after your usual training rhythm helps keep the habit going."
+            )
+        }
+    }
+
     private var recapStep: some View {
         OnboardingStepShell(
             title: "\(draft.firstName.nilIfBlank ?? "You"), your baseline is set.",
@@ -257,20 +295,25 @@ struct OnboardingFlowView: View {
     private func continueTapped() async {
         syncTextFields()
         trackStepCompleted(draft.step, profile.sanitized)
+        if draft.step == .appleHealth {
+            await requestHealthAccess()
+        } else if draft.step == .notifications {
+            await requestNotificationAccess()
+        }
         if draft.step == .recap {
             await saveProgress(OnboardingDraft(firstName: draft.firstName, step: .paywall), profile)
             await complete(draft.firstName, profile)
             return
         }
 
-        guard let next = OnboardingStep(rawValue: draft.step.rawValue + 1) else { return }
+        guard let next = draft.step.nextStep else { return }
         draft.step = next
         await saveProgress(draft, profile)
     }
 
     private func backTapped() async {
         syncTextFields()
-        guard let previous = OnboardingStep(rawValue: draft.step.rawValue - 1) else { return }
+        guard let previous = draft.step.previousStep else { return }
         draft.step = previous
         await saveProgress(draft, profile)
     }
@@ -365,7 +408,7 @@ private struct OnboardingProgressDots: View {
     let step: OnboardingStep
 
     private var visibleSteps: [OnboardingStep] {
-        OnboardingStep.allCases.filter { $0 != .paywall }
+        OnboardingStep.flowSteps
     }
 
     var body: some View {
@@ -378,7 +421,39 @@ private struct OnboardingProgressDots: View {
         }
         .animation(.snappy, value: step)
         .accessibilityLabel("Onboarding progress")
-        .accessibilityValue("\(min(step.rawValue + 1, visibleSteps.count)) of \(visibleSteps.count)")
+        .accessibilityValue("\((visibleSteps.firstIndex(of: step) ?? 0) + 1) of \(visibleSteps.count)")
+    }
+}
+
+private struct OnboardingPermissionCard: View {
+    let systemImage: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 46, height: 46)
+                .background(BramColor.violet, in: Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(BramFont.label(size: 15))
+                    .foregroundStyle(OnboardingStyle.textPrimary)
+                Text(detail)
+                    .font(BramFont.callout(size: 13))
+                    .foregroundStyle(OnboardingStyle.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(16)
+        .background(OnboardingStyle.cardSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(OnboardingStyle.hairline, lineWidth: 1)
+        }
     }
 }
 

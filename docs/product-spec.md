@@ -31,7 +31,8 @@ For MVP readiness, Bram must understand cardio as first-class workout data, not 
 - Inline interpretation: exercise anchors, PR badges, sets, cardio, Health-linked chips when they attach cleanly.
 - Progress: PRs, weekly target completion, muscle set volume, bodyweight trend, consistency, streak repairs, and recent exercise history, with energy as supporting Health context.
 - Weekly review: one chart, one insight, one suggested adjustment.
-- Notifications: V1 uses local workout reminders only. Users opt in from Settings; after a workout-like note is saved, Bram schedules one contextual reminder based on recent progress and weekly training cadence. No push provider, server-side notification targeting, or AI-generated notification copy is required for V1.
+- Onboarding permissions: first-run onboarding asks for Apple Health and notifications near the end of setup, after the note-parsing preview and before the recap/paywall.
+- Notifications: V1 uses local workout reminders only. Users opt in during onboarding or from Settings; after a workout-like note is saved, Bram schedules one contextual reminder based on recent progress and weekly training cadence. No push provider, server-side notification targeting, or AI-generated notification copy is required for V1.
 - Settings: Goals, privacy, subscription, export/delete, contact.
 - Landing site: waitlist, privacy, terms, contact.
 - Account state: Supabase-backed profile, founder-offer eligibility, native subscription entitlement, one-month TestFlight/Product Hunt grants, manual lifetime premium, and developer-mode flags.
