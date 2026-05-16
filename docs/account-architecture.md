@@ -32,7 +32,7 @@ The iOS app uses the custom redirect scheme `app.trybram.Bram`. Add this redirec
 
 The iOS bundle may include the Supabase project URL and publishable key. It must never include the service-role key.
 
-Password reset requests are sent through the website, not the generic Supabase email. The app links to `https://trybram.app/reset-password`; the website calls Supabase Auth Admin from a server route to generate a recovery link, sends the branded email through Resend, then lets the user set a new password on `/reset-password`. The website requires `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and a Resend API key in deployment. Add `https://trybram.app/reset-password` to the Supabase Auth redirect allowlist.
+Password reset requests are sent through the website, not the generic Supabase email. The app posts to the website password-reset route; the website calls Supabase Auth Admin from a server route to generate a recovery token, sends a branded email through Resend, and links directly to `https://www.trybram.app/reset-password?token_hash=...&type=recovery` so the reset page can verify the token and let the user choose a new password. The website requires `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and a Resend API key in deployment. Keep `NEXT_PUBLIC_SITE_URL` set to `https://www.trybram.app`; add `https://www.trybram.app/reset-password` to the Supabase Auth redirect allowlist for fallback action-link flows.
 
 ## Tables
 
@@ -42,6 +42,8 @@ Password reset requests are sent through the website, not the generic Supabase e
 | `training_profiles` | Goal, weekly target, session length, training styles, and equipment context. | Authenticated users can manage their own row. Future AI uses it as private personalization context. |
 | `account_entitlements` | Service-role managed premium/dev/founder/subscription flags. | Authenticated users can read their own row only. No client writes. |
 | `subscription_events` | Append-only purchase/subscription history for App Store, RevenueCat, or manual actions. | Authenticated users can read their own rows only. No client writes. |
+| `account_grant_events` | Service-role audit history for TestFlight, Product Hunt, and founder grants. | No client access. |
+| `ai_usage_events` | Server-side AI usage metadata and estimated cost by user/month/task/model. | No client access and never stores raw notes. |
 | `account_snapshot` | Read-only joined account state for app startup/settings. | Authenticated users can read their own state through underlying RLS. |
 | `waitlist_signups` | Landing-site waitlist and founder-offer eligibility. | No public client reads/writes. Website writes through the server route. |
 
@@ -53,8 +55,12 @@ The app stores onboarding in two places:
 
 - `profiles`: identity-adjacent and body/unit fields: email, display name, preferred units, height, current bodyweight, target bodyweight, bodyweight source/logged timestamp, sex, optional sex self-description, optional daily calorie estimate, and `onboarding_completed_at`.
 - `training_profiles`: training intent fields: primary goal, weekly training days, typical session length, training styles, and available equipment.
+- `support_requests`: service-role-only support inbox keyed by `user_id`; iOS submits authenticated support requests through `/api/support/request`.
+- `app_error_reports`: service-role-only diagnostic metadata keyed by `user_id` when authenticated; iOS submits handled nonfatal errors through `/api/telemetry/error`.
 
 First-run onboarding collects first name, goal, weekly target, session length, training styles, equipment, preferred units, current weight, and optional target weight. It saves a local draft first, then syncs `profiles.display_name`, `profiles.onboarding_completed_at`, body/unit fields, and `training_profiles` after completion. `profiles.preferred_units` remains the startup unit source exposed through `account_snapshot`. `training_profiles` is fetched after account bootstrap and is editable from Settings. Both tables are private account data and must not be sent to analytics as raw values.
+
+Product analytics identifies users by Supabase `user_id` only. PostHog should not receive email, first name, raw workout notes, raw body metrics, raw Health samples, or support message bodies.
 
 ## Subscription Entitlement Flow
 
@@ -65,7 +71,22 @@ Trusted entitlement writes happen through:
 - `POST /api/revenuecat/refresh`: authenticated by the user's Supabase bearer token, fetches the RevenueCat subscriber, and updates `account_entitlements` with the service-role key.
 - `POST /api/revenuecat/webhook`: protected by `REVENUECAT_WEBHOOK_AUTH_HEADER`, appends `subscription_events`, then refreshes `account_entitlements` from RevenueCat's current subscriber state.
 
-RevenueCat defaults are entitlement `premium`, current/default offering, and product IDs `app.trybram.premium.monthly` and `app.trybram.premium.yearly`. App Store/RevenueCat dashboard setup owns the 3-day trial, pricing, promo codes, and future cancellation/winback offers.
+RevenueCat defaults are entitlement `premium`, current/default offering, and product IDs `app.trybram.Bram.premium.monthly` and `app.trybram.Bram.premium.year`. The iOS app uses the public `BramRevenueCatAPIKey` build setting and tracks custom paywall impressions because Bram renders its own native paywall. App Store/RevenueCat dashboard setup owns the 3-day trial, pricing, promo codes, and future cancellation/winback offers.
+
+RevenueCat sync maps active paid access to `PREMIUM`, active trials to `TRIAL`, cancellation-with-remaining-access to `CANCELED`, billing issues to `BILLING_RETRY`, and expired subscriptions to `EXPIRED`. Expired RevenueCat state must not overwrite active manual/founder/developer grants; expired one-month grants fall back to `FREE`.
+
+### Admin grants
+
+Server grants use `POST /api/admin/account-grants`, protected by `BRAM_ADMIN_GRANT_TOKEN`. The route accepts a `userId` or account email, `grantKind` (`TESTFLIGHT`, `PRODUCT_HUNT`, or `FOUNDER_LIFETIME`), optional expiration, and optional AI budget caps.
+
+- TestFlight and Product Hunt grants default to one month of `FREE_PREMIUM`.
+- Founder lifetime grants use `entitlement_source = FOUNDER_OFFER` and `premium_expires_at = null`.
+- Every grant writes an `account_grant_events` audit row.
+- Apple/RevenueCat offer codes remain the public campaign path later; Bram-owned grants are the controllable prelaunch path.
+
+### Promo/founder AI budget
+
+Founder and manual free-premium accounts use a lower server-side AI budget policy. At `$0.50` estimated monthly AI spend, server AI calls downgrade strong/premium tasks to the fast model until the next month. At `$2.00`, premium AI calls are blocked until the next month. Paid subscribers keep the normal paid model policy. Developer accounts are not budget-downgraded by this policy.
 
 ## Automatic Signup Flow
 
@@ -173,6 +194,11 @@ At app startup after login:
 6. Treat `is_developer = true` as the switch for dev-only UI.
 7. If onboarding is complete but the account is not premium/free-premium/developer, show the hard RevenueCat paywall.
 8. Keep App Store subscription state synced to `account_entitlements` through `/api/revenuecat/refresh` and the RevenueCat webhook.
+
+Workout data bootstrap must be bidirectional. On sign-in/session restore, iOS first uploads local pending rows for the account-scoped SQLite store, then pulls Supabase `workout_notes`, `daily_workout_metrics`, `strength_entries`, `cardio_entries`, `workout_prs`, `health_daily_metrics`, and `health_workout_matches` back into SQLite. This is required so a fresh install signed into the same account has notes, goal settings, calendar markers, stats, history, and suggestions context.
+
+Encrypted note bodies are decrypted on-device before import when the local/iCloud Keychain note-body key is available. New keys are stored as iCloud-Keychain-syncable items so future same-Apple-ID devices can restore note bodies without Bram storing the plaintext or decryption key in Supabase. If the key is not available on a device, derived metrics can still sync because structured workout rows remain queryable, but the encrypted raw note body cannot be recovered by Bram admins.
+9. Use server grants only through the admin route; iOS never writes entitlement or grant tables.
 9. Upload pending local workout notes and derived account data after bootstrap and after note saves.
 
 Do not let the SwiftUI client update `account_entitlements` directly.

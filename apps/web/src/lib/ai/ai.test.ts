@@ -3,12 +3,21 @@ import {
   assertBramAIReady,
   buildInlineSuggestionRequest,
   buildNoteParseRequest,
+  buildPrivacySafeSuggestionContext,
   buildWeeklyReviewRequest,
+  buildWorkoutSuggestionsRequest,
   createPseudonymousUserId,
   getBramAIConfig,
+  interpretWorkoutNoteWithAI,
+  ParsedWorkoutSchema,
+  parseWorkoutInterpretationResponse,
   sanitizeAIInputText,
   selectModelForTask,
+  verifyAIRouteToken,
+  WorkoutSuggestionInputSchema,
+  WorkoutSuggestionResponseSchema,
 } from ".";
+import { WORKOUT_SUGGESTION_PROMPT } from "./prompts";
 
 describe("getBramAIConfig", () => {
   it("defaults to disabled server-side AI with planned model tiers", () => {
@@ -94,5 +103,220 @@ describe("AI request builders", () => {
     ).toBe("json_schema");
     expect(buildWeeklyReviewRequest({ weeklyDataJson: "{}" }).text?.format.type)
       .toBe("json_schema");
+  });
+
+  it("builds workout suggestions from typed structured context", () => {
+    const input = WorkoutSuggestionInputSchema.parse({
+      installId: "install-test-123",
+      currentWorkout: {
+        sets: 12,
+        prs: 1,
+        cardioMinutes: 10,
+        energyBucket: "moderate",
+        sessionKind: "mixed",
+      },
+      exerciseHistorySummaries: [
+        {
+          exerciseKey: "barbell_bench_press",
+          displayName: "Barbell Bench Press",
+          bestSet: "205 x 5",
+          estimatedOneRepMax: 239,
+          recentSessionCount: 4,
+          recommendationEvidence: ["upward_trend"],
+          target: "210 x 4-5",
+        },
+      ],
+      cardioHistorySummaries: [
+        {
+          activityType: "Running",
+          recentSessionCount: 2,
+          averageDurationMinutes: 12,
+          bestDistance: "1 mi",
+          estimatedCalories: "120",
+          recommendation: "Repeat 1 mi and make it smoother.",
+        },
+      ],
+      dailyMetrics: { duration: "55", heartRate: "unknown" },
+      muscleVolume: [{ muscleGroup: "Chest", sets: 10 }],
+      goals: {
+        primaryGoal: "stronger",
+        weeklyTrainingDays: 4,
+        sessionLengthMinutes: 60,
+        trainingStyles: ["gym"],
+        equipment: ["fullGym"],
+      },
+      noteHints: {
+        readiness: "high",
+        equipment: "gym",
+        constraint: "none",
+        cardioIntent: "cardio_logged",
+        sessionKind: "mixed",
+      },
+      feedbackSummary: {},
+    });
+    const context = buildPrivacySafeSuggestionContext(input);
+    const request = buildWorkoutSuggestionsRequest({ structuredContextJson: context });
+
+    expect(request.text?.format.type).toBe("json_schema");
+    expect(context).toContain("barbell_bench_press");
+    expect(context).not.toContain("rawNote");
+  });
+
+  it("accepts richer suggestion responses while keeping visible text short", () => {
+    const parsed = WorkoutSuggestionResponseSchema.parse({
+      dailySuggestion: {
+        type: "progression",
+        category: "progression",
+        text: "Barbell Bench Press: add one clean rep before increasing load.",
+        evidence: ["upward_trend"],
+        affectedExerciseKey: "barbell_bench_press",
+      },
+      exerciseSuggestions: [
+        {
+          exerciseKey: "barbell_bench_press",
+          title: "Progression",
+          text: "Repeat 205 and aim for 6 clean reps.",
+          target: "205 x 6",
+          evidence: ["saved_history"],
+          reasonTags: ["double_progression"],
+        },
+      ],
+      draft: null,
+    });
+
+    expect(parsed.dailySuggestion?.affectedExerciseKey).toBe("barbell_bench_press");
+    expect(parsed.exerciseSuggestions[0]?.reasonTags).toContain("double_progression");
+  });
+
+  it("tells workout suggestions to avoid generic high-volume advice", () => {
+    expect(WORKOUT_SUGGESTION_PROMPT).toContain("actual training history");
+    expect(WORKOUT_SUGGESTION_PROMPT).toContain("Do not say volume is high unless");
+    expect(WORKOUT_SUGGESTION_PROMPT).toContain("default draft should be null");
+  });
+});
+
+describe("AI workout interpretation", () => {
+  const parsedWorkoutJson = {
+    workoutDate: null,
+    title: "Leg Day",
+    summary: "Leg session with squats and bodyweight accessories.",
+    lines: [
+      {
+        lineIndex: 1,
+        kind: "strength",
+        segments: [
+          {
+            type: "exercise_anchor",
+            text: "Reverse Nordic",
+            exerciseKey: "reverse_nordic",
+          },
+        ],
+      },
+    ],
+    exercises: [
+      {
+        name: "Reverse Nordic",
+        normalizedName: "Reverse Nordic",
+        exerciseKey: "reverse_nordic",
+        muscleGroupHint: "Legs",
+        sets: [
+          {
+            reps: 4,
+            load: null,
+            unit: "bodyweight",
+            rpe: null,
+            rir: null,
+            note: null,
+          },
+        ],
+        uncertainty: null,
+      },
+    ],
+    sessionNotes: [],
+    unresolvedText: [],
+  };
+
+  it("requires the temporary AI route token", () => {
+    expect(() =>
+      verifyAIRouteToken(new Headers(), { BRAM_AI_ROUTE_TOKEN: "secret" }),
+    ).toThrow("Unauthorized");
+
+    expect(() =>
+      verifyAIRouteToken(new Headers({ authorization: "Bearer secret" }), {
+        BRAM_AI_ROUTE_TOKEN: "secret",
+      }),
+    ).not.toThrow();
+  });
+
+  it("parses schema-bound model output", () => {
+    const parsed = parseWorkoutInterpretationResponse({
+      output_text: JSON.stringify(parsedWorkoutJson),
+    });
+
+    expect(parsed.exercises[0]?.exerciseKey).toBe("reverse_nordic");
+  });
+
+  it("accepts cardio entries and same-day workout sessions", () => {
+    const parsed = ParsedWorkoutSchema.parse({
+      ...parsedWorkoutJson,
+      sessions: [
+        {
+          sessionIndex: 1,
+          title: "Morning run",
+          kind: "cardio",
+          startLineIndex: 0,
+          endLineIndex: 1,
+        },
+        {
+          sessionIndex: 2,
+          title: "Evening lift",
+          kind: "strength",
+          startLineIndex: 3,
+          endLineIndex: null,
+        },
+      ],
+      cardioEntries: [
+        {
+          activityType: "Running",
+          durationMinutes: 10,
+          distanceValue: 1,
+          distanceUnit: "mi",
+          paceText: null,
+          sessionIndex: 1,
+          sourceLineIndex: 1,
+        },
+      ],
+    });
+
+    expect(parsed.sessions[0]?.title).toBe("Morning run");
+    expect(parsed.cardioEntries[0]?.distanceValue).toBe(1);
+  });
+
+  it("sanitizes note text before sending to OpenAI", async () => {
+    const calls: unknown[] = [];
+    const result = await interpretWorkoutNoteWithAI(
+      {
+        noteText:
+          "Email lifter@example.com\nReverse Nordic\n1 - 4\n2 - 5",
+        userId: "user_123",
+      },
+      {
+        config: getBramAIConfig({
+          BRAM_AI_ENABLED: "true",
+          OPENAI_API_KEY: "test-key",
+          BRAM_AI_PSEUDONYM_SALT: "test-salt",
+        }),
+        createResponse: async (request) => {
+          calls.push(request);
+          return { id: "resp_1", model: request.model, output_text: JSON.stringify(parsedWorkoutJson) };
+        },
+      },
+    );
+
+    expect(result.parsedWorkout.exercises[0]?.name).toBe("Reverse Nordic");
+    expect(result.redactions.emails).toBe(1);
+    expect(JSON.stringify(calls[0])).toContain("[redacted-email]");
+    expect(JSON.stringify(calls[0])).not.toContain("lifter@example.com");
+    expect(JSON.stringify(calls[0])).not.toContain("user_123");
   });
 });

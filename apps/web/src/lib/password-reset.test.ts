@@ -12,6 +12,8 @@ function supabaseMock(actionLink = "https://trybram.app/reset-password#token") {
           data: {
             properties: {
               action_link: actionLink,
+              hashed_token: "hashed-recovery-token",
+              verification_type: "recovery",
             },
           },
           error: null,
@@ -51,7 +53,7 @@ describe("sendPasswordResetEmail", () => {
       type: "recovery",
       email: "lift@trybram.app",
       options: {
-        redirectTo: "https://trybram.app/reset-password",
+        redirectTo: "https://www.trybram.app/reset-password",
       },
     });
     expect(resend.emails.send).toHaveBeenCalledWith(
@@ -59,8 +61,40 @@ describe("sendPasswordResetEmail", () => {
         from: "Keegan at Bram <keegan@trybram.app>",
         to: "lift@trybram.app",
         subject: "Reset your Bram password",
-        text: expect.stringContaining("https://trybram.app/reset-password"),
+        text: expect.stringContaining(
+          "https://www.trybram.app/reset-password?token_hash=hashed-recovery-token&type=recovery",
+        ),
         html: expect.stringContaining("Reset password"),
+      }),
+    );
+  });
+
+  it("falls back to the Supabase action link if a token hash is missing", async () => {
+    const supabase = {
+      auth: {
+        admin: {
+          generateLink: vi.fn(async () => ({
+            data: {
+              properties: {
+                action_link: "https://njotbjmpcostgktjjihv.supabase.co/auth/v1/verify?token=abc",
+                hashed_token: null,
+                verification_type: "recovery",
+              },
+            },
+            error: null,
+          })),
+        },
+      },
+    };
+    const resend = resendMock();
+
+    await sendPasswordResetEmail("lift@trybram.app", { supabase, resend });
+
+    expect(resend.emails.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          "https://njotbjmpcostgktjjihv.supabase.co/auth/v1/verify?token=abc",
+        ),
       }),
     );
   });

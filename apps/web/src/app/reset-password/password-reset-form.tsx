@@ -33,6 +33,8 @@ export function PasswordResetForm() {
       const accessToken = hash.get("access_token");
       const refreshToken = hash.get("refresh_token");
       const authCode = url.searchParams.get("code");
+      const tokenHash = url.searchParams.get("token_hash");
+      const tokenType = url.searchParams.get("type");
       const requestedEmail = url.searchParams.get("email");
 
       if (requestedEmail) {
@@ -58,6 +60,23 @@ export function PasswordResetForm() {
 
       if (authCode) {
         const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+
+        window.history.replaceState(null, "", "/reset-password");
+        if (error) {
+          setMessage("That reset link is no longer valid. Request a new one.");
+          setStage("request");
+          return;
+        }
+
+        setStage("update");
+        return;
+      }
+
+      if (tokenHash && tokenType === "recovery") {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: "recovery",
+        });
 
         window.history.replaceState(null, "", "/reset-password");
         if (error) {

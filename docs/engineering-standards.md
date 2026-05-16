@@ -21,11 +21,21 @@ The iOS app should grow through clear boundaries:
 
 - `Home`: daily note, interpreted workout summary, inline suggestion, load bar.
 - `Calendar`: date selection and workout completion markers.
-- `Stats`: workout load, volume, PRs, streaks, Apple Health-derived insights.
+- `Stats`: progress-first period summary, set volume, PRs, goal-aware streaks/awards, bodyweight, Apple Health-derived context.
 - `Settings`: account, subscription, preferences, privacy, export/delete, support.
 - `Services`: Supabase, RevenueCat, PostHog, Apple Health, OpenAI backend clients.
 
 No feature should call a third-party SDK directly from a SwiftUI body. Route integration work through services and inject mock/sample data for previews.
+
+## Workout Data Boundary
+
+Workout logging is local-first. Keep SQLite persistence, Supabase sync, interpretation, analytics, and UI in separate files and service seams.
+
+The Home feature may compose these services, but it should not own SQL strings, network requests, SDK calls, entitlement writes, or analytics payload construction.
+
+Free users get note logging. Premium/trial gates interpretation, stats, Apple Health, suggestions, weekly reviews, and richer progress surfaces.
+
+Exercise interpretation should be structured before it is visual. Views should receive display-ready line segments, exercise anchors, badges, and history summaries instead of parsing raw note text.
 
 ## Security And Cost Controls
 
@@ -44,7 +54,7 @@ Planned but not active in the current app scaffold:
 
 - PostHog for product analytics with numeric/categorical event properties only.
 - RevenueCat for App Store subscription entitlement sync.
-- Apple Health for bodyweight, recovery-adjacent, and activity context.
+- Apple Health local read foundation for workouts, energy, heart rate, distance, bodyweight, and note matching; production sync/deeper automation remains staged.
 - OpenAI through Bram backend endpoints only.
 - Rive for rare Bram mascot/reward moments.
 - Framer/Motion for future web or prototype UI motion, not native iOS.

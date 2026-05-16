@@ -40,6 +40,7 @@
 		4E65F537B5C8B0F3450AC246 /* BramBackendWorkoutInterpretationClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA52D19FDAB0EDC9FB53137A /* BramBackendWorkoutInterpretationClient.swift */; };
 		5451DBB7B35DC58035051718 /* PremiumFeaturePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46154B11165956CF3C23EAD7 /* PremiumFeaturePromptView.swift */; };
 		5656B210B6AFCB20F71B5FC2 /* DailyWorkoutModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DB33F0A73E4B91B68AE5964 /* DailyWorkoutModels.swift */; };
+		59FE8AC2682206C76E85BB72 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = AB97CE936C54042A8C1E235D /* PostHog */; };
 		5A3F515D20485B4DFBB2C0F6 /* BramPreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A4668272501B851CB8F7A6 /* BramPreviewData.swift */; };
 		5A81F357CD83C12EC1C46428 /* BramBackendWorkoutSuggestionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96250692678EF920FD0F60F4 /* BramBackendWorkoutSuggestionClient.swift */; };
 		5D7C1828B05B0FF04191D73B /* OnboardingFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB013FD461DB7C830C3C3A90 /* OnboardingFlowView.swift */; };
@@ -47,6 +48,7 @@
 		627D83CF359BEC8A2A7810D8 /* CardioHistorySheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5330C21360BA42B0083EF509 /* CardioHistorySheetView.swift */; };
 		62E11AA6D0D63DFB38B05196 /* BodyweightNoteExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A03C607A802137E0D16CA6A /* BodyweightNoteExtractor.swift */; };
 		648C11E10B447D91BC13E9AC /* BramPanelChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0564BEF8BD2AC3572C1D764 /* BramPanelChrome.swift */; };
+		6B030B9C3EDB37E261962BD3 /* BramNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96D67AE9B05C7CC50DF665FD /* BramNotificationService.swift */; };
 		6C44745A06D0556B769F74B5 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 32E61E66C42D7586399C0F3D /* libsqlite3.tbd */; };
 		71375A13CBB1D4A51ADA2501 /* SQLiteWorkoutLocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4FB23A3AA6555A180458DF5 /* SQLiteWorkoutLocalStore.swift */; };
 		7152824EA2555E3C97BBCEB2 /* HealthEnergyEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFABCD04C86C365D9B4B54A3 /* HealthEnergyEstimator.swift */; };
@@ -56,15 +58,19 @@
 		85A1C73230D91FF3B982825E /* HeuristicWorkoutInterpretationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3498F26DABA049C54061884 /* HeuristicWorkoutInterpretationService.swift */; };
 		95405E1AC91A69CB3DA7E456 /* InterpretedLineDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE787AD3B454AB07F62BA2C /* InterpretedLineDetailView.swift */; };
 		9694CB0EFBC6F10FC3DE3EA7 /* AdobeCaslonPro-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 17AB0B0A678F897312791616 /* AdobeCaslonPro-Bold.otf */; };
+		96B5EA604A5F55A8A928DC37 /* PostHogAnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 620AD8F2000B24CB5007D641 /* PostHogAnalyticsService.swift */; };
 		9BD5A0764C345400B676B112 /* BramAccountDeletionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D077F220AC1F6AB73DBA65 /* BramAccountDeletionClient.swift */; };
 		9F3A88AC0545AF749A61A2A7 /* HealthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FDFA49B51AFA8F341AED9DE /* HealthModels.swift */; };
 		A192132E3FDCA418DE46411E /* BramCapsuleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D8EA3B5EF9141732E59EAF /* BramCapsuleButton.swift */; };
 		A971E8974B54D660BA5EBFA5 /* AdobeCaslonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = FCAF644B58904EE3D59604C0 /* AdobeCaslonPro-Regular.otf */; };
 		AD26E87A15CA1B930CE427CF /* SuisseIntl-Semibold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */; };
+		B6E799B949C4052344F65028 /* BramSupportClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574132B8C13C0460E91CE547 /* BramSupportClient.swift */; };
+		B7DFAC71053019420892BA32 /* AppDiagnosticsRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D1A26AE4EC37935F066AC6 /* AppDiagnosticsRecorder.swift */; };
 		B88F2A6C6CA3E73FDC34870F /* BramColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A8232BCC6DDD545EC34B4B /* BramColor.swift */; };
 		B8F070EF710D5ED2E3699364 /* AccountBootstrapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A4C723137A6C4C84C76291 /* AccountBootstrapService.swift */; };
 		B993B9F3D65BD5703B0A903C /* HealthConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28BBE578081BD6B5D8F6BB03 /* HealthConnectionView.swift */; };
 		BA9D1BB9FAC77859718B4E6E /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = FD9D783180AC0E867376CE01 /* RevenueCat */; };
+		C0CB7ABCA229112CBED72425 /* BramPasswordResetClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB7826884E0A6EDA4AF60350 /* BramPasswordResetClient.swift */; };
 		C10A185661DD1B3C7E814744 /* TrainingGoalsProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DAC3226D99B3211B744A83 /* TrainingGoalsProfile.swift */; };
 		C205F5DB6AE4B4DAFC6DA6BC /* AccountGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E07A855DC9B72493F32B54F /* AccountGateView.swift */; };
 		C2E38DF743B1F5B4F8C0EEEE /* ParsedWorkoutSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 057A5BDB2AEB506DF6CAC1FE /* ParsedWorkoutSummaryCard.swift */; };
@@ -83,12 +89,14 @@
 		DC422D4B9C5C55AC117F5305 /* SQLiteDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363775AE586BE7D2D0ECC3BC /* SQLiteDatabase.swift */; };
 		DFAFB31FA4FCBDA73258895E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03CCBAC2D1BF86ECDAF8C4F /* SettingsView.swift */; };
 		E4A337251BB3650D1819B429 /* AccountSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F2089FF64A66F45D80DC73 /* AccountSnapshot.swift */; };
+		EA036978AFF45052343C9CAA /* NoopAnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DA2D14FA871797BDD78DFB6 /* NoopAnalyticsService.swift */; };
 		EA43C8BB49F8543D7E53CA19 /* BramLogoMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FF1EEAB4695E8FAEF992A54 /* BramLogoMark.swift */; };
 		EC3D537C5793E89320A922E2 /* WorkoutDomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D5F33D2CB5B7CC5EBE56D49 /* WorkoutDomainModels.swift */; };
 		EF8FCC981BF219B6EDEBF975 /* RiveMascotPlaceholder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18014349AA7506E36FD3C582 /* RiveMascotPlaceholder.swift */; };
 		F2C5B849C11134F72AD880E8 /* WorkoutLoadBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD2FE9B17C1CDA26A1E2564 /* WorkoutLoadBar.swift */; };
 		F4CE98A74C5AAC2983891379 /* BramFeatureAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3218F909868A160FF8247B6F /* BramFeatureAccess.swift */; };
 		FD61B6A639F688D90CDC5A52 /* PRDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A6572AC393A762450FF6DF6 /* PRDetectionService.swift */; };
+		FD802A04854530FF87900CA0 /* OnboardingStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDD5452BC9F0FEBA8BA30F33 /* OnboardingStyle.swift */; };
 		FE4BABD931480B35832CB4A0 /* HomeHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19AE2D51B31CE764AEA51A0C /* HomeHeader.swift */; };
 /* End PBXBuildFile section */
 
@@ -134,13 +142,16 @@
 		46154B11165956CF3C23EAD7 /* PremiumFeaturePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumFeaturePromptView.swift; sourceTree = "<group>"; };
 		46B005EC835121B4DD018517 /* SuisseIntl-Book.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Book.otf"; sourceTree = "<group>"; };
 		4D5F33D2CB5B7CC5EBE56D49 /* WorkoutDomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDomainModels.swift; sourceTree = "<group>"; };
+		4DA2D14FA871797BDD78DFB6 /* NoopAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopAnalyticsService.swift; sourceTree = "<group>"; };
 		4E5E05652F6ED1BC5EFC9195 /* AppleHealthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleHealthService.swift; sourceTree = "<group>"; };
 		5330C21360BA42B0083EF509 /* CardioHistorySheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioHistorySheetView.swift; sourceTree = "<group>"; };
 		53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Semibold.otf"; sourceTree = "<group>"; };
+		574132B8C13C0460E91CE547 /* BramSupportClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramSupportClient.swift; sourceTree = "<group>"; };
 		5AA3ADDAC2241E5048F15325 /* ExerciseMatchingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseMatchingService.swift; sourceTree = "<group>"; };
 		5DD2FE9B17C1CDA26A1E2564 /* WorkoutLoadBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutLoadBar.swift; sourceTree = "<group>"; };
 		5E6F487E7AF0279EB62D4B05 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		607DA913FB66384CF350D64A /* BramApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramApp.swift; sourceTree = "<group>"; };
+		620AD8F2000B24CB5007D641 /* PostHogAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAnalyticsService.swift; sourceTree = "<group>"; };
 		65CBAE7458A256BC8FBD4CDE /* OnboardingDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDraft.swift; sourceTree = "<group>"; };
 		6A03C607A802137E0D16CA6A /* BodyweightNoteExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyweightNoteExtractor.swift; sourceTree = "<group>"; };
 		6AF7702C5D615B37354AF652 /* CalendarPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPanelView.swift; sourceTree = "<group>"; };
@@ -164,8 +175,11 @@
 		93437CBD164CAECCAB70F2C1 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		951BBA2DD0BCCD1E65278379 /* PanelModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelModels.swift; sourceTree = "<group>"; };
 		96250692678EF920FD0F60F4 /* BramBackendWorkoutSuggestionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramBackendWorkoutSuggestionClient.swift; sourceTree = "<group>"; };
+		96D67AE9B05C7CC50DF665FD /* BramNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramNotificationService.swift; sourceTree = "<group>"; };
+		99D1A26AE4EC37935F066AC6 /* AppDiagnosticsRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDiagnosticsRecorder.swift; sourceTree = "<group>"; };
 		9FF10D98CB8B18D9B86B41FF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A1D077F220AC1F6AB73DBA65 /* BramAccountDeletionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramAccountDeletionClient.swift; sourceTree = "<group>"; };
+		AB7826884E0A6EDA4AF60350 /* BramPasswordResetClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramPasswordResetClient.swift; sourceTree = "<group>"; };
 		B208DCCA2E59A18B135C6625 /* HomePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomePanel.swift; sourceTree = "<group>"; };
 		B6BD4102C0B72653B60B704F /* ExerciseHistorySheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseHistorySheetView.swift; sourceTree = "<group>"; };
 		B97EB29BCB4ACFAE2D0E11E4 /* Bram.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Bram.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -180,6 +194,7 @@
 		E6A8232BCC6DDD545EC34B4B /* BramColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramColor.swift; sourceTree = "<group>"; };
 		E9BAC6FF09C7B0DA208101F8 /* BramAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramAuthService.swift; sourceTree = "<group>"; };
 		EA52D19FDAB0EDC9FB53137A /* BramBackendWorkoutInterpretationClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramBackendWorkoutInterpretationClient.swift; sourceTree = "<group>"; };
+		EDD5452BC9F0FEBA8BA30F33 /* OnboardingStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingStyle.swift; sourceTree = "<group>"; };
 		EECA5C27E11964BAC9A96B1D /* WorkoutSuggestionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSuggestionCard.swift; sourceTree = "<group>"; };
 		EFABCD04C86C365D9B4B54A3 /* HealthEnergyEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthEnergyEstimator.swift; sourceTree = "<group>"; };
 		F0564BEF8BD2AC3572C1D764 /* BramPanelChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramPanelChrome.swift; sourceTree = "<group>"; };
@@ -197,6 +212,7 @@
 				1E88BFB0B1124D5F0D02E472 /* RiveRuntime in Frameworks */,
 				4CA25F091B17F69206FB447B /* Supabase in Frameworks */,
 				BA9D1BB9FAC77859718B4E6E /* RevenueCat in Frameworks */,
+				59FE8AC2682206C76E85BB72 /* PostHog in Frameworks */,
 				6C44745A06D0556B769F74B5 /* libsqlite3.tbd in Frameworks */,
 				3862B7CCBE3CE760C5B86D5A /* HealthKit.framework in Frameworks */,
 			);
@@ -368,6 +384,7 @@
 			children = (
 				0E07A855DC9B72493F32B54F /* AccountGateView.swift */,
 				CB013FD461DB7C830C3C3A90 /* OnboardingFlowView.swift */,
+				EDD5452BC9F0FEBA8BA30F33 /* OnboardingStyle.swift */,
 				19D90437D189CE593CFAAB77 /* PaywallGateView.swift */,
 			);
 			path = Account;
@@ -432,6 +449,7 @@
 			isa = PBXGroup;
 			children = (
 				E3A4C723137A6C4C84C76291 /* AccountBootstrapService.swift */,
+				99D1A26AE4EC37935F066AC6 /* AppDiagnosticsRecorder.swift */,
 				4E5E05652F6ED1BC5EFC9195 /* AppleHealthService.swift */,
 				18D369197B2C78659006927C /* AppServiceProtocols.swift */,
 				6A03C607A802137E0D16CA6A /* BodyweightNoteExtractor.swift */,
@@ -439,12 +457,17 @@
 				E9BAC6FF09C7B0DA208101F8 /* BramAuthService.swift */,
 				EA52D19FDAB0EDC9FB53137A /* BramBackendWorkoutInterpretationClient.swift */,
 				96250692678EF920FD0F60F4 /* BramBackendWorkoutSuggestionClient.swift */,
+				96D67AE9B05C7CC50DF665FD /* BramNotificationService.swift */,
+				AB7826884E0A6EDA4AF60350 /* BramPasswordResetClient.swift */,
 				92B4CAC26C537CF935CF42C4 /* BramRevenueCatEntitlementRefreshClient.swift */,
 				2246542FAF17835F1E7A7FC2 /* BramSupabaseConfiguration.swift */,
+				574132B8C13C0460E91CE547 /* BramSupportClient.swift */,
 				5AA3ADDAC2241E5048F15325 /* ExerciseMatchingService.swift */,
 				EFABCD04C86C365D9B4B54A3 /* HealthEnergyEstimator.swift */,
 				C3498F26DABA049C54061884 /* HeuristicWorkoutInterpretationService.swift */,
 				8FBD0D00D29439840ADEA6E8 /* LocalSuggestionEngine.swift */,
+				4DA2D14FA871797BDD78DFB6 /* NoopAnalyticsService.swift */,
+				620AD8F2000B24CB5007D641 /* PostHogAnalyticsService.swift */,
 				7A6572AC393A762450FF6DF6 /* PRDetectionService.swift */,
 				83E1522C3122D719872D89AD /* RevenueCatPaywallService.swift */,
 				20FE1B72BBFB65BDC735C020 /* ServicePlaceholders.swift */,
@@ -475,6 +498,7 @@
 				F112AD5709567F429E50C55D /* RiveRuntime */,
 				2158A67DFBFF9D36946472B3 /* Supabase */,
 				FD9D783180AC0E867376CE01 /* RevenueCat */,
+				AB97CE936C54042A8C1E235D /* PostHog */,
 			);
 			productName = Bram;
 			productReference = B97EB29BCB4ACFAE2D0E11E4 /* Bram.app */;
@@ -525,6 +549,7 @@
 			mainGroup = 981B4917CCB4A78C7F902618;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				62CC5FEC0E7CD11455A2ACFC /* XCRemoteSwiftPackageReference "posthog-ios" */,
 				A60DC0D25698E2331172F55C /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 				0AF6748C59294F0C71633B91 /* XCRemoteSwiftPackageReference "rive-ios" */,
 				5B86630551466BFFC622D60A /* XCRemoteSwiftPackageReference "supabase-swift" */,
@@ -570,6 +595,7 @@
 				C205F5DB6AE4B4DAFC6DA6BC /* AccountGateView.swift in Sources */,
 				2A5B1911C6574478ADFA90A6 /* AccountSessionState.swift in Sources */,
 				E4A337251BB3650D1819B429 /* AccountSnapshot.swift in Sources */,
+				B7DFAC71053019420892BA32 /* AppDiagnosticsRecorder.swift in Sources */,
 				D0D76F222745C8E32E87FE19 /* AppRootView.swift in Sources */,
 				3473811A6998AF7C94454699 /* AppServiceProtocols.swift in Sources */,
 				77E15CE6C83182BB87BDA99E /* AppleHealthService.swift in Sources */,
@@ -585,11 +611,14 @@
 				F4CE98A74C5AAC2983891379 /* BramFeatureAccess.swift in Sources */,
 				0174C98C4996BD35AC305130 /* BramFont.swift in Sources */,
 				EA43C8BB49F8543D7E53CA19 /* BramLogoMark.swift in Sources */,
+				6B030B9C3EDB37E261962BD3 /* BramNotificationService.swift in Sources */,
 				648C11E10B447D91BC13E9AC /* BramPanelChrome.swift in Sources */,
+				C0CB7ABCA229112CBED72425 /* BramPasswordResetClient.swift in Sources */,
 				74A67E9EAF61CBF5486728DC /* BramPaywallModels.swift in Sources */,
 				5A3F515D20485B4DFBB2C0F6 /* BramPreviewData.swift in Sources */,
 				4E07ED7ABBFD21DEA8948168 /* BramRevenueCatEntitlementRefreshClient.swift in Sources */,
 				CC919A32D4530CCF081428B2 /* BramSupabaseConfiguration.swift in Sources */,
+				B6E799B949C4052344F65028 /* BramSupportClient.swift in Sources */,
 				D7BA7D7AE4A84E505523325C /* CalendarPanelView.swift in Sources */,
 				627D83CF359BEC8A2A7810D8 /* CardioHistorySheetView.swift in Sources */,
 				5656B210B6AFCB20F71B5FC2 /* DailyWorkoutModels.swift in Sources */,
@@ -607,12 +636,15 @@
 				95405E1AC91A69CB3DA7E456 /* InterpretedLineDetailView.swift in Sources */,
 				21D0AC88773B92262E4ACDC5 /* LocalSuggestionEngine.swift in Sources */,
 				D9ABC5306B1077A75A1A5369 /* MetricColor.swift in Sources */,
+				EA036978AFF45052343C9CAA /* NoopAnalyticsService.swift in Sources */,
 				25A6F014F1F79976CE5C02D9 /* OnboardingDraft.swift in Sources */,
 				5D7C1828B05B0FF04191D73B /* OnboardingFlowView.swift in Sources */,
+				FD802A04854530FF87900CA0 /* OnboardingStyle.swift in Sources */,
 				FD61B6A639F688D90CDC5A52 /* PRDetectionService.swift in Sources */,
 				CC33179D2C50DED641B0A869 /* PanelModels.swift in Sources */,
 				C2E38DF743B1F5B4F8C0EEEE /* ParsedWorkoutSummaryCard.swift in Sources */,
 				CDED3E74D69383AA5F0FB813 /* PaywallGateView.swift in Sources */,
+				96B5EA604A5F55A8A928DC37 /* PostHogAnalyticsService.swift in Sources */,
 				5451DBB7B35DC58035051718 /* PremiumFeaturePromptView.swift in Sources */,
 				4DB5AC0F05D911A9CCD1FF87 /* RevenueCatPaywallService.swift in Sources */,
 				EF8FCC981BF219B6EDEBF975 /* RiveMascotPlaceholder.swift in Sources */,
@@ -734,6 +766,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				BRAM_IOS_POSTHOG_PROJECT_TOKEN = "";
+				BRAM_IOS_REVENUECAT_API_KEY = "";
 				CODE_SIGN_ENTITLEMENTS = Bram/Bram.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 963UAMD46W;
@@ -818,6 +852,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				BRAM_IOS_POSTHOG_PROJECT_TOKEN = "";
+				BRAM_IOS_REVENUECAT_API_KEY = "";
 				CODE_SIGN_ENTITLEMENTS = Bram/Bram.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 963UAMD46W;
@@ -900,6 +936,14 @@
 				minimumVersion = 2.0.0;
 			};
 		};
+		62CC5FEC0E7CD11455A2ACFC /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
 		A60DC0D25698E2331172F55C /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
@@ -915,6 +959,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5B86630551466BFFC622D60A /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		AB97CE936C54042A8C1E235D /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 62CC5FEC0E7CD11455A2ACFC /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 		F112AD5709567F429E50C55D /* RiveRuntime */ = {
 			isa = XCSwiftPackageProductDependency;

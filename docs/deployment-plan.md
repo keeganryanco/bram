@@ -35,8 +35,11 @@ Waitlist:
 - `RESEND_FROM_EMAIL`
 - `WAITLIST_NOTIFY_EMAIL` optional
 - `NEXT_PUBLIC_SITE_URL`
+- `REVENUECAT_SECRET_API_KEY`
+- `REVENUECAT_WEBHOOK_AUTH_HEADER`
+- `BRAM_ADMIN_GRANT_TOKEN`
 
-Current status: production has `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API`, `RESEND_FROM_EMAIL`, and `NEXT_PUBLIC_SITE_URL` configured. `WAITLIST_NOTIFY_EMAIL` is still optional.
+Current status: production has `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API`, `RESEND_FROM_EMAIL`, and `NEXT_PUBLIC_SITE_URL` configured. `NEXT_PUBLIC_SITE_URL` should be `https://www.trybram.app` so password recovery links do not lose auth fragments through the apex-domain redirect. `WAITLIST_NOTIFY_EMAIL` is still optional.
 
 AI, when enabled:
 
@@ -50,6 +53,9 @@ AI, when enabled:
 - `BRAM_AI_REQUEST_TIMEOUT_MS`
 - `BRAM_AI_DAILY_USER_REQUEST_LIMIT`
 - `BRAM_AI_MONTHLY_ACTIVE_USER_BUDGET_CENTS`
+- `BRAM_AI_PROMO_FOUNDER_SOFT_CAP_CENTS` defaults to `50`
+- `BRAM_AI_PROMO_FOUNDER_HARD_CAP_CENTS` defaults to `200`
+- `BRAM_AI_FALLBACK_REQUEST_COST_CENTS` defaults to `1`
 
 Current status: AI is scaffolded in code but should remain disabled in production until authenticated app endpoints, Supabase user-owned workout tables, and per-user rate limits are implemented.
 

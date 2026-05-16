@@ -89,9 +89,11 @@ private struct StatsOverview: View {
                     Button(action: previousPeriod) {
                         Image(systemName: "chevron.left")
                     }
+                    .accessibilityLabel("Previous \(selectedPeriod.accessibilityPeriodName)")
                     Button(action: nextPeriod) {
                         Image(systemName: "chevron.right")
                     }
+                    .accessibilityLabel("Next \(selectedPeriod.accessibilityPeriodName)")
                 }
                 .buttonStyle(PlainProgressButtonStyle())
 
@@ -102,11 +104,18 @@ private struct StatsOverview: View {
                                 selectedPeriod = period
                             }
                         } label: {
-                            Text(period.shortLabel)
-                                .font(BramFont.button(size: 13))
-                                .foregroundStyle(selectedPeriod == period ? BramColor.violet : BramColor.textTertiary)
+                            VStack(spacing: 3) {
+                                Text(period.shortLabel)
+                                    .font(BramFont.button(size: 13))
+                                Circle()
+                                    .fill(selectedPeriod == period ? BramColor.violet : .clear)
+                                    .frame(width: 4, height: 4)
+                            }
+                            .foregroundStyle(selectedPeriod == period ? BramColor.violet : BramColor.textTertiary)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(period.accessibilityPeriodName.capitalized)
+                        .accessibilityValue(selectedPeriod == period ? "Selected" : "")
                     }
                 }
             }

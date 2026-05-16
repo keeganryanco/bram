@@ -4,29 +4,45 @@ struct AccountGateView: View {
     var message: String?
     var signIn: (String, String) async -> Void
     var signUp: (String, String) async -> Void
+    var resetPassword: (String) async -> Void
     var signInWithApple: () async -> Void
     var signInWithGoogle: () async -> Void
+
+    private enum Mode {
+        case createAccount
+        case signIn
+    }
 
     @State private var email = ""
     @State private var password = ""
     @State private var isSubmitting = false
+    @State private var mode: Mode = .createAccount
 
     var body: some View {
         ZStack {
-            BramColor.appBackground.ignoresSafeArea()
+            OnboardingStyle.background.ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 22) {
-                Spacer(minLength: 28)
+            VStack(spacing: 24) {
+                Spacer(minLength: 16)
 
-                BramLogoMark(size: 54)
+                Image("BramBearAccountCreation")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 132, height: 132)
+                    .accessibilityHidden(true)
+                    .padding(.bottom, 4)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Bram")
-                        .font(BramFont.largeTitle(size: 42))
-                        .foregroundStyle(BramColor.textPrimary)
-                    Text("Write your workout naturally. Bram tracks the rest.")
-                        .font(BramFont.body(size: 17))
-                        .foregroundStyle(BramColor.textSecondary)
+                VStack(spacing: 8) {
+                    Text(mode == .createAccount ? "Welcome to Bram" : "Welcome back")
+                        .font(BramFont.largeTitle(size: 36))
+                        .foregroundStyle(OnboardingStyle.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(mode == .createAccount ? "The simplest workout tracker ever." : "Pick up where you left off.")
+                        .font(BramFont.body(size: 18))
+                        .foregroundStyle(OnboardingStyle.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 VStack(spacing: 12) {
@@ -40,50 +56,73 @@ struct AccountGateView: View {
                     SecureField("Password", text: $password)
                         .textContentType(.password)
                         .bramAccountField()
+                }
+
+                VStack(spacing: 12) {
+                    AuthPrimaryButton(title: primaryButtonTitle, isDisabled: isSubmitting || email.isEmpty || password.isEmpty) {
+                        submit {
+                            if mode == .createAccount {
+                                await signUp(email, password)
+                            } else {
+                                await signIn(email, password)
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 10) {
+                        AccountProviderButton(provider: .apple) {
+                            submit { await signInWithApple() }
+                        }
+                        AccountProviderButton(provider: .google) {
+                            submit { await signInWithGoogle() }
+                        }
+                    }
+                    .disabled(isSubmitting)
+
+                    if message != nil || mode == .signIn {
+                        Button("Forgot password?") {
+                            submit { await resetPassword(email) }
+                        }
+                            .font(BramFont.callout(size: 13))
+                            .foregroundStyle(OnboardingStyle.textTertiary)
+                            .disabled(isSubmitting)
+                    }
 
                     if let message {
                         Text(message)
                             .font(BramFont.callout(size: 13))
-                            .foregroundStyle(BramColor.textTertiary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .foregroundStyle(OnboardingStyle.textTertiary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
                     }
                 }
-
-                VStack(spacing: 10) {
-                    BramCapsuleButton(action: {
-                        submit { await signIn(email, password) }
-                    }) {
-                        Text(isSubmitting ? "Signing in..." : "Sign in")
-                    }
-                    .disabled(isSubmitting || email.isEmpty || password.isEmpty)
-
-                    Button("Create account") {
-                        submit { await signUp(email, password) }
-                    }
-                    .font(BramFont.label())
-                    .foregroundStyle(BramColor.violet)
-                    .disabled(isSubmitting || email.isEmpty || password.isEmpty)
-
-                    Link("Forgot password?", destination: passwordResetURL)
-                        .font(BramFont.callout(size: 13))
-                        .foregroundStyle(BramColor.textTertiary)
-                }
-
-                HStack(spacing: 10) {
-                    AccountProviderButton(title: "Apple", systemImage: "apple.logo") {
-                        submit { await signInWithApple() }
-                    }
-                    AccountProviderButton(title: "Google", systemImage: "globe") {
-                        submit { await signInWithGoogle() }
-                    }
-                }
-                .disabled(isSubmitting)
 
                 Spacer()
+
+                Button(mode == .createAccount ? "Already have an account? Sign in" : "Create a new account") {
+                    withAnimation(.snappy) {
+                        mode = mode == .createAccount ? .signIn : .createAccount
+                    }
+                }
+                .font(BramFont.label())
+                .foregroundStyle(OnboardingStyle.textSecondary)
+                .disabled(isSubmitting)
             }
             .padding(24)
             .frame(maxWidth: 520)
         }
+        .onAppear {
+            if message != nil {
+                mode = .signIn
+            }
+        }
+    }
+
+    private var primaryButtonTitle: String {
+        if isSubmitting {
+            return mode == .createAccount ? "Creating account..." : "Signing in..."
+        }
+        return mode == .createAccount ? "Create account" : "Sign in"
     }
 
     private func submit(_ operation: @escaping () async -> Void) {
@@ -97,17 +136,6 @@ struct AccountGateView: View {
         }
     }
 
-    private var passwordResetURL: URL {
-        if email.isEmpty {
-            return URL(string: "https://trybram.app/reset-password")!
-        }
-
-        var components = URLComponents(string: "https://trybram.app/reset-password")!
-        components.queryItems = [
-            URLQueryItem(name: "email", value: email.trimmingCharacters(in: .whitespacesAndNewlines))
-        ]
-        return components.url!
-    }
 }
 
 struct OnboardingGateView: View {
@@ -150,29 +178,76 @@ struct OnboardingGateView: View {
     }
 }
 
-private struct AccountProviderButton: View {
+private struct AuthPrimaryButton: View {
     let title: String
-    let systemImage: String
+    let isDisabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(BramFont.button(size: 16))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(BramColor.violet, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: BramColor.violet.opacity(0.26), radius: 22, y: 12)
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.55 : 1)
+    }
+}
+
+private enum AccountProvider {
+    case apple
+    case google
+
+    var title: String {
+        switch self {
+        case .apple: "Apple"
+        case .google: "Google"
+        }
+    }
+}
+
+private struct AccountProviderButton: View {
+    let provider: AccountProvider
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: systemImage)
-                Text(title)
+                if provider == .apple {
+                    Image(systemName: "apple.logo")
+                        .font(.system(size: 18, weight: .semibold))
+                } else {
+                    GoogleGlyph()
+                        .frame(width: 18, height: 18)
+                }
+                Text(provider.title)
             }
             .font(BramFont.label())
-            .foregroundStyle(BramColor.textPrimary)
+            .foregroundStyle(OnboardingStyle.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 13)
-            .background(BramColor.cardSurface)
+            .background(OnboardingStyle.cardSurface)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(BramColor.hairline, lineWidth: 1)
+                    .stroke(OnboardingStyle.hairline, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct GoogleGlyph: View {
+    var body: some View {
+        Text("G")
+            .font(.system(size: 17, weight: .bold, design: .rounded))
+            .foregroundStyle(OnboardingStyle.textPrimary)
+            .accessibilityHidden(true)
     }
 }
 
@@ -180,14 +255,16 @@ private extension View {
     func bramAccountField() -> some View {
         self
             .font(BramFont.body(size: 16))
-            .foregroundStyle(BramColor.textPrimary)
-            .padding(14)
-            .background(BramColor.cardSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .foregroundStyle(OnboardingStyle.textPrimary)
+            .padding(.horizontal, 18)
+            .frame(height: 56)
+            .background(OnboardingStyle.fieldSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(BramColor.hairline, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(OnboardingStyle.hairline, lineWidth: 1)
             }
+            .shadow(color: OnboardingStyle.fieldShadow, radius: 18, y: 8)
     }
 }
 
@@ -196,6 +273,7 @@ private extension View {
         message: nil,
         signIn: { _, _ in },
         signUp: { _, _ in },
+        resetPassword: { _ in },
         signInWithApple: {},
         signInWithGoogle: {}
     )

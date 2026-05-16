@@ -13,6 +13,9 @@ export type BramAIConfig = {
   requestTimeoutMs: number;
   dailyUserRequestLimit: number;
   monthlyActiveUserBudgetCents: number;
+  promoFounderSoftCapCents: number;
+  promoFounderHardCapCents: number;
+  fallbackRequestCostCents: number;
 };
 
 export class BramAIConfigError extends Error {
@@ -54,6 +57,15 @@ export function getBramAIConfig(
       env.BRAM_AI_MONTHLY_ACTIVE_USER_BUDGET_CENTS,
       40,
     ),
+    promoFounderSoftCapCents: readNumber(
+      env.BRAM_AI_PROMO_FOUNDER_SOFT_CAP_CENTS,
+      50,
+    ),
+    promoFounderHardCapCents: readNumber(
+      env.BRAM_AI_PROMO_FOUNDER_HARD_CAP_CENTS,
+      200,
+    ),
+    fallbackRequestCostCents: readNumber(env.BRAM_AI_FALLBACK_REQUEST_COST_CENTS, 1),
   };
 }
 

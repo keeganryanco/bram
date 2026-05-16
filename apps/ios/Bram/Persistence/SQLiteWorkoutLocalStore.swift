@@ -538,6 +538,12 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         }
     }
 
+    func importSyncedWorkoutData(_ payloads: [WorkoutSyncPayload]) async throws {
+        for payload in payloads {
+            try importSynced(payload)
+        }
+    }
+
     func clearLocalAccountData() async throws {
         try database.execute("""
         delete from health_workout_matches;
@@ -585,6 +591,71 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             try database.bind(now, to: 8, in: statement)
             try database.bind(note.deletedAt, to: 9, in: statement)
             try database.bind(state.rawValue, to: 10, in: statement)
+            try database.bind(note.lastSyncError, to: 11, in: statement)
+            _ = try database.step(statement)
+        }
+    }
+
+    private func importSynced(_ payload: WorkoutSyncPayload) throws {
+        var note = payload.note
+        note.syncState = .synced
+        note.lastSyncError = nil
+        try deleteLocalNoteForImportIfNeeded(note)
+        try saveSyncPreservingSyncState(note)
+        try deleteStructuredWorkoutRows(noteId: note.id)
+        if let metrics = payload.metrics {
+            try saveDailyMetrics(noteId: note.id, metrics: metrics)
+        }
+        try saveStrengthSets(noteId: note.id, sets: payload.strengthSets)
+        try saveCardioEntries(noteId: note.id, entries: payload.cardioEntries)
+        try savePREvents(noteId: note.id, events: payload.prEvents)
+        if let metric = payload.healthDailyMetric {
+            try saveSync(metric)
+        }
+        if let match = payload.healthWorkoutMatch {
+            try saveSync(match)
+        }
+    }
+
+    private func deleteLocalNoteForImportIfNeeded(_ note: DailyWorkoutNote) throws {
+        let sql = "delete from workout_notes where workout_date = ? and id <> ?;"
+        try database.withStatement(sql) { statement in
+            try database.bind(Self.dayKey(for: note.date), to: 1, in: statement)
+            try database.bind(note.id.uuidString, to: 2, in: statement)
+            _ = try database.step(statement)
+        }
+    }
+
+    private func saveSyncPreservingSyncState(_ note: DailyWorkoutNote) throws {
+        let sql = """
+        insert into workout_notes (
+          id, remote_id, user_id, workout_date, timezone_identifier, body,
+          created_at, updated_at, deleted_at, sync_state, last_sync_error
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        on conflict(id) do update set
+          remote_id = excluded.remote_id,
+          user_id = excluded.user_id,
+          workout_date = excluded.workout_date,
+          timezone_identifier = excluded.timezone_identifier,
+          body = excluded.body,
+          updated_at = excluded.updated_at,
+          deleted_at = excluded.deleted_at,
+          sync_state = excluded.sync_state,
+          last_sync_error = excluded.last_sync_error;
+        """
+
+        try database.withStatement(sql) { statement in
+            try database.bind(note.id.uuidString, to: 1, in: statement)
+            try database.bind(note.remoteId?.uuidString, to: 2, in: statement)
+            try database.bind(note.userId?.uuidString, to: 3, in: statement)
+            try database.bind(Self.dayKey(for: note.date), to: 4, in: statement)
+            try database.bind(note.timezoneIdentifier, to: 5, in: statement)
+            try database.bind(note.body, to: 6, in: statement)
+            try database.bind(note.createdAt, to: 7, in: statement)
+            try database.bind(note.updatedAt, to: 8, in: statement)
+            try database.bind(note.deletedAt, to: 9, in: statement)
+            try database.bind(note.syncState.rawValue, to: 10, in: statement)
             try database.bind(note.lastSyncError, to: 11, in: statement)
             _ = try database.step(statement)
         }
@@ -2190,7 +2261,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         return String(format: "%04d-%02d-%02d", components.year ?? 1970, components.month ?? 1, components.day ?? 1)
     }
 
-    private static func date(from dayKey: String) -> Date? {
+    static func date(from dayKey: String) -> Date? {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         let parts = dayKey.split(separator: "-").compactMap { Int($0) }

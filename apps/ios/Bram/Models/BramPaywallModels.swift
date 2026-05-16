@@ -1,7 +1,14 @@
 import Foundation
 
+enum BramSubscriptionProductID {
+    static let premiumMonthly = "app.trybram.Bram.premium.monthly"
+    static let premiumYearly = "app.trybram.Bram.premium.year"
+    static let orderedPremiumProducts = [premiumYearly, premiumMonthly]
+}
+
 struct BramPaywallPackage: Identifiable, Equatable, Hashable {
     var id: String
+    var productId: String
     var title: String
     var price: String
     var period: String

@@ -44,7 +44,7 @@ struct BramAuthService: BramAuthServicing {
             password: password,
             redirectTo: configuration.redirectURL
         )
-        return response.session?.user.id ?? response.user.id
+        return response.session?.user.id
     }
 
     func signIn(email: String, password: String) async throws -> UUID {

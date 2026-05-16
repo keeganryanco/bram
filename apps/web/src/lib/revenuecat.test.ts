@@ -8,7 +8,12 @@ import {
 
 const userId = "11111111-1111-4111-8111-111111111111";
 
-function revenueCatFetch(active = true) {
+function revenueCatFetch(options: {
+  active?: boolean;
+  unsubscribeDetectedAt?: string | null;
+  billingIssuesDetectedAt?: string | null;
+} = {}) {
+  const active = options.active ?? true;
   return vi.fn(async () => ({
     ok: true,
     status: 200,
@@ -17,15 +22,17 @@ function revenueCatFetch(active = true) {
         entitlements: active
           ? {
               premium: {
-                product_identifier: "app.trybram.premium.yearly",
+                product_identifier: "app.trybram.Bram.premium.year",
                 expires_date: "2099-01-01T00:00:00Z",
               },
             }
           : {},
         subscriptions: {
-          "app.trybram.premium.yearly": {
+          "app.trybram.Bram.premium.year": {
             period_type: "TRIAL",
             expires_date: "2099-01-01T00:00:00Z",
+            unsubscribe_detected_at: options.unsubscribeDetectedAt,
+            billing_issues_detected_at: options.billingIssuesDetectedAt,
           },
         },
       },
@@ -38,6 +45,7 @@ function supabaseMock(options: {
   entitlementSource?: string;
   accountTier?: string;
   isDeveloper?: boolean;
+  premiumExpiresAt?: string | null;
 } = {}) {
   const calls: { table: string; operation: string; values?: unknown }[] = [];
   const state = {
@@ -65,6 +73,7 @@ function supabaseMock(options: {
                   account_tier: state.accountTier,
                   entitlement_source: state.entitlementSource,
                   is_developer: state.isDeveloper,
+                  premium_expires_at: options.premiumExpiresAt ?? null,
                 },
                 error: null,
               };
@@ -179,7 +188,7 @@ describe("handleRevenueCatWebhook", () => {
           id: "event_123",
           type: "INITIAL_PURCHASE",
           app_user_id: userId,
-          product_id: "app.trybram.premium.yearly",
+          product_id: "app.trybram.Bram.premium.year",
           transaction_id: "tx_123",
           original_transaction_id: "otx_123",
           entitlement_ids: ["premium"],
@@ -210,12 +219,106 @@ describe("handleRevenueCatWebhook", () => {
 
     await syncRevenueCatEntitlement(userId, {
       supabase,
-      fetch: revenueCatFetch(false),
+      fetch: revenueCatFetch({ active: false }),
     });
 
     expect(supabase.calls).not.toContainEqual(
       expect.objectContaining({
         values: expect.objectContaining({ account_tier: "PREMIUM" }),
+      }),
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("maps canceled-but-active subscriptions without removing access", async () => {
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "rc_secret");
+    const supabase = supabaseMock();
+
+    await syncRevenueCatEntitlement(userId, {
+      supabase,
+      fetch: revenueCatFetch({ unsubscribeDetectedAt: "2026-05-15T12:00:00Z" }),
+    });
+
+    expect(supabase.calls).toContainEqual(
+      expect.objectContaining({
+        table: "account_entitlements",
+        operation: "update",
+        values: expect.objectContaining({
+          account_tier: "PREMIUM",
+          subscription_status: "CANCELED",
+        }),
+      }),
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("maps billing issues to billing retry while access is active", async () => {
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "rc_secret");
+    const supabase = supabaseMock();
+
+    await syncRevenueCatEntitlement(userId, {
+      supabase,
+      fetch: revenueCatFetch({ billingIssuesDetectedAt: "2026-05-15T12:00:00Z" }),
+    });
+
+    expect(supabase.calls).toContainEqual(
+      expect.objectContaining({
+        table: "account_entitlements",
+        operation: "update",
+        values: expect.objectContaining({
+          account_tier: "PREMIUM",
+          subscription_status: "BILLING_RETRY",
+        }),
+      }),
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("preserves active manual grants when RevenueCat is expired", async () => {
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "rc_secret");
+    const supabase = supabaseMock({
+      accountTier: "FREE_PREMIUM",
+      entitlementSource: "MANUAL",
+      premiumExpiresAt: "2099-01-01T00:00:00Z",
+    });
+
+    await syncRevenueCatEntitlement(userId, {
+      supabase,
+      fetch: revenueCatFetch({ active: false }),
+    });
+
+    expect(supabase.calls).not.toContainEqual(
+      expect.objectContaining({
+        table: "account_entitlements",
+        operation: "update",
+        values: expect.objectContaining({ account_tier: "FREE" }),
+      }),
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("expires expired manual grants when RevenueCat is expired", async () => {
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "rc_secret");
+    const supabase = supabaseMock({
+      accountTier: "FREE_PREMIUM",
+      entitlementSource: "MANUAL",
+      premiumExpiresAt: "2020-01-01T00:00:00Z",
+    });
+
+    await syncRevenueCatEntitlement(userId, {
+      supabase,
+      fetch: revenueCatFetch({ active: false }),
+    });
+
+    expect(supabase.calls).toContainEqual(
+      expect.objectContaining({
+        table: "account_entitlements",
+        operation: "update",
+        values: expect.objectContaining({
+          account_tier: "FREE",
+          subscription_status: "EXPIRED",
+          entitlement_source: "NONE",
+        }),
       }),
     );
     vi.unstubAllEnvs();

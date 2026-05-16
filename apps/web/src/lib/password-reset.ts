@@ -16,6 +16,8 @@ type PasswordResetGenerateLinkResult = {
   data: {
     properties?: {
       action_link?: string | null;
+      hashed_token?: string | null;
+      verification_type?: string | null;
     } | null;
   } | null;
   error: unknown | null;
@@ -63,11 +65,15 @@ export function normalizePasswordResetEmail(value: unknown) {
 }
 
 function getSiteURL() {
-  return (
+  const siteURL = (
     process.env.NEXT_PUBLIC_SITE_URL ??
     process.env.VERCEL_PROJECT_PRODUCTION_URL?.replace(/^/, "https://") ??
-    "https://trybram.app"
+    "https://www.trybram.app"
   ).replace(/\/$/, "");
+
+  return siteURL === "https://trybram.app"
+    ? "https://www.trybram.app"
+    : siteURL;
 }
 
 function getSupabase() {
@@ -115,6 +121,24 @@ function getActionLink(result: PasswordResetGenerateLinkResult) {
   }
 
   return result.data?.properties?.action_link;
+}
+
+function getBrandedResetLink(result: PasswordResetGenerateLinkResult) {
+  if (result.error) {
+    throw result.error;
+  }
+
+  const tokenHash = result.data?.properties?.hashed_token;
+  const verificationType = result.data?.properties?.verification_type;
+
+  if (!tokenHash || verificationType !== "recovery") {
+    return null;
+  }
+
+  const url = new URL("/reset-password", getSiteURL());
+  url.searchParams.set("token_hash", tokenHash);
+  url.searchParams.set("type", "recovery");
+  return url.toString();
 }
 
 function getSendError(result: unknown) {
@@ -169,7 +193,7 @@ export async function sendPasswordResetEmail(
     },
   });
 
-  const actionLink = getActionLink(linkResult);
+  const actionLink = getBrandedResetLink(linkResult) ?? getActionLink(linkResult);
   if (!actionLink) {
     throw new Error("Supabase password reset link was not returned.");
   }

@@ -29,6 +29,105 @@ struct SupabaseWorkoutSyncService: WorkoutSyncService {
         }
     }
 
+    func pullAccountData(userId: UUID) async throws {
+        let notes: [RemoteWorkoutNoteRow] = try await client
+            .from("workout_notes")
+            .select()
+            .eq("user_id", value: userId)
+            .limit(500)
+            .execute()
+            .value
+
+        guard !notes.isEmpty else { return }
+
+        let metrics: [RemoteDailyWorkoutMetricsRow] = try await client
+            .from("daily_workout_metrics")
+            .select()
+            .eq("user_id", value: userId)
+            .limit(500)
+            .execute()
+            .value
+        let strengthEntries: [RemoteStrengthEntryRow] = try await client
+            .from("strength_entries")
+            .select()
+            .eq("user_id", value: userId)
+            .limit(2_000)
+            .execute()
+            .value
+        let cardioEntries: [RemoteCardioEntryRow] = try await client
+            .from("cardio_entries")
+            .select()
+            .eq("user_id", value: userId)
+            .limit(2_000)
+            .execute()
+            .value
+        let prEvents: [RemoteWorkoutPRRow] = try await client
+            .from("workout_prs")
+            .select()
+            .eq("user_id", value: userId)
+            .limit(2_000)
+            .execute()
+            .value
+        let healthMetrics: [RemoteHealthDailyMetricRow] = try await client
+            .from("health_daily_metrics")
+            .select()
+            .eq("user_id", value: userId)
+            .limit(500)
+            .execute()
+            .value
+        let healthMatches: [RemoteHealthWorkoutMatchRow] = try await client
+            .from("health_workout_matches")
+            .select()
+            .eq("user_id", value: userId)
+            .limit(500)
+            .execute()
+            .value
+
+        let metricsByNoteId = Dictionary(uniqueKeysWithValues: metrics.compactMap { row in
+            row.noteId.map { ($0, row.localMetrics) }
+        })
+        let strengthByNoteId = Dictionary(grouping: strengthEntries, by: \.noteId)
+        let cardioByNoteId = Dictionary(grouping: cardioEntries, by: \.noteId)
+        let prsByNoteId = Dictionary(grouping: prEvents.compactMap { $0.localEvent }, by: \.noteId)
+        let healthByDate = Dictionary(uniqueKeysWithValues: healthMetrics.map { ($0.metricDate, $0.localMetric) })
+        let matchByNoteId = Dictionary(uniqueKeysWithValues: healthMatches.map { ($0.noteId, $0.localMatch) })
+
+        let payloads = notes.map { row in
+            let note = row.localNote(userId: userId, body: decryptedBody(for: row, userId: userId))
+            return WorkoutSyncPayload(
+                note: note,
+                metrics: metricsByNoteId[row.id],
+                strengthSets: (strengthByNoteId[row.id] ?? []).map(\.localSet),
+                cardioEntries: (cardioByNoteId[row.id] ?? []).map { $0.localEntry(localNoteId: note.id) },
+                prEvents: prsByNoteId[row.id] ?? [],
+                healthDailyMetric: healthByDate[row.workoutDate],
+                healthWorkoutMatch: matchByNoteId[row.id]
+            )
+        }
+
+        try await localStore.importSyncedWorkoutData(payloads)
+    }
+
+    private func decryptedBody(for row: RemoteWorkoutNoteRow, userId: UUID) -> String {
+        guard let bodyCiphertext = row.bodyCiphertext,
+              let bodyNonce = row.bodyNonce
+        else { return row.body }
+
+        do {
+            return try bodyEncryptor.decrypt(
+                EncryptedWorkoutNoteBody(
+                    ciphertext: bodyCiphertext,
+                    nonce: bodyNonce,
+                    keyVersion: row.bodyKeyVersion,
+                    algorithm: row.bodyEncryptionAlg
+                ),
+                userId: userId
+            )
+        } catch {
+            return row.body.isEmpty ? "" : row.body
+        }
+    }
+
     private func upsert(payload: WorkoutSyncPayload, userId: UUID, remoteId: UUID) async throws {
         let note = payload.note
         let encryptedBody = try bodyEncryptor.encrypt(note.body, userId: userId)
@@ -142,6 +241,58 @@ private struct RemoteWorkoutNoteUpsert: Encodable {
     }
 }
 
+private struct RemoteWorkoutNoteRow: Decodable {
+    var id: UUID
+    var userId: UUID
+    var clientLocalId: UUID?
+    var workoutDate: String
+    var timezoneIdentifier: String
+    var body: String
+    var bodyCiphertext: String?
+    var bodyNonce: String?
+    var bodyKeyVersion: Int
+    var bodyEncryptionAlg: String
+    var syncState: String
+    var clientUpdatedAt: Date?
+    var deletedAt: Date?
+    var createdAt: Date
+    var updatedAt: Date
+
+    func localNote(userId: UUID, body: String) -> DailyWorkoutNote {
+        DailyWorkoutNote(
+            id: clientLocalId ?? id,
+            remoteId: id,
+            userId: userId,
+            date: SQLiteWorkoutLocalStore.date(from: workoutDate) ?? .now,
+            timezoneIdentifier: timezoneIdentifier,
+            body: body,
+            createdAt: createdAt,
+            updatedAt: clientUpdatedAt ?? updatedAt,
+            deletedAt: deletedAt,
+            syncState: .synced,
+            lastSyncError: nil
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case clientLocalId = "client_local_id"
+        case workoutDate = "workout_date"
+        case timezoneIdentifier = "timezone_identifier"
+        case body
+        case bodyCiphertext = "body_ciphertext"
+        case bodyNonce = "body_nonce"
+        case bodyKeyVersion = "body_key_version"
+        case bodyEncryptionAlg = "body_encryption_alg"
+        case syncState = "sync_state"
+        case clientUpdatedAt = "client_updated_at"
+        case deletedAt = "deleted_at"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
 private struct RemoteDailyWorkoutMetrics: Encodable {
     var userId: UUID
     var workoutDate: String
@@ -167,6 +318,50 @@ private struct RemoteDailyWorkoutMetrics: Encodable {
         activeEnergyCalories = metrics.activeEnergyCalories
         averageHeartRate = metrics.averageHeartRate
         workoutDurationMinutes = metrics.workoutDurationMinutes
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case workoutDate = "workout_date"
+        case noteId = "note_id"
+        case totalSets = "total_sets"
+        case hardSets = "hard_sets"
+        case estimatedVolume = "estimated_volume"
+        case prCount = "pr_count"
+        case cardioMinutes = "cardio_minutes"
+        case activeEnergyCalories = "active_energy_calories"
+        case averageHeartRate = "average_heart_rate"
+        case workoutDurationMinutes = "workout_duration_minutes"
+    }
+}
+
+private struct RemoteDailyWorkoutMetricsRow: Decodable {
+    var userId: UUID
+    var workoutDate: String
+    var noteId: UUID?
+    var totalSets: Int
+    var hardSets: Int
+    var estimatedVolume: Int
+    var prCount: Int
+    var cardioMinutes: Int
+    var activeEnergyCalories: Int?
+    var averageHeartRate: Int?
+    var workoutDurationMinutes: Int?
+
+    var localMetrics: WorkoutMetricSnapshot {
+        WorkoutMetricSnapshot(
+            totalSets: totalSets,
+            hardSets: hardSets,
+            estimatedVolume: estimatedVolume,
+            prCount: prCount,
+            streakDays: 0,
+            cardioMinutes: cardioMinutes,
+            activeEnergyCalories: activeEnergyCalories,
+            energyIsEstimated: false,
+            averageHeartRate: averageHeartRate,
+            workoutDurationMinutes: workoutDurationMinutes,
+            parseState: .parsed
+        )
     }
 
     enum CodingKeys: String, CodingKey {
@@ -226,6 +421,38 @@ private struct RemoteStrengthEntry: Encodable {
     }
 }
 
+private struct RemoteStrengthEntryRow: Decodable {
+    var id: UUID
+    var noteId: UUID
+    var exerciseName: String
+    var exerciseKey: String?
+    var reps: Int?
+    var loadValue: Double?
+    var loadUnit: String
+
+    var localSet: StrengthSetRecord {
+        StrengthSetRecord(
+            id: id,
+            exerciseKey: exerciseKey ?? RemoteExerciseKey.key(for: exerciseName),
+            exerciseName: exerciseName,
+            reps: reps ?? 0,
+            load: loadValue ?? 0,
+            unit: loadUnit,
+            performedAt: .now
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case noteId = "note_id"
+        case exerciseName = "exercise_name"
+        case exerciseKey = "exercise_key"
+        case reps
+        case loadValue = "load_value"
+        case loadUnit = "load_unit"
+    }
+}
+
 private struct RemoteCardioEntry: Encodable {
     var id: UUID
     var userId: UUID
@@ -274,6 +501,50 @@ private struct RemoteCardioEntry: Encodable {
     }
 }
 
+private struct RemoteCardioEntryRow: Decodable {
+    var id: UUID
+    var noteId: UUID
+    var lineIndex: Int?
+    var sessionIndex: Int?
+    var sessionName: String?
+    var activityType: String
+    var durationMinutes: Int?
+    var distanceValue: Double?
+    var distanceUnit: String?
+    var averageHeartRate: Int?
+    var activeEnergyCalories: Int?
+
+    func localEntry(localNoteId: UUID) -> CardioEntry {
+        CardioEntry(
+            id: id,
+            noteId: localNoteId,
+            lineIndex: lineIndex,
+            sessionIndex: sessionIndex,
+            sessionName: sessionName,
+            activityType: activityType,
+            durationMinutes: durationMinutes,
+            distance: distanceValue,
+            distanceUnit: distanceUnit,
+            averageHeartRate: averageHeartRate,
+            activeEnergyCalories: activeEnergyCalories
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case noteId = "note_id"
+        case lineIndex = "source_line_index"
+        case sessionIndex = "session_index"
+        case sessionName = "session_name"
+        case activityType = "activity_type"
+        case durationMinutes = "duration_minutes"
+        case distanceValue = "distance_value"
+        case distanceUnit = "distance_unit"
+        case averageHeartRate = "average_heart_rate"
+        case activeEnergyCalories = "active_energy_calories"
+    }
+}
+
 private struct RemoteWorkoutPR: Encodable {
     var id: UUID
     var userId: UUID
@@ -303,6 +574,39 @@ private struct RemoteWorkoutPR: Encodable {
         case noteId = "note_id"
         case exerciseName = "exercise_name"
         case exerciseKey = "exercise_key"
+        case prKind = "pr_kind"
+        case value
+        case unit
+        case achievedAt = "achieved_at"
+    }
+}
+
+private struct RemoteWorkoutPRRow: Decodable {
+    var id: UUID
+    var noteId: UUID?
+    var exerciseName: String
+    var prKind: String
+    var value: Double
+    var unit: String
+    var achievedAt: Date
+
+    var localEvent: WorkoutPREvent? {
+        guard let noteId else { return nil }
+        return WorkoutPREvent(
+            id: id,
+            noteId: noteId,
+            exerciseName: exerciseName,
+            kind: prKind,
+            value: value,
+            unit: unit,
+            achievedAt: achievedAt
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case noteId = "note_id"
+        case exerciseName = "exercise_name"
         case prKind = "pr_kind"
         case value
         case unit
@@ -343,6 +647,41 @@ private struct RemoteHealthDailyMetric: Encodable {
     }
 }
 
+private struct RemoteHealthDailyMetricRow: Decodable {
+    var metricDate: String
+    var activeEnergyCalories: Int?
+    var averageHeartRate: Int?
+    var maxHeartRate: Int?
+    var bodyweightValue: Double?
+    var bodyweightUnit: String?
+    var source: String
+    var updatedAt: Date?
+
+    var localMetric: HealthDailyMetric {
+        HealthDailyMetric(
+            date: SQLiteWorkoutLocalStore.date(from: metricDate) ?? .now,
+            activeEnergyCalories: activeEnergyCalories,
+            averageHeartRate: averageHeartRate,
+            maxHeartRate: maxHeartRate,
+            bodyweightValue: bodyweightValue,
+            bodyweightUnit: bodyweightUnit,
+            source: source,
+            updatedAt: updatedAt ?? .now
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case metricDate = "metric_date"
+        case activeEnergyCalories = "active_energy_calories"
+        case averageHeartRate = "average_heart_rate"
+        case maxHeartRate = "max_heart_rate"
+        case bodyweightValue = "bodyweight_value"
+        case bodyweightUnit = "bodyweight_unit"
+        case source
+        case updatedAt = "updated_at"
+    }
+}
+
 private struct RemoteHealthWorkoutMatch: Encodable {
     var id: UUID
     var userId: UUID
@@ -367,5 +706,42 @@ private struct RemoteHealthWorkoutMatch: Encodable {
         case healthWorkoutId = "health_workout_id"
         case matchQuality = "match_quality"
         case matchedAt = "matched_at"
+    }
+}
+
+private struct RemoteHealthWorkoutMatchRow: Decodable {
+    var id: UUID
+    var noteId: UUID
+    var healthWorkoutId: String
+    var matchQuality: String
+    var matchedAt: Date
+
+    var localMatch: HealthWorkoutMatch {
+        HealthWorkoutMatch(
+            id: id,
+            noteId: noteId,
+            noteDate: .now,
+            healthWorkoutId: healthWorkoutId,
+            matchQuality: HealthWorkoutMatchQuality(rawValue: matchQuality) ?? .possible,
+            matchedAt: matchedAt
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case noteId = "note_id"
+        case healthWorkoutId = "health_workout_id"
+        case matchQuality = "match_quality"
+        case matchedAt = "matched_at"
+    }
+}
+
+private enum RemoteExerciseKey {
+    static func key(for name: String) -> String {
+        let words = name
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+        return words.isEmpty ? "unknown" : words.joined(separator: "_")
     }
 }

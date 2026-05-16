@@ -33,6 +33,8 @@ type RevenueCatEntitlement = {
 type RevenueCatSubscription = {
   period_type?: string | null;
   expires_date?: string | null;
+  unsubscribe_detected_at?: string | null;
+  billing_issues_detected_at?: string | null;
 };
 
 type RevenueCatSubscriberResponse = {
@@ -122,6 +124,26 @@ function isActive(expiresDate: string | null | undefined) {
   return new Date(expiresDate).getTime() > Date.now();
 }
 
+function isManualGrantActive(existing: {
+  account_tier: string;
+  entitlement_source: string;
+  is_developer: boolean;
+  premium_expires_at?: string | null;
+}) {
+  if (existing.is_developer) {
+    return true;
+  }
+
+  if (
+    existing.account_tier !== "FREE_PREMIUM" ||
+    !["FOUNDER_OFFER", "MANUAL", "DEV"].includes(existing.entitlement_source)
+  ) {
+    return false;
+  }
+
+  return isActive(existing.premium_expires_at);
+}
+
 function subscriptionStatus(
   active: boolean,
   entitlement: RevenueCatEntitlement | undefined,
@@ -129,6 +151,14 @@ function subscriptionStatus(
 ) {
   if (!active) {
     return "EXPIRED";
+  }
+
+  if (subscription?.billing_issues_detected_at) {
+    return "BILLING_RETRY";
+  }
+
+  if (subscription?.unsubscribe_detected_at) {
+    return "CANCELED";
   }
 
   return subscription?.period_type?.toUpperCase() === "TRIAL" ? "TRIAL" : "ACTIVE";
@@ -158,7 +188,7 @@ async function fetchRevenueCatSubscriber(
 async function currentAccountEntitlement(supabase: SupabaseLike, userId: string) {
   const { data, error } = await supabase
     .from("account_entitlements")
-    .select("account_tier, entitlement_source, is_developer")
+    .select("account_tier, entitlement_source, is_developer, premium_expires_at")
     .eq("user_id", userId)
     .single();
 
@@ -170,6 +200,7 @@ async function currentAccountEntitlement(supabase: SupabaseLike, userId: string)
     account_tier: string;
     entitlement_source: string;
     is_developer: boolean;
+    premium_expires_at: string | null;
   };
 }
 
@@ -189,12 +220,7 @@ export async function syncRevenueCatEntitlement(
   const active = Boolean(entitlement && isActive(entitlement.expires_date));
   const existing = await currentAccountEntitlement(supabase, appUserId);
 
-  if (
-    !active &&
-    (existing.is_developer ||
-      existing.account_tier === "FREE_PREMIUM" ||
-      !["REVENUECAT", "APP_STORE"].includes(existing.entitlement_source))
-  ) {
+  if (!active && isManualGrantActive(existing)) {
     return fetchAccountSnapshot(supabase, appUserId);
   }
 

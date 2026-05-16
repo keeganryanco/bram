@@ -1,7 +1,13 @@
+import StoreKit
 import SwiftUI
 
 struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.requestReview) private var requestReview
+    @AppStorage("bram.review.prompt_disabled") private var reviewPromptDisabled = false
+    @AppStorage("bram.review.prompt_count") private var reviewPromptCount = 0
+    @AppStorage("bram.review.last_prompt_at") private var reviewLastPromptAt = 0.0
+    @AppStorage("bram.review.first_workout_prompted") private var reviewFirstWorkoutPrompted = false
     @State private var note: DailyWorkoutNote
     @State private var selectedExercise: ExerciseAnchor?
     @State private var selectedCardioHistory: CardioHistorySummary?
@@ -15,6 +21,7 @@ struct HomeView: View {
     @State private var loadTask: Task<Void, Never>?
     @State private var isLoadingNote = false
     @State private var isEditingNote = false
+    @State private var showingReviewPrompt = false
     @State private var activeSuggestionDraft: SuggestionDraft?
     private let noteStore: any WorkoutLocalStore
     private let interpreter: any WorkoutInterpretationService
@@ -25,6 +32,10 @@ struct HomeView: View {
     private let onDeleteAccount: () async -> Void
     private let onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)?
     private let onWorkoutDataSaved: (() async -> Void)?
+    private let reminderService: (any WorkoutReminderScheduling)?
+    private let track: (AnalyticsEvent) -> Void
+    private let reportError: (String, String, String?, Error?, [String: String]) -> Void
+    private let submitSupportRequest: (SupportRequestDraft) async throws -> Void
 
     init(
         note: DailyWorkoutNote = BramPreviewData.populatedNote,
@@ -37,7 +48,11 @@ struct HomeView: View {
         onSignOut: @escaping () async -> Void = {},
         onDeleteAccount: @escaping () async -> Void = {},
         onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)? = nil,
-        onWorkoutDataSaved: (() async -> Void)? = nil
+        onWorkoutDataSaved: (() async -> Void)? = nil,
+        reminderService: (any WorkoutReminderScheduling)? = BramNotificationService(),
+        track: @escaping (AnalyticsEvent) -> Void = { _ in },
+        reportError: @escaping (String, String, String?, Error?, [String: String]) -> Void = { _, _, _, _, _ in },
+        submitSupportRequest: @escaping (SupportRequestDraft) async throws -> Void = { _ in }
     ) {
         _note = State(initialValue: note)
         _goalsProfile = State(initialValue: initialGoalsProfile)
@@ -50,6 +65,10 @@ struct HomeView: View {
         self.onDeleteAccount = onDeleteAccount
         self.onGoalsProfileSave = onGoalsProfileSave
         self.onWorkoutDataSaved = onWorkoutDataSaved
+        self.reminderService = reminderService
+        self.track = track
+        self.reportError = reportError
+        self.submitSupportRequest = submitSupportRequest
     }
 
     var body: some View {
@@ -61,9 +80,18 @@ struct HomeView: View {
                     HomeHeader(
                         date: note.date,
                         streakDays: note.metrics.streakDays,
-                        openCalendar: { activePanel = .calendar },
-                        openProgress: { activePanel = .progress },
-                        openSettings: { activePanel = .settings }
+                        openCalendar: {
+                            track(AnalyticsEvent(name: "calendar_opened", properties: ["source": "home_header"]))
+                            activePanel = .calendar
+                        },
+                        openProgress: {
+                            track(AnalyticsEvent(name: "stats_opened", properties: ["source": "home_header"]))
+                            activePanel = .progress
+                        },
+                        openSettings: {
+                            track(AnalyticsEvent(name: "settings_opened", properties: ["source": "home_header"]))
+                            activePanel = .settings
+                        }
                     )
 
                     WorkoutNoteEditor(
@@ -128,10 +156,31 @@ struct HomeView: View {
                 .presentationDetents([.medium, .large])
                 .presentationCornerRadius(30)
         }
+        .sheet(isPresented: $showingReviewPrompt) {
+            ReviewPromptSheet(
+                onYes: {
+                    track(AnalyticsEvent(name: "review_prompt_accepted", properties: ["source": "first_workout"]))
+                    requestReview()
+                    showingReviewPrompt = false
+                },
+                onNotNow: {
+                    track(AnalyticsEvent(name: "review_prompt_deferred", properties: ["source": "first_workout"]))
+                    showingReviewPrompt = false
+                },
+                onNever: {
+                    reviewPromptDisabled = true
+                    track(AnalyticsEvent(name: "review_prompt_disabled", properties: ["source": "first_workout"]))
+                    showingReviewPrompt = false
+                }
+            )
+            .presentationDetents([.height(350)])
+            .presentationCornerRadius(28)
+        }
         .task(id: selectedDayKey) {
             await loadNote(for: note.date)
         }
         .task {
+            track(AnalyticsEvent(name: "home_viewed", properties: ["access": featureAccess.canUseInterpretation ? "premium" : "free"]))
             await refreshCalendarDays()
             await refreshProgressStats()
             await loadGoalsProfile()
@@ -186,12 +235,18 @@ struct HomeView: View {
                 onSignOut: onSignOut,
                 onDeleteAccount: onDeleteAccount,
                 onHealthUpdated: {
+                    track(AnalyticsEvent(name: "health_data_refreshed", properties: ["source": "settings"]))
                     Task {
                         await loadNote(for: note.date)
                         await refreshProgressStats()
                         await refreshCalendarDays()
                         await loadGoalsProfile()
                     }
+                },
+                enableWorkoutReminders: enableWorkoutReminders,
+                submitSupportRequest: submitSupportRequest,
+                onSupportOpened: {
+                    track(AnalyticsEvent(name: "support_opened", properties: ["source": "settings"]))
                 }
             )
         case .goals:
@@ -289,6 +344,7 @@ struct HomeView: View {
                 selectedExercise = enrichedExercise
             }
         } catch {
+            reportError("home", "exercise_history_load_failed", nil, error, ["source": "exercise_anchor"])
             await MainActor.run {
                 selectedExercise = exercise
             }
@@ -307,6 +363,7 @@ struct HomeView: View {
                 selectedCardioHistory = history
             }
         } catch {
+            reportError("home", "cardio_history_load_failed", nil, error, ["source": "cardio_anchor"])
             await MainActor.run {
                 selectedCardioHistory = .placeholder(for: entry)
             }
@@ -353,7 +410,13 @@ struct HomeView: View {
         backendInterpretationTask = Task {
             try? await Task.sleep(for: .milliseconds(1_200))
             guard !Task.isCancelled else { return }
-            guard let backendResult = try? await backendInterpreter.interpret(note: draft) else { return }
+            let backendResult: WorkoutInterpretationResult
+            do {
+                backendResult = try await backendInterpreter.interpret(note: draft)
+            } catch {
+                reportError("home", "backend_interpretation_failed", nil, error, ["note_length_bucket": Self.noteLengthBucket(draft.body)])
+                return
+            }
             let result = displaySafeInterpretation(backendResult)
             guard !Task.isCancelled else { return }
             let context = await SuggestionContextBuilder.build(
@@ -488,6 +551,7 @@ struct HomeView: View {
                 note = loaded
             }
         } catch {
+            reportError("home", "note_load_failed", nil, error, ["day": SQLiteWorkoutLocalStore.dayKey(for: date)])
             await MainActor.run {
                 note.lastSyncError = "Could not load this workout note."
             }
@@ -505,7 +569,14 @@ struct HomeView: View {
         saveTask = Task {
             try? await Task.sleep(for: .milliseconds(450))
             guard !Task.isCancelled else { return }
-            try? await store.save(draft)
+            do {
+                try await store.save(draft)
+                track(AnalyticsEvent(name: "note_saved", properties: Self.noteAnalyticsProperties(for: draft)))
+                await scheduleWorkoutReminder(after: draft)
+                await maybeShowReviewPrompt(afterSaving: draft)
+            } catch {
+                reportError("home", "note_save_failed", nil, error, ["note_length_bucket": Self.noteLengthBucket(draft.body)])
+            }
             await onWorkoutDataSaved?()
             if let refreshed = try? await store.note(for: draft.date), !Task.isCancelled {
                 await MainActor.run {
@@ -528,7 +599,14 @@ struct HomeView: View {
         draft.syncState = draft.remoteId == nil ? .localOnly : .pendingUpload
         let store = noteStore
         Task {
-            try? await store.save(draft)
+            do {
+                try await store.save(draft)
+                track(AnalyticsEvent(name: "note_saved", properties: Self.noteAnalyticsProperties(for: draft).merging(["flush": "true"]) { current, _ in current }))
+                await scheduleWorkoutReminder(after: draft)
+                await maybeShowReviewPrompt(afterSaving: draft)
+            } catch {
+                reportError("home", "note_flush_save_failed", nil, error, ["note_length_bucket": Self.noteLengthBucket(draft.body)])
+            }
             await onWorkoutDataSaved?()
             if let refreshed = try? await store.note(for: draft.date) {
                 await MainActor.run {
@@ -550,6 +628,7 @@ struct HomeView: View {
                 calendarDays = days
             }
         } catch {
+            reportError("home", "calendar_refresh_failed", nil, error, [:])
             await MainActor.run {
                 note.lastSyncError = "Could not refresh calendar markers."
             }
@@ -563,6 +642,7 @@ struct HomeView: View {
                 progressStats = stats
             }
         } catch {
+            reportError("home", "progress_stats_refresh_failed", nil, error, [:])
             await MainActor.run {
                 note.lastSyncError = "Could not refresh progress stats."
             }
@@ -576,6 +656,7 @@ struct HomeView: View {
                 goalsProfile = profile
             }
         } catch {
+            reportError("home", "goals_profile_load_failed", nil, error, [:])
             await MainActor.run {
                 goalsProfile = BramPreviewData.goalsProfile
             }
@@ -586,8 +667,96 @@ struct HomeView: View {
         goalsProfile = profile
         let store = noteStore
         Task {
-            try? await store.save(profile)
+            do {
+                try await store.save(profile)
+            } catch {
+                reportError("settings", "local_goals_save_failed", nil, error, [:])
+            }
             await onGoalsProfileSave?(profile)
+        }
+    }
+
+    private static func noteAnalyticsProperties(for note: DailyWorkoutNote) -> [String: String] {
+        [
+            "note_length_bucket": noteLengthBucket(note.body),
+            "set_count_bucket": countBucket(note.metrics.totalSets),
+            "interpreted_line_count_bucket": countBucket(note.interpretedLines.count),
+            "cardio_minutes_bucket": countBucket(note.metrics.cardioMinutes),
+            "has_pr": note.metrics.prCount > 0 ? "true" : "false"
+        ]
+    }
+
+    private func enableWorkoutReminders() async {
+        do {
+            guard let reminderService else { return }
+            let granted = try await reminderService.requestAuthorization()
+            track(
+                AnalyticsEvent(
+                    name: "workout_reminders_permission_set",
+                    properties: ["granted": granted ? "true" : "false"]
+                )
+            )
+            if granted {
+                await reminderService.scheduleReminder(after: note, goals: goalsProfile)
+            }
+        } catch {
+            reportError("settings", "workout_reminders_permission_failed", nil, error, [:])
+        }
+    }
+
+    private func scheduleWorkoutReminder(after draft: DailyWorkoutNote) async {
+        guard isWorkoutLike(draft) else { return }
+        await reminderService?.scheduleReminder(after: draft, goals: goalsProfile)
+    }
+
+    @MainActor
+    private func maybeShowReviewPrompt(afterSaving draft: DailyWorkoutNote) {
+        guard shouldShowReviewPrompt(for: draft) else { return }
+        reviewPromptCount += 1
+        reviewLastPromptAt = Date().timeIntervalSince1970
+        reviewFirstWorkoutPrompted = true
+        showingReviewPrompt = true
+        track(AnalyticsEvent(name: "review_prompt_viewed", properties: ["source": "first_workout"]))
+    }
+
+    private func shouldShowReviewPrompt(for draft: DailyWorkoutNote) -> Bool {
+        guard !reviewPromptDisabled,
+              !reviewFirstWorkoutPrompted,
+              reviewPromptCount < 2,
+              !showingReviewPrompt,
+              isWorkoutLike(draft)
+        else { return false }
+
+        let minimumSpacing: TimeInterval = 60 * 60 * 24 * 90
+        return reviewLastPromptAt == 0 || Date().timeIntervalSince1970 - reviewLastPromptAt > minimumSpacing
+    }
+
+    private func isWorkoutLike(_ draft: DailyWorkoutNote) -> Bool {
+        let trimmedLength = draft.body.trimmingCharacters(in: .whitespacesAndNewlines).count
+        return trimmedLength >= 20
+            || draft.metrics.totalSets > 0
+            || draft.metrics.cardioMinutes > 0
+            || !draft.interpretedLines.isEmpty
+    }
+
+    private static func noteLengthBucket(_ body: String) -> String {
+        let count = body.trimmingCharacters(in: .whitespacesAndNewlines).count
+        switch count {
+        case 0: return "empty"
+        case 1..<80: return "short"
+        case 80..<300: return "medium"
+        case 300..<900: return "long"
+        default: return "very_long"
+        }
+    }
+
+    private static func countBucket(_ count: Int) -> String {
+        switch count {
+        case 0: "0"
+        case 1...2: "1_2"
+        case 3...5: "3_5"
+        case 6...10: "6_10"
+        default: "11_plus"
         }
     }
 
@@ -606,6 +775,61 @@ struct HomeView: View {
             )
         )
         calendarDays.sort { $0.date < $1.date }
+    }
+}
+
+private struct ReviewPromptSheet: View {
+    let onYes: () -> Void
+    let onNotNow: () -> Void
+    let onNever: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                BramLogoMark(size: 38)
+                Spacer()
+                Button(action: onNotNow) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(BramColor.textTertiary)
+                        .frame(width: 34, height: 34)
+                        .background(BramColor.cardSurface, in: Circle())
+                }
+                .accessibilityLabel("Close")
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Is Bram working for you?")
+                    .font(BramFont.largeTitle(size: 30))
+                    .foregroundStyle(BramColor.textPrimary)
+                Text("A quick App Store review helps more lifters find Bram.")
+                    .font(BramFont.body(size: 16))
+                    .foregroundStyle(BramColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 4)
+
+            Button(action: onYes) {
+                Text("Yes, leave a review")
+                    .font(BramFont.button(size: 16))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(BramColor.violet, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            HStack(spacing: 18) {
+                Button("Not now", action: onNotNow)
+                Button("Don't ask again", action: onNever)
+            }
+            .font(BramFont.label(size: 13))
+            .foregroundStyle(BramColor.textTertiary)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(22)
+        .background(BramColor.appBackground)
     }
 }
 

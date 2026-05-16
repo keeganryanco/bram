@@ -45,8 +45,8 @@ struct CalendarPanelView: View {
             }
 
             HStack(spacing: 18) {
-                CalendarLegendItem(color: BramColor.violet, label: "Workout")
-                CalendarLegendItem(color: BramColor.energy, label: "PR")
+                CalendarLegendItem(systemImage: "circle.fill", color: BramColor.violet, label: "Workout")
+                CalendarLegendItem(systemImage: "star.fill", color: BramColor.energy, label: "PR")
                 Spacer()
             }
             .padding(.horizontal, 4)
@@ -97,14 +97,16 @@ struct CalendarPanelView: View {
 }
 
 private struct CalendarLegendItem: View {
+    let systemImage: String
     let color: Color
     let label: String
 
     var body: some View {
         HStack(spacing: 7) {
-            Circle()
-                .fill(color)
-                .frame(width: 7, height: 7)
+            Image(systemName: systemImage)
+                .font(.system(size: 7, weight: .bold))
+                .foregroundStyle(color)
+                .frame(width: 8, height: 8)
             Text(label)
                 .font(BramFont.label())
                 .foregroundStyle(BramColor.textSecondary)
@@ -176,11 +178,14 @@ private struct CalendarDayCell: View {
                     Circle().stroke(selectionStroke, lineWidth: day.isSelected ? 2 : 1)
                 }
 
-            Circle()
-                .fill(dotColor)
-                .frame(width: 5, height: 5)
+            Image(systemName: day.hadPR ? "star.fill" : "circle.fill")
+                .font(.system(size: day.hadPR ? 7 : 5, weight: .bold))
+                .foregroundStyle(dotColor)
+                .frame(width: 8, height: 8)
                 .opacity(day.hasWorkout ? 1 : 0)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private var textColor: Color {
@@ -200,6 +205,17 @@ private struct CalendarDayCell: View {
 
     private var dotColor: Color {
         day.hadPR ? BramColor.energy : BramColor.violet
+    }
+
+    private var accessibilityLabel: String {
+        var parts = [
+            day.date.formatted(.dateTime.month(.wide).day().year())
+        ]
+        if day.isSelected { parts.append("selected") }
+        if day.isToday { parts.append("today") }
+        if day.hasWorkout { parts.append("workout logged") }
+        if day.hadPR { parts.append("personal record") }
+        return parts.joined(separator: ", ")
     }
 }
 

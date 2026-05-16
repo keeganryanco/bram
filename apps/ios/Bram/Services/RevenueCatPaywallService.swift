@@ -50,15 +50,29 @@ final class RevenueCatPaywallService: BramPaywallServicing {
             }
         }
 
-        guard let offering = offerings.current, !offering.availablePackages.isEmpty else {
+        let offering = offerings.current ?? offerings.offering(identifier: "premium")
+
+        guard let offering, !offering.availablePackages.isEmpty else {
             packageById = [:]
             throw BramPaywallError.noOffering
         }
 
-        packageById = Dictionary(uniqueKeysWithValues: offering.availablePackages.map { ($0.identifier, $0) })
-        let packages = offering.availablePackages.map { package in
+        let availablePackages = offering.availablePackages
+            .filter { BramSubscriptionProductID.orderedPremiumProducts.contains($0.storeProduct.productIdentifier) }
+            .sorted { lhs, rhs in
+                productOrder(lhs.storeProduct.productIdentifier) < productOrder(rhs.storeProduct.productIdentifier)
+            }
+
+        guard !availablePackages.isEmpty else {
+            packageById = [:]
+            throw BramPaywallError.noOffering
+        }
+
+        packageById = Dictionary(uniqueKeysWithValues: availablePackages.map { ($0.identifier, $0) })
+        let packages = availablePackages.map { package in
             BramPaywallPackage(
                 id: package.identifier,
+                productId: package.storeProduct.productIdentifier,
                 title: title(for: package),
                 price: package.storeProduct.localizedPriceString,
                 period: periodText(for: package),
@@ -68,6 +82,13 @@ final class RevenueCatPaywallService: BramPaywallServicing {
         }
 
         return BramPaywallSnapshot(packages: packages, message: nil)
+    }
+
+    func trackPaywallImpression() {
+        guard Purchases.isConfigured else { return }
+        Purchases.shared.trackCustomPaywallImpression(
+            CustomPaywallImpressionParams(paywallId: "bram_v1_hard_paywall")
+        )
     }
 
     func purchase(packageId: String) async throws {
@@ -109,26 +130,51 @@ final class RevenueCatPaywallService: BramPaywallServicing {
     }
 
     private func title(for package: Package) -> String {
-        switch package.packageType {
-        case .annual: "Yearly"
-        case .monthly: "Monthly"
-        default: package.storeProduct.localizedTitle
+        switch package.storeProduct.productIdentifier {
+        case BramSubscriptionProductID.premiumYearly:
+            "Yearly"
+        case BramSubscriptionProductID.premiumMonthly:
+            "Monthly"
+        default:
+            switch package.packageType {
+            case .annual: "Yearly"
+            case .monthly: "Monthly"
+            default: package.storeProduct.localizedTitle
+            }
         }
     }
 
     private func periodText(for package: Package) -> String {
-        switch package.packageType {
-        case .annual: "per year"
-        case .monthly: "per month"
-        default: "subscription"
+        switch package.storeProduct.productIdentifier {
+        case BramSubscriptionProductID.premiumYearly:
+            "per year"
+        case BramSubscriptionProductID.premiumMonthly:
+            "per month"
+        default:
+            switch package.packageType {
+            case .annual: "per year"
+            case .monthly: "per month"
+            default: "subscription"
+            }
         }
     }
 
     private func detailText(for package: Package) -> String {
-        switch package.packageType {
-        case .annual: "3 days free, then yearly billing"
-        case .monthly: "3 days free, then monthly billing"
-        default: "3 days free, then renews automatically"
+        switch package.storeProduct.productIdentifier {
+        case BramSubscriptionProductID.premiumYearly:
+            "3 days free, then yearly billing"
+        case BramSubscriptionProductID.premiumMonthly:
+            "3 days free, then monthly billing"
+        default:
+            switch package.packageType {
+            case .annual: "3 days free, then yearly billing"
+            case .monthly: "3 days free, then monthly billing"
+            default: "3 days free, then renews automatically"
+            }
         }
+    }
+
+    private func productOrder(_ productIdentifier: String) -> Int {
+        BramSubscriptionProductID.orderedPremiumProducts.firstIndex(of: productIdentifier) ?? Int.max
     }
 }

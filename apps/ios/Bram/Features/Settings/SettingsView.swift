@@ -11,9 +11,13 @@ struct SettingsView: View {
     let onSignOut: () async -> Void
     let onDeleteAccount: () async -> Void
     let onHealthUpdated: () -> Void
+    let enableWorkoutReminders: () async -> Void
     let openGoals: () -> Void
     let openHealth: () -> Void
+    let submitSupportRequest: (SupportRequestDraft) async throws -> Void
+    let onSupportOpened: () -> Void
     @State private var showingDeleteConfirmation = false
+    @State private var showingSupport = false
 
     init(
         account: SettingsAccountState,
@@ -26,8 +30,11 @@ struct SettingsView: View {
         onSignOut: @escaping () async -> Void = {},
         onDeleteAccount: @escaping () async -> Void = {},
         onHealthUpdated: @escaping () -> Void = {},
+        enableWorkoutReminders: @escaping () async -> Void = {},
         openGoals: @escaping () -> Void = {},
-        openHealth: @escaping () -> Void = {}
+        openHealth: @escaping () -> Void = {},
+        submitSupportRequest: @escaping (SupportRequestDraft) async throws -> Void = { _ in },
+        onSupportOpened: @escaping () -> Void = {}
     ) {
         self.account = account
         self.goalsProfile = goalsProfile
@@ -39,8 +46,11 @@ struct SettingsView: View {
         self.onSignOut = onSignOut
         self.onDeleteAccount = onDeleteAccount
         self.onHealthUpdated = onHealthUpdated
+        self.enableWorkoutReminders = enableWorkoutReminders
         self.openGoals = openGoals
         self.openHealth = openHealth
+        self.submitSupportRequest = submitSupportRequest
+        self.onSupportOpened = onSupportOpened
     }
 
     var body: some View {
@@ -93,11 +103,19 @@ struct SettingsView: View {
 
             SettingsSection(title: "Preferences") {
                 SettingsInfoRow(title: "Appearance", value: account.appearance)
+                SettingsActionRow(title: "Workout reminders", systemImage: "bell.fill", tint: BramColor.violet) {
+                    Task {
+                        await enableWorkoutReminders()
+                    }
+                }
                 SettingsToggleRow(title: "Developer mode", subtitle: "Visible when account entitlement allows it", systemImage: "hammer.fill", tint: BramColor.cool, isOn: account.isDeveloper)
             }
 
             SettingsSection(title: "Support") {
-                SettingsExternalLink(title: "Contact Support", systemImage: "envelope.fill", url: URL(string: "mailto:support@trybram.app")!)
+                SettingsActionRow(title: "Contact Support", systemImage: "envelope.fill", tint: BramColor.cool) {
+                    onSupportOpened()
+                    showingSupport = true
+                }
                 SettingsExternalLink(title: "Privacy Policy", systemImage: "lock.fill", url: URL(string: "https://trybram.app/privacy")!)
                 SettingsExternalLink(title: "Terms", systemImage: "doc.text.fill", url: URL(string: "https://trybram.app/terms")!)
                 SettingsActionRow(title: "Sign Out", systemImage: "rectangle.portrait.and.arrow.right", tint: BramColor.cool) {
@@ -120,6 +138,11 @@ struct SettingsView: View {
         } message: {
             Text("This permanently deletes your Bram account and synced account data. Local data on this device will also be cleared.")
         }
+        .sheet(isPresented: $showingSupport) {
+            SupportRequestSheet(account: account, submit: submitSupportRequest)
+                .presentationDetents([.medium, .large])
+                .presentationCornerRadius(28)
+        }
     }
 
     private var subscriptionSubtitle: String {
@@ -127,6 +150,115 @@ struct SettingsView: View {
             "Founder offer eligible"
         } else {
             "Manage through App Store"
+        }
+    }
+}
+
+private struct SupportRequestSheet: View {
+    let account: SettingsAccountState
+    let submit: (SupportRequestDraft) async throws -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var category: SupportCategory = .bug
+    @State private var message = ""
+    @State private var includeDiagnostics = true
+    @State private var isSubmitting = false
+    @State private var resultMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Contact Support")
+                        .font(BramFont.largeTitle(size: 30))
+                        .foregroundStyle(BramColor.textPrimary)
+                    Text("Send a bug, billing, account, or workout data note.")
+                        .font(BramFont.body(size: 15))
+                        .foregroundStyle(BramColor.textSecondary)
+                }
+
+                Picker("Category", selection: $category) {
+                    ForEach(SupportCategory.allCases) { item in
+                        Text(item.label).tag(item)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(BramColor.violet)
+
+                TextEditor(text: $message)
+                    .font(BramFont.body(size: 16))
+                    .foregroundStyle(BramColor.textPrimary)
+                    .frame(minHeight: 150)
+                    .padding(12)
+                    .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(BramColor.hairline, lineWidth: 1)
+                    }
+                    .accessibilityLabel("Support message")
+
+                Toggle("Include diagnostics", isOn: $includeDiagnostics)
+                    .font(BramFont.label())
+                    .tint(BramColor.violet)
+
+                if let resultMessage {
+                    Text(resultMessage)
+                        .font(BramFont.callout(size: 13))
+                        .foregroundStyle(BramColor.textSecondary)
+                }
+
+                Spacer()
+
+                Button {
+                    Task { await submitTapped() }
+                } label: {
+                    Text(isSubmitting ? "Sending..." : "Send")
+                        .font(BramFont.button(size: 16))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(BramColor.violet, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(isSubmitting)
+                .opacity(isSubmitting ? 0.5 : 1)
+            }
+            .padding(22)
+            .background(BramColor.appBackground)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func submitTapped() async {
+        let cleanMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanMessage.isEmpty else {
+            resultMessage = "Add a short note so support knows what happened."
+            return
+        }
+
+        isSubmitting = true
+        defer { isSubmitting = false }
+
+        do {
+            try await submit(
+                SupportRequestDraft(
+                    category: category,
+                    message: cleanMessage,
+                    contactEmail: account.email,
+                    includeDiagnostics: includeDiagnostics,
+                    source: "settings_support"
+                )
+            )
+            resultMessage = "Sent. We will follow up by email if needed."
+            message = ""
+        } catch {
+            resultMessage = error.localizedDescription
         }
     }
 }
@@ -340,8 +472,12 @@ private struct SettingsExternalLink: View {
     let systemImage: String
     let url: URL
 
+    @Environment(\.openURL) private var openURL
+
     var body: some View {
-        Link(destination: url) {
+        Button {
+            openURL(url)
+        } label: {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
                     .foregroundStyle(BramColor.cool)
@@ -353,6 +489,7 @@ private struct SettingsExternalLink: View {
             }
             .padding(16)
         }
+        .buttonStyle(.plain)
     }
 }
 

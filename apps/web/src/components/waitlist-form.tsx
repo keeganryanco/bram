@@ -38,7 +38,7 @@ export function WaitlistForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-8 max-w-xl" noValidate>
+    <form onSubmit={onSubmit} className="mt-8 w-full max-w-[29rem] sm:max-w-xl" noValidate>
       <div className="flex flex-col gap-3 sm:flex-row">
         <label className="sr-only" htmlFor="email">
           Email address
@@ -52,12 +52,12 @@ export function WaitlistForm() {
           placeholder="you@example.com"
           autoComplete="email"
           disabled={status === "submitting"}
-          className="h-12 min-w-0 flex-1 rounded-full border border-[var(--border)] bg-[var(--cream-panel)] px-5 text-[15px] text-[var(--foreground)] shadow-sm outline-none transition placeholder:text-[#94969b] focus:border-[var(--violet)] focus:ring-4 focus:ring-[rgba(93,90,247,0.12)] disabled:cursor-not-allowed disabled:opacity-70"
+          className="h-14 min-h-14 min-w-0 flex-1 rounded-[20px] border border-[var(--border)] bg-[var(--cream-panel)] px-5 py-4 text-base leading-6 text-[var(--foreground)] shadow-[0_10px_24px_rgba(35,38,44,0.06)] outline-none transition placeholder:text-[#94969b] focus:border-[var(--violet)] focus:ring-4 focus:ring-[rgba(93,90,247,0.12)] disabled:cursor-not-allowed disabled:opacity-70 sm:h-12 sm:min-h-12 sm:rounded-full sm:py-0 sm:text-[15px]"
         />
         <button
           type="submit"
           disabled={status === "submitting"}
-          className="h-12 rounded-full bg-[var(--violet)] px-6 text-[15px] font-semibold text-white shadow-[0_12px_28px_rgba(93,90,247,0.22)] transition hover:bg-[var(--violet-deep)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--violet)] disabled:cursor-not-allowed disabled:opacity-70"
+          className="h-14 rounded-[20px] bg-[var(--violet)] px-6 text-base font-semibold text-white shadow-[0_12px_28px_rgba(93,90,247,0.22)] transition hover:bg-[var(--violet-deep)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--violet)] disabled:cursor-not-allowed disabled:opacity-70 sm:h-12 sm:rounded-full sm:text-[15px]"
         >
           {status === "submitting" ? "Joining..." : "Join waitlist"}
         </button>

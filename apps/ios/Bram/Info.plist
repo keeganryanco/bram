@@ -7,11 +7,15 @@
 	<key>BramAIDevRouteToken</key>
 	<string></string>
 	<key>BramAPIBaseURL</key>
-	<string>https://trybram.app</string>
+	<string>https://www.trybram.app</string>
 	<key>BramAuthRedirectScheme</key>
 	<string>app.trybram.Bram</string>
+	<key>BramPostHogHost</key>
+	<string>https://us.i.posthog.com</string>
+	<key>BramPostHogProjectToken</key>
+	<string>$(BRAM_IOS_POSTHOG_PROJECT_TOKEN)</string>
 	<key>BramRevenueCatAPIKey</key>
-	<string></string>
+	<string>$(BRAM_IOS_REVENUECAT_API_KEY)</string>
 	<key>BramSupabasePublishableKey</key>
 	<string>sb_publishable_LovuYXBzXPbXevP8FuHSLA_wen7RoSQ</string>
 	<key>BramSupabaseURL</key>

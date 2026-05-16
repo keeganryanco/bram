@@ -9,7 +9,9 @@ export const BRAM_AI_SYSTEM_PROMPT = [
 export const NOTE_PARSER_PROMPT = [
   "Parse a natural workout note into structured training data.",
   "Return only fields that can be validated by the app.",
-  "Extract exercises, sets, reps, load, units, effort/RPE/RIR language, body-part hints, and interpretation-relevant notes.",
+  "Extract exercises, sets, reps, load, units, effort/RPE/RIR language, body-part hints, cardio activity, cardio duration, cardio distance, pace text, workout segments on the same day, and interpretation-relevant notes.",
+  "Treat lines like '1 mile run', 'ran 5k', 'bike 8 miles', and 'walk 20 min' as cardio entries even when duration is missing.",
+  "Use sessions when the note clearly separates workouts on the same day, such as a morning run and an evening lift.",
   "Preserve ambiguity in uncertainty or unresolvedText instead of guessing.",
 ].join(" ");
 
@@ -17,6 +19,18 @@ export const INLINE_SUGGESTION_PROMPT = [
   "Generate one useful suggestion from recent structured training history.",
   "The suggestion must be one sentence, specific to the user's data, editable or ignorable, and low-pressure.",
   "Allowed types: reminder, progression, balance, recovery.",
+].join(" ");
+
+export const WORKOUT_SUGGESTION_PROMPT = [
+  "Generate Bram suggestions from structured workout context only.",
+  "Return one optional daily suggestion, exercise-level recommendations, and at most one optional editable draft line.",
+  "Keep outputs specific, short, and low-pressure.",
+  "Be useful because of the user's actual training history, not because of generic coaching advice.",
+  "Use concrete targets when the history supports them: sets, load, reps, effort, muscle focus, recovery, or duration.",
+  "Prefer targets like 'repeat 205 x 5-6', 'add one clean rep', 'cap chest at 3 more sets', or 'keep the run easy after leg volume'.",
+  "Do not say volume is high unless you name the relevant muscle group, session context, or concrete adjustment.",
+  "Do not mention AI, confidence, coaching, diagnoses, injuries, or raw note text.",
+  "Do not create draft note text unless the caller explicitly asks for drafts; default draft should be null.",
 ].join(" ");
 
 export const WEEKLY_REVIEW_PROMPT = [

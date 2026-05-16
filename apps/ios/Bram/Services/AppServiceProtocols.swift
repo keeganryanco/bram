@@ -23,6 +23,7 @@ protocol WorkoutLocalStore: Sendable {
     func pendingWorkoutSyncPayloads(limit: Int) async throws -> [WorkoutSyncPayload]
     func markWorkoutSynced(localNoteId: UUID, remoteId: UUID, userId: UUID) async throws
     func markWorkoutSyncFailed(localNoteId: UUID, errorMessage: String) async throws
+    func importSyncedWorkoutData(_ payloads: [WorkoutSyncPayload]) async throws
     func clearLocalAccountData() async throws
 }
 
@@ -38,6 +39,7 @@ struct WorkoutSyncPayload: Sendable {
 
 protocol WorkoutSyncService: Sendable {
     func syncPendingAccountData(userId: UUID) async throws
+    func pullAccountData(userId: UUID) async throws
 }
 
 protocol WorkoutInterpretationService: Sendable {
@@ -81,6 +83,7 @@ protocol EntitlementProviding {
 protocol BramPaywallServicing {
     func configure(userId: UUID) throws
     func loadPaywall() async throws -> BramPaywallSnapshot
+    func trackPaywallImpression()
     func purchase(packageId: String) async throws
     func restorePurchases() async throws
     func presentCodeRedemption()
@@ -94,8 +97,15 @@ protocol BramAccountDeleting: Sendable {
     func deleteAccount(accessToken: String) async throws
 }
 
-protocol AnalyticsTracking {
+protocol BramPasswordResetting: Sendable {
+    func sendResetEmail(email: String) async throws
+}
+
+protocol AnalyticsTracking: Sendable {
     func track(_ event: AnalyticsEvent)
+    func capture(error: Error, properties: [String: String])
+    func identify(userId: UUID, properties: [String: String])
+    func reset()
 }
 
 protocol HealthMetricsProviding {
@@ -119,6 +129,65 @@ protocol AnimationAssetProviding {
 struct AnalyticsEvent: Hashable {
     var name: String
     var properties: [String: String]
+}
+
+enum SupportCategory: String, CaseIterable, Identifiable, Sendable {
+    case bug = "BUG"
+    case account = "ACCOUNT"
+    case billing = "BILLING"
+    case workoutData = "WORKOUT_DATA"
+    case feedback = "FEEDBACK"
+    case other = "OTHER"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .bug: "Bug"
+        case .account: "Account"
+        case .billing: "Billing"
+        case .workoutData: "Workout data"
+        case .feedback: "Feedback"
+        case .other: "Other"
+        }
+    }
+}
+
+struct SupportRequestDraft: Hashable, Sendable {
+    var category: SupportCategory
+    var message: String
+    var contactEmail: String?
+    var includeDiagnostics: Bool
+    var source: String?
+}
+
+enum AppErrorSeverity: String, Sendable {
+    case info = "INFO"
+    case warning = "WARNING"
+    case error = "ERROR"
+    case fatal = "FATAL"
+}
+
+struct AppErrorReport: Hashable, Sendable {
+    var severity: AppErrorSeverity
+    var source: String
+    var eventName: String
+    var message: String?
+    var errorCode: String?
+    var metadata: [String: String]
+}
+
+protocol SupportRequestSubmitting: Sendable {
+    func submit(_ draft: SupportRequestDraft, accessToken: String) async throws
+}
+
+protocol AppErrorReporting: Sendable {
+    func report(_ report: AppErrorReport, accessToken: String) async throws
+}
+
+protocol WorkoutReminderScheduling: Sendable {
+    func requestAuthorization() async throws -> Bool
+    func scheduleReminder(after note: DailyWorkoutNote, goals: TrainingGoalsProfile) async
 }
 
 struct WorkoutInterpretationResult: Hashable {

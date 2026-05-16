@@ -3,6 +3,7 @@ import SwiftUI
 struct PaywallGateView: View {
     let account: SettingsAccountState
     let load: () async throws -> BramPaywallSnapshot
+    let trackImpression: () -> Void
     let purchase: (String) async -> Void
     let restore: () async -> Void
     let redeem: () -> Void
@@ -13,6 +14,7 @@ struct PaywallGateView: View {
     @State private var isLoading = true
     @State private var isSubmitting = false
     @State private var message: String?
+    @State private var didTrackImpression = false
 
     var body: some View {
         ZStack {
@@ -119,6 +121,11 @@ struct PaywallGateView: View {
         .task {
             await reload()
         }
+        .onAppear {
+            guard !didTrackImpression else { return }
+            didTrackImpression = true
+            trackImpression()
+        }
     }
 
     private func reload() async {
@@ -186,6 +193,12 @@ private struct PaywallPackageButton: View {
                         .font(BramFont.callout(size: 12))
                         .foregroundStyle(BramColor.textTertiary)
                 }
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(BramColor.violet)
+                        .accessibilityHidden(true)
+                }
             }
             .foregroundStyle(BramColor.textPrimary)
             .padding(16)
@@ -196,5 +209,6 @@ private struct PaywallPackageButton: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityValue(isSelected ? "Selected" : "")
     }
 }

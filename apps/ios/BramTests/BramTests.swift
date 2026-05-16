@@ -67,6 +67,7 @@ struct BramTests {
         #expect(encrypted.keyVersion == 1)
         #expect(encrypted.ciphertext.contains("Bench") == false)
         #expect(encrypted.nonce.isEmpty == false)
+        #expect(try encryptor.decrypt(encrypted, userId: userId) == "Bench 185 3x8")
 
         #expect(Data(base64Encoded: encrypted.nonce)?.count == 12)
         #expect(Data(base64Encoded: encrypted.ciphertext)?.isEmpty == false)
@@ -367,6 +368,64 @@ struct BramTests {
         }
     }
 
+    @MainActor
+    @Test func signUpForExistingAccountFallsBackToSignIn() async {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "existing@trybram.app",
+            displayName: nil,
+            preferredUnits: "lb",
+            onboardingCompletedAt: nil,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .none,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId, signUpError: TestAuthError(message: "User already registered")),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: MockLocalStore()
+        )
+
+        await state.signUp(email: "existing@trybram.app", password: "password")
+
+        #expect(state.status == .needsOnboarding)
+        #expect(state.account?.email == "existing@trybram.app")
+    }
+
+    @MainActor
+    @Test func invalidCredentialsUseFriendlyResetCopy() async {
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: nil, signInError: TestAuthError(message: "Invalid login credentials")),
+            bootstrapService: MockBootstrapService(result: nil),
+            localStore: MockLocalStore()
+        )
+
+        await state.signIn(email: "wrong@trybram.app", password: "bad-password")
+
+        #expect(state.status == .failed("Email or password is wrong."))
+    }
+
+    @MainActor
+    @Test func passwordResetUsesBackendEmailRoute() async {
+        let resetService = MockPasswordResetService()
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: nil),
+            bootstrapService: MockBootstrapService(result: nil),
+            localStore: MockLocalStore(),
+            passwordResetService: resetService
+        )
+
+        await state.resetPassword(email: " Lift@TryBram.App ")
+
+        #expect(await resetService.sentEmail == "Lift@TryBram.App")
+        #expect(state.status == .failed("Password reset email sent. Check your inbox for the reset link."))
+    }
+
     @Test func emptyDailyWorkoutNoteStartsReady() {
         let note = DailyWorkoutNote()
 
@@ -631,6 +690,63 @@ struct BramTests {
         #expect(loaded.metrics.totalSets == 3)
         #expect(loaded.metrics.estimatedVolume == 4_440)
         #expect(loaded.interpretedLines.first?.chipText == "PR")
+    }
+
+    @Test func sqliteWorkoutStoreImportsSyncedRemoteWorkoutDataOnFreshInstall() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramRemoteImportTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let userId = UUID()
+        let noteId = UUID()
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        let note = DailyWorkoutNote(
+            id: noteId,
+            remoteId: noteId,
+            userId: userId,
+            date: date,
+            body: "Bench 185 3x8",
+            syncState: .synced
+        )
+
+        try await store.importSyncedWorkoutData([
+            WorkoutSyncPayload(
+                note: note,
+                metrics: WorkoutMetricSnapshot(
+                    totalSets: 3,
+                    hardSets: 3,
+                    estimatedVolume: 4_440,
+                    prCount: 1,
+                    streakDays: 0,
+                    cardioMinutes: 0,
+                    parseState: .parsed
+                ),
+                strengthSets: [
+                    StrengthSetRecord(
+                        exerciseKey: "bench_press",
+                        exerciseName: "Bench Press",
+                        reps: 8,
+                        load: 185,
+                        unit: "lb",
+                        performedAt: date
+                    )
+                ],
+                cardioEntries: [],
+                prEvents: [],
+                healthDailyMetric: nil,
+                healthWorkoutMatch: nil
+            )
+        ])
+
+        let loaded = try await store.note(for: date)
+        let stats = try await store.statsWeek(containing: date)
+
+        #expect(loaded.body == "Bench 185 3x8")
+        #expect(loaded.syncState == .synced)
+        #expect(loaded.remoteId == noteId)
+        #expect(loaded.metrics.totalSets == 3)
+        #expect(stats.workoutDaysInPeriod == 1)
+        #expect(stats.loadByDay.contains { $0.volume == 4_440 })
     }
 
     @Test func sqliteWorkoutStoreBuildsCalendarMarkersFromSavedNotes() async throws {
@@ -1633,6 +1749,15 @@ struct BramTests {
         #expect(UIImage(named: "BramLogo") != nil)
     }
 
+    @Test func onboardingBearAssetsAreBundled() {
+        #expect(UIImage(named: "BramBearAccountCreation") != nil)
+        #expect(UIImage(named: "BramBearFirstName") != nil)
+        #expect(UIImage(named: "BramBearGoal") != nil)
+        #expect(UIImage(named: "BramBearWeeklyRhythm") != nil)
+        #expect(UIImage(named: "BramBearTrainingSetup") != nil)
+        #expect(UIImage(named: "BramBearBodyBaseline") != nil)
+    }
+
     @Test func sqliteWorkoutStorePersistsOnboardingDraft() async throws {
         let path = FileManager.default.temporaryDirectory
             .appendingPathComponent("BramOnboardingTests-\(UUID().uuidString).sqlite")
@@ -1657,6 +1782,8 @@ struct BramTests {
 private struct MockAuthService: BramAuthServicing {
     var restoredUserId: UUID?
     var error: Error?
+    var signUpError: Error?
+    var signInError: Error?
 
     func restoreSessionUserId() async throws -> UUID? {
         if let error { throw error }
@@ -1669,11 +1796,13 @@ private struct MockAuthService: BramAuthServicing {
     }
 
     func signUp(email: String, password: String) async throws -> UUID? {
+        if let signUpError { throw signUpError }
         if let error { throw error }
         return restoredUserId ?? UUID()
     }
 
     func signIn(email: String, password: String) async throws -> UUID {
+        if let signInError { throw signInError }
         if let error { throw error }
         return restoredUserId ?? UUID()
     }
@@ -1690,6 +1819,22 @@ private struct MockAuthService: BramAuthServicing {
 
     func signOut() async throws {
         if let error { throw error }
+    }
+}
+
+private struct TestAuthError: LocalizedError {
+    let message: String
+
+    var errorDescription: String? {
+        message
+    }
+}
+
+private actor MockPasswordResetService: BramPasswordResetting {
+    private(set) var sentEmail: String?
+
+    func sendResetEmail(email: String) async throws {
+        sentEmail = email
     }
 }
 
@@ -1743,6 +1888,7 @@ private actor MockLocalStore: WorkoutLocalStore {
     func pendingWorkoutSyncPayloads(limit: Int) async throws -> [WorkoutSyncPayload] { [] }
     func markWorkoutSynced(localNoteId: UUID, remoteId: UUID, userId: UUID) async throws {}
     func markWorkoutSyncFailed(localNoteId: UUID, errorMessage: String) async throws {}
+    func importSyncedWorkoutData(_ payloads: [WorkoutSyncPayload]) async throws {}
     func clearLocalAccountData() async throws { didClearLocalAccountData = true }
 }
 

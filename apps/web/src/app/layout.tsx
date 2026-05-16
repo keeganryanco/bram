@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const suisseIntl = localFont({
@@ -112,7 +113,10 @@ export default function RootLayout({
       lang="en"
       className={`${suisseIntl.variable} ${adobeCaslonPro.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

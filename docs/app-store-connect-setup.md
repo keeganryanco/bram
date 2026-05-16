@@ -54,6 +54,15 @@ Then in Xcode Organizer:
 
 The build may take several minutes to process before it appears in App Store Connect/TestFlight.
 
+## Subscriptions And Win-Back
+
+Current Bram V1 products:
+
+- Monthly: `app.trybram.Bram.premium.monthly`, reference name `premium_monthly`, `$7.99/mo`, 3-day free trial.
+- Yearly: `app.trybram.Bram.premium.year`, reference name `premium_yearly`, `$49.99/yr`, 3-day free trial.
+
+RevenueCat should use entitlement `premium` and the current/default offering should include both products. After App Store subscription review is ready, configure a monthly win-back/promotional offer for 50% off monthly for 3 months, then normal monthly renewal. Upload the App Store In-App Purchase key to RevenueCat, enable App Store Server Notifications to RevenueCat, and configure the RevenueCat webhook to `https://www.trybram.app/api/revenuecat/webhook` with the production `REVENUECAT_WEBHOOK_AUTH_HEADER`.
+
 ## API Automation Later
 
 App Store Connect can be automated with an App Store Connect API key, but do not commit the key. Required secrets would be:

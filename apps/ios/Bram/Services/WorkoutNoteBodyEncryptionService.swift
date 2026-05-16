@@ -11,6 +11,7 @@ struct EncryptedWorkoutNoteBody: Equatable, Sendable {
 
 protocol WorkoutNoteBodyEncrypting: Sendable {
     func encrypt(_ body: String, userId: UUID) throws -> EncryptedWorkoutNoteBody?
+    func decrypt(_ encryptedBody: EncryptedWorkoutNoteBody, userId: UUID) throws -> String
 }
 
 struct WorkoutNoteBodyEncryptionService: WorkoutNoteBodyEncrypting {
@@ -53,6 +54,16 @@ struct WorkoutNoteBodyEncryptionService: WorkoutNoteBodyEncrypting {
             keyVersion: 1,
             algorithm: "AES-256-GCM"
         )
+    }
+
+    func decrypt(_ encryptedBody: EncryptedWorkoutNoteBody, userId: UUID) throws -> String {
+        let key = SymmetricKey(data: try keyStore.keyData(userId: userId))
+        guard let ciphertext = Data(base64Encoded: encryptedBody.ciphertext) else {
+            throw EncryptionError.invalidNonce
+        }
+        let sealed = try AES.GCM.SealedBox(combined: ciphertext)
+        let data = try AES.GCM.open(sealed, using: key)
+        return String(decoding: data, as: UTF8.self)
     }
 
     private func randomNonceData() throws -> Data {
@@ -98,6 +109,7 @@ struct KeychainWorkoutNoteBodyKeyStore: WorkoutNoteBodyKeyStoring {
         var query = baseQuery(account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
+        query[kSecAttrSynchronizable as String] = kSecAttrSynchronizableAny
 
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
@@ -111,7 +123,8 @@ struct KeychainWorkoutNoteBodyKeyStore: WorkoutNoteBodyKeyStoring {
     private func storeKey(_ key: Data, account: String) throws {
         var query = baseQuery(account: account)
         query[kSecValueData as String] = key
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        query[kSecAttrSynchronizable as String] = true
 
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else {

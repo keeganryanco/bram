@@ -15,6 +15,7 @@ final class AccountSessionState: ObservableObject {
     @Published private(set) var account: AccountSnapshot?
     @Published private(set) var goalsProfile = BramPreviewData.goalsProfile
     @Published private(set) var onboardingDraft = OnboardingDraft()
+    @Published private(set) var hasPendingCrashSupportPrompt = false
 
     private let authService: (any BramAuthServicing)?
     private let bootstrapService: (any AccountBootstrapServicing)?
@@ -22,6 +23,11 @@ final class AccountSessionState: ObservableObject {
     private let paywallService: (any BramPaywallServicing)?
     private let entitlementRefreshService: (any BramEntitlementRefreshing)?
     private let accountDeletionService: (any BramAccountDeleting)?
+    private let passwordResetService: (any BramPasswordResetting)?
+    private let analytics: any AnalyticsTracking
+    private let supportService: (any SupportRequestSubmitting)?
+    private let errorReporter: (any AppErrorReporting)?
+    private let diagnosticsRecorder: AppDiagnosticsRecorder
     private var workoutSyncService: (any WorkoutSyncService)?
     private let localStoreFactory: ((UUID) -> any WorkoutLocalStore)?
     private let workoutSyncServiceFactory: ((any WorkoutLocalStore) -> (any WorkoutSyncService)?)?
@@ -36,6 +42,11 @@ final class AccountSessionState: ObservableObject {
         paywallService: (any BramPaywallServicing)? = nil,
         entitlementRefreshService: (any BramEntitlementRefreshing)? = nil,
         accountDeletionService: (any BramAccountDeleting)? = nil,
+        passwordResetService: (any BramPasswordResetting)? = nil,
+        analytics: any AnalyticsTracking = NoopAnalyticsService(),
+        supportService: (any SupportRequestSubmitting)? = nil,
+        errorReporter: (any AppErrorReporting)? = nil,
+        diagnosticsRecorder: AppDiagnosticsRecorder = .shared,
         workoutSyncService: (any WorkoutSyncService)? = nil,
         localStoreFactory: ((UUID) -> any WorkoutLocalStore)? = nil,
         workoutSyncServiceFactory: ((any WorkoutLocalStore) -> (any WorkoutSyncService)?)? = nil,
@@ -47,16 +58,23 @@ final class AccountSessionState: ObservableObject {
         self.paywallService = paywallService
         self.entitlementRefreshService = entitlementRefreshService
         self.accountDeletionService = accountDeletionService
+        self.passwordResetService = passwordResetService
+        self.analytics = analytics
+        self.supportService = supportService
+        self.errorReporter = errorReporter
+        self.diagnosticsRecorder = diagnosticsRecorder
         self.workoutSyncService = workoutSyncService
         self.localStoreFactory = localStoreFactory
         self.workoutSyncServiceFactory = workoutSyncServiceFactory
         self.configurationError = configurationError
+        self.hasPendingCrashSupportPrompt = diagnosticsRecorder.beginSession()
     }
 
     static func configuredFromBundle() -> AccountSessionState {
         do {
             let configuration = try BramSupabaseConfiguration.fromBundle()
             let client = BramSupabaseClientFactory.makeClient(configuration: configuration)
+            let analytics = PostHogAnalyticsService.configuredFromBundle()
             return AccountSessionState(
                 authService: BramAuthService(client: client, configuration: configuration),
                 bootstrapService: AccountBootstrapService(client: client),
@@ -64,6 +82,10 @@ final class AccountSessionState: ObservableObject {
                 paywallService: RevenueCatPaywallService.configuredFromBundle(),
                 entitlementRefreshService: BramRevenueCatEntitlementRefreshClient.configuredFromBundle(),
                 accountDeletionService: BramAccountDeletionClient.configuredFromBundle(),
+                passwordResetService: BramPasswordResetClient.configuredFromBundle(),
+                analytics: analytics,
+                supportService: BramSupportClient.configuredFromBundle(),
+                errorReporter: BramErrorReportClient.configuredFromBundle(),
                 localStoreFactory: { SQLiteWorkoutLocalStore.accountScoped(userId: $0) },
                 workoutSyncServiceFactory: { SupabaseWorkoutSyncService(client: client, localStore: $0) }
             )
@@ -113,29 +135,82 @@ final class AccountSessionState: ObservableObject {
         do {
             guard let restoredUserId = try await authService.restoreSessionUserId() else {
                 status = .signedOut
+                analytics.track(AnalyticsEvent(name: "session_restored", properties: ["result": "signed_out"]))
                 return
             }
             try await bootstrap(userId: restoredUserId)
+            analytics.track(AnalyticsEvent(name: "session_restored", properties: ["result": "signed_in"]))
         } catch {
+            reportNonFatal(source: "account", eventName: "session_restore_failed", error: error)
             status = .failed(error.localizedDescription)
+        }
+    }
+
+    func markAppScenePhase(active: Bool) {
+        if active {
+            _ = diagnosticsRecorder.beginSession()
+        } else {
+            diagnosticsRecorder.markCleanExit()
         }
     }
 
     func signUp(email: String, password: String) async {
         await authenticate {
-            guard let userId = try await authService?.signUp(email: email, password: password) else {
-                throw AccountSessionError.noSessionAfterSignup
+            do {
+                if let userId = try await authService?.signUp(email: email, password: password) {
+                    return userId
+                }
+            } catch {
+                guard Self.isExistingAccountError(error) else { throw error }
             }
-            return userId
+
+            do {
+                guard let userId = try await authService?.signIn(email: email, password: password) else {
+                    throw AccountSessionError.accountServicesUnavailable
+                }
+                return userId
+            } catch {
+                if Self.isInvalidCredentialsError(error) {
+                    throw AccountSessionError.invalidCredentials
+                }
+                throw error
+            }
         }
     }
 
     func signIn(email: String, password: String) async {
         await authenticate {
-            guard let userId = try await authService?.signIn(email: email, password: password) else {
+            do {
+                guard let userId = try await authService?.signIn(email: email, password: password) else {
+                    throw AccountSessionError.accountServicesUnavailable
+                }
+                return userId
+            } catch {
+                if Self.isInvalidCredentialsError(error) {
+                    throw AccountSessionError.invalidCredentials
+                }
+                throw error
+            }
+        }
+    }
+
+    func resetPassword(email: String) async {
+        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanEmail.isEmpty else {
+            status = .failed("Enter your email and Bram can send a reset link.")
+            return
+        }
+
+        do {
+            guard let passwordResetService else {
                 throw AccountSessionError.accountServicesUnavailable
             }
-            return userId
+            try await passwordResetService.sendResetEmail(email: cleanEmail)
+            analytics.track(AnalyticsEvent(name: "password_reset_requested", properties: ["source": "account_gate"]))
+            status = .failed("Password reset email sent. Check your inbox for the reset link.")
+        } catch {
+            reportNonFatal(source: "account", eventName: "password_reset_failed", error: error)
+            status = .failed(error.localizedDescription)
         }
     }
 
@@ -177,6 +252,24 @@ final class AccountSessionState: ObservableObject {
         try? await localStore.save(goalsProfile)
     }
 
+    func trackOnboardingStepViewed(_ step: OnboardingStep) {
+        analytics.track(
+            AnalyticsEvent(
+                name: "onboarding_step_viewed",
+                properties: ["step": step.analyticsName, "index": "\(step.rawValue)"]
+            )
+        )
+    }
+
+    func trackOnboardingStepCompleted(_ step: OnboardingStep, profile: TrainingGoalsProfile) {
+        analytics.track(
+            AnalyticsEvent(
+                name: "onboarding_step_completed",
+                properties: onboardingProperties(step: step, profile: profile)
+            )
+        )
+    }
+
     func completeOnboarding(firstName: String, profile: TrainingGoalsProfile) async {
         guard let userId, let bootstrapService else {
             status = .failed(AccountSessionError.accountServicesUnavailable.localizedDescription)
@@ -192,8 +285,15 @@ final class AccountSessionState: ObservableObject {
             let result = try await bootstrapService.saveOnboarding(firstName: cleanName, profile: cleanProfile, userId: userId)
             try? await localStore.clearOnboardingDraft()
             await configurePaywallIfPossible(userId: userId)
+            analytics.track(
+                AnalyticsEvent(
+                    name: "onboarding_completed",
+                    properties: onboardingProperties(step: .recap, profile: cleanProfile)
+                )
+            )
             apply(result)
         } catch {
+            reportNonFatal(source: "onboarding", eventName: "onboarding_completion_failed", error: error)
             status = .failed(error.localizedDescription)
         }
     }
@@ -203,15 +303,32 @@ final class AccountSessionState: ObservableObject {
         do {
             try await localStore.save(profile.sanitized)
             let result = try await bootstrapService.saveGoalsProfile(profile: profile, userId: userId)
+            analytics.track(
+                AnalyticsEvent(
+                    name: "goals_saved",
+                    properties: [
+                        "primary_goal": profile.primaryGoal.rawValue,
+                        "unit_preference": profile.preferredUnits.rawValue,
+                        "weekly_days_bucket": Self.bucketDays(profile.weeklyTrainingDays),
+                        "session_length_bucket": Self.bucketMinutes(profile.sessionLengthMinutes)
+                    ]
+                )
+            )
             apply(result)
         } catch {
+            reportNonFatal(source: "settings", eventName: "goals_save_failed", error: error)
             status = .failed(error.localizedDescription)
         }
     }
 
     func syncPendingWorkoutData() async {
         guard let userId, let workoutSyncService else { return }
-        try? await workoutSyncService.syncPendingAccountData(userId: userId)
+        do {
+            try await workoutSyncService.syncPendingAccountData(userId: userId)
+            analytics.track(AnalyticsEvent(name: "workout_sync_succeeded", properties: [:]))
+        } catch {
+            reportNonFatal(source: "sync", eventName: "workout_sync_failed", error: error)
+        }
     }
 
     func loadPaywall() async throws -> BramPaywallSnapshot {
@@ -219,20 +336,125 @@ final class AccountSessionState: ObservableObject {
         return try await paywallService.loadPaywall()
     }
 
+    func trackPaywallImpression() {
+        paywallService?.trackPaywallImpression()
+        analytics.track(AnalyticsEvent(name: "paywall_viewed", properties: ["source": "account_gate"]))
+    }
+
     func purchase(packageId: String) async {
+        analytics.track(AnalyticsEvent(name: "purchase_started", properties: ["package_id": packageId]))
         await runPaywallAction {
             try await paywallService?.purchase(packageId: packageId)
         }
     }
 
     func restorePurchases() async {
+        analytics.track(AnalyticsEvent(name: "restore_purchases_started", properties: ["source": "paywall"]))
         await runPaywallAction {
             try await paywallService?.restorePurchases()
         }
     }
 
     func redeemCode() {
+        analytics.track(AnalyticsEvent(name: "redeem_code_opened", properties: ["source": "paywall"]))
         paywallService?.presentCodeRedemption()
+    }
+
+    func track(_ event: AnalyticsEvent) {
+        diagnosticsRecorder.record(eventName: event.name, properties: event.properties)
+        analytics.track(event)
+    }
+
+    func reportNonFatal(
+        source: String,
+        eventName: String,
+        message: String? = nil,
+        error: Error? = nil,
+        metadata: [String: String] = [:]
+    ) {
+        analytics.track(
+            AnalyticsEvent(
+                name: "nonfatal_error",
+                properties: [
+                    "source": source,
+                    "event_name": eventName
+                ].merging(metadata) { current, _ in current }
+            )
+        )
+        diagnosticsRecorder.record(
+            eventName: eventName,
+            properties: ["source": source].merging(metadata) { current, _ in current }
+        )
+        if let error {
+            analytics.capture(
+                error: error,
+                properties: [
+                    "source": source,
+                    "event_name": eventName
+                ].merging(metadata) { current, _ in current }
+            )
+        }
+
+        guard let errorReporter else { return }
+        Task {
+            guard let token = try? await authService?.currentAccessToken() else { return }
+            try? await errorReporter.report(
+                AppErrorReport(
+                    severity: .error,
+                    source: source,
+                    eventName: eventName,
+                    message: message ?? error?.localizedDescription,
+                    errorCode: nil,
+                    metadata: metadata
+                ),
+                accessToken: token
+            )
+        }
+    }
+
+    func submitSupportRequest(_ draft: SupportRequestDraft) async throws {
+        guard let token = try await authService?.currentAccessToken(),
+              let supportService
+        else {
+            throw AccountSessionError.accountServicesUnavailable
+        }
+
+        try await supportService.submit(draft, accessToken: token)
+        track(
+            AnalyticsEvent(
+                name: "support_submitted",
+                properties: [
+                    "category": draft.category.rawValue,
+                    "include_diagnostics": draft.includeDiagnostics ? "true" : "false"
+                ]
+            )
+        )
+    }
+
+    func dismissCrashSupportPrompt() {
+        diagnosticsRecorder.dismissCrashPrompt()
+        hasPendingCrashSupportPrompt = false
+        track(AnalyticsEvent(name: "crash_support_prompt_dismissed", properties: [:]))
+    }
+
+    func submitCrashSupportRequest() async {
+        do {
+            try await submitSupportRequest(
+                SupportRequestDraft(
+                    category: .bug,
+                    message: "Bram appears to have closed unexpectedly on the previous app session. Please review the attached diagnostics.",
+                    contactEmail: account?.email,
+                    includeDiagnostics: true,
+                    source: "previous_crash_prompt"
+                )
+            )
+            diagnosticsRecorder.clearPendingCrashPrompt()
+            hasPendingCrashSupportPrompt = false
+            track(AnalyticsEvent(name: "crash_support_submitted", properties: [:]))
+        } catch {
+            reportNonFatal(source: "support", eventName: "crash_support_submit_failed", error: error)
+            hasPendingCrashSupportPrompt = false
+        }
     }
 
     func signOut() async {
@@ -242,6 +464,8 @@ final class AccountSessionState: ObservableObject {
             status = .failed(error.localizedDescription)
             return
         }
+        analytics.track(AnalyticsEvent(name: "account_signed_out", properties: [:]))
+        analytics.reset()
         userId = nil
         account = nil
         goalsProfile = BramPreviewData.goalsProfile
@@ -263,6 +487,8 @@ final class AccountSessionState: ObservableObject {
                 try? KeychainWorkoutNoteBodyKeyStore().deleteKey(userId: userId)
             }
             try? await authService?.signOut()
+            analytics.track(AnalyticsEvent(name: "account_deleted", properties: [:]))
+            analytics.reset()
             userId = nil
             account = nil
             goalsProfile = BramPreviewData.goalsProfile
@@ -277,8 +503,14 @@ final class AccountSessionState: ObservableObject {
         status = .initializing
         do {
             let userId = try await operation()
+            analytics.track(AnalyticsEvent(name: "auth_succeeded", properties: [:]))
             try await bootstrap(userId: userId)
+        } catch let error as AccountSessionError {
+            analytics.track(AnalyticsEvent(name: "auth_failed", properties: ["reason": error.analyticsReason]))
+            status = .failed(error.localizedDescription)
         } catch {
+            analytics.track(AnalyticsEvent(name: "auth_failed", properties: ["reason": "unknown"]))
+            reportNonFatal(source: "account", eventName: "auth_failed", error: error)
             status = .failed(error.localizedDescription)
         }
     }
@@ -290,8 +522,20 @@ final class AccountSessionState: ObservableObject {
         configureLocalAccountStoreIfNeeded(userId: userId)
         let result = try await bootstrapService.bootstrap(userId: userId)
         self.userId = userId
+        analytics.identify(
+            userId: userId,
+            properties: [
+                "platform": "ios",
+                "account_tier": result.account.accountTier.rawValue,
+                "subscription_status": result.account.subscriptionStatus.rawValue,
+                "is_developer": result.account.isDeveloper ? "true" : "false",
+                "preferred_units": result.account.preferredUnits
+            ]
+        )
         try? await workoutSyncService?.syncPendingAccountData(userId: userId)
+        try? await workoutSyncService?.pullAccountData(userId: userId)
         if result.needsOnboarding {
+            analytics.track(AnalyticsEvent(name: "onboarding_started", properties: ["source": "bootstrap"]))
             onboardingDraft = (try? await localStore.onboardingDraft()) ?? OnboardingDraft()
             goalsProfile = (try? await localStore.trainingGoalsProfile()) ?? result.goalsProfile
         } else {
@@ -320,6 +564,48 @@ final class AccountSessionState: ObservableObject {
         account.hasPremiumAccess || account.hasDeveloperAccess
     }
 
+    private func onboardingProperties(step: OnboardingStep, profile: TrainingGoalsProfile) -> [String: String] {
+        [
+            "step": step.analyticsName,
+            "primary_goal": profile.primaryGoal.rawValue,
+            "unit_preference": profile.preferredUnits.rawValue,
+            "weekly_days_bucket": Self.bucketDays(profile.weeklyTrainingDays),
+            "session_length_bucket": Self.bucketMinutes(profile.sessionLengthMinutes),
+            "style_count": "\(profile.trainingStyles.count)",
+            "equipment_count": "\(profile.equipment.count)"
+        ]
+    }
+
+    private static func bucketDays(_ days: Int) -> String {
+        switch days {
+        case ..<3: "1_2"
+        case 3...4: "3_4"
+        case 5...7: "5_7"
+        default: "8_plus"
+        }
+    }
+
+    private static func bucketMinutes(_ minutes: Int) -> String {
+        switch minutes {
+        case ..<45: "under_45"
+        case 45..<75: "45_74"
+        case 75..<105: "75_104"
+        default: "105_plus"
+        }
+    }
+
+    private static func isExistingAccountError(_ error: Error) -> Bool {
+        let message = error.localizedDescription.lowercased()
+        return message.contains("already registered") || message.contains("already exists")
+    }
+
+    private static func isInvalidCredentialsError(_ error: Error) -> Bool {
+        let message = error.localizedDescription.lowercased()
+        return message.contains("invalid login credentials")
+            || message.contains("invalid credentials")
+            || message.contains("email or password")
+    }
+
     private func configurePaywallIfPossible(userId: UUID) async {
         try? paywallService?.configure(userId: userId)
     }
@@ -345,8 +631,10 @@ final class AccountSessionState: ObservableObject {
                 apply(result)
             }
         } catch BramPaywallError.purchaseCancelled {
+            analytics.track(AnalyticsEvent(name: "purchase_cancelled", properties: [:]))
             status = .needsPaywall
         } catch {
+            reportNonFatal(source: "paywall", eventName: "paywall_action_failed", error: error)
             status = .failed(error.localizedDescription)
         }
     }
@@ -356,6 +644,7 @@ enum AccountSessionError: LocalizedError {
     case accountServicesUnavailable
     case noSessionAfterSignup
     case noSessionAfterOAuth
+    case invalidCredentials
 
     var errorDescription: String? {
         switch self {
@@ -365,6 +654,34 @@ enum AccountSessionError: LocalizedError {
             "Signup succeeded, but no session was returned. Confirm email may still be enabled in Supabase."
         case .noSessionAfterOAuth:
             "The provider sign-in did not return a session."
+        case .invalidCredentials:
+            "Email or password is wrong."
+        }
+    }
+}
+
+private extension OnboardingStep {
+    var analyticsName: String {
+        switch self {
+        case .name: "name"
+        case .goal: "goal"
+        case .plan: "weekly_plan"
+        case .training: "training_setup"
+        case .body: "body_baseline"
+        case .notePreview: "note_preview"
+        case .recap: "recap"
+        case .paywall: "paywall"
+        }
+    }
+}
+
+private extension AccountSessionError {
+    var analyticsReason: String {
+        switch self {
+        case .accountServicesUnavailable: "services_unavailable"
+        case .noSessionAfterSignup: "no_session_after_signup"
+        case .noSessionAfterOAuth: "no_session_after_oauth"
+        case .invalidCredentials: "invalid_credentials"
         }
     }
 }

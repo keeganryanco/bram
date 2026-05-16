@@ -12,6 +12,7 @@ export {
   buildNoteParseRequest,
   buildOnboardingProfileRequest,
   buildWeeklyReviewRequest,
+  buildWorkoutSuggestionsRequest,
   selectModelForTask,
   type BramAIResponseRequest,
   type BramAITask,
@@ -22,12 +23,40 @@ export {
   type SanitizedAIInput,
 } from "./privacy";
 export {
+  interpretWorkoutNoteWithAI,
+  AIUsagePolicyError,
+  parseWorkoutInterpretationResponse,
+  verifyAIRouteToken,
+  WorkoutInterpretationError,
+  WorkoutInterpretationInputSchema,
+  type WorkoutInterpretationInput,
+} from "./interpret-workout";
+export {
+  buildPrivacySafeSuggestionContext,
+  generateWorkoutSuggestionsWithAI,
+  parseWorkoutSuggestionResponse,
+  recordSuggestionFeedback,
+  WorkoutSuggestionError,
+} from "./suggestions";
+export {
+  ExerciseSuggestionSchema,
   InlineSuggestionSchema,
   OnboardingTrainingProfileSchema,
+  ParsedCardioEntrySchema,
+  ParsedWorkoutSessionSchema,
   ParsedWorkoutSchema,
+  SuggestionDraftSchema,
+  SuggestionFeedbackInputSchema,
   WeeklyReviewSchema,
+  WorkoutSuggestionInputSchema,
+  WorkoutSuggestionResponseSchema,
+  type ExerciseSuggestion,
   type InlineSuggestion,
   type OnboardingTrainingProfile,
+  type ParsedCardioEntry,
   type ParsedWorkout,
+  type SuggestionFeedbackInput,
   type WeeklyReview,
+  type WorkoutSuggestionInput,
+  type WorkoutSuggestionResponse,
 } from "./schemas";

@@ -10,18 +10,21 @@ import {
   NOTE_PARSER_PROMPT,
   ONBOARDING_PROFILE_PROMPT,
   WEEKLY_REVIEW_PROMPT,
+  WORKOUT_SUGGESTION_PROMPT,
 } from "./prompts";
 import {
   InlineSuggestionSchema,
   OnboardingTrainingProfileSchema,
   ParsedWorkoutSchema,
   WeeklyReviewSchema,
+  WorkoutSuggestionResponseSchema,
 } from "./schemas";
 
 export type BramAITask =
   | "note_parse"
   | "exercise_normalization"
   | "inline_suggestion"
+  | "workout_suggestions"
   | "weekly_review"
   | "onboarding_profile"
   | "complex_request";
@@ -68,6 +71,7 @@ export function selectModelForTask(
     case "note_parse":
     case "exercise_normalization":
     case "inline_suggestion":
+    case "workout_suggestions":
       return config.models.fastModel;
     case "weekly_review":
     case "onboarding_profile":
@@ -141,6 +145,23 @@ export function buildInlineSuggestionRequest(params: {
     maxOutputTokens: 180,
     pseudonymousUserId: params.pseudonymousUserId,
     format: jsonSchema("bram_inline_suggestion", InlineSuggestionSchema),
+  });
+}
+
+export function buildWorkoutSuggestionsRequest(params: {
+  structuredContextJson: string;
+  pseudonymousUserId?: string;
+  config?: BramAIConfig;
+}) {
+  const task: BramAITask = "workout_suggestions";
+
+  return baseRequest({
+    task,
+    model: selectModelForTask(task, params.config),
+    userPrompt: `${WORKOUT_SUGGESTION_PROMPT}\n\nStructured context:\n${params.structuredContextJson}`,
+    maxOutputTokens: 520,
+    pseudonymousUserId: params.pseudonymousUserId,
+    format: jsonSchema("bram_workout_suggestions", WorkoutSuggestionResponseSchema),
   });
 }
 

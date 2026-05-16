@@ -65,6 +65,14 @@ enum StatsPeriod: String, CaseIterable, Identifiable, Hashable {
         case .year: .year
         }
     }
+
+    var accessibilityPeriodName: String {
+        switch self {
+        case .week: "week"
+        case .month: "month"
+        case .year: "year"
+        }
+    }
 }
 
 struct DailyLoadMetric: Identifiable, Hashable {

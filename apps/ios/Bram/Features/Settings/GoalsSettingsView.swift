@@ -279,9 +279,10 @@ private struct GoalsOptionButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 9) {
-                Image(systemName: systemImage)
+                Image(systemName: isSelected ? "checkmark" : systemImage)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(isSelected ? .white : BramColor.violet)
+                    .frame(width: 16)
                 Text(title)
                     .font(BramFont.label(size: 13))
                     .foregroundStyle(isSelected ? .white : BramColor.textPrimary)
@@ -328,6 +329,7 @@ private struct GoalsStepperRow: View {
                 Button(action: decrement) {
                     Image(systemName: "minus")
                 }
+                .accessibilityLabel("Decrease \(title)")
                 Text(value)
                     .font(BramFont.label())
                     .foregroundStyle(BramColor.textPrimary)
@@ -335,6 +337,7 @@ private struct GoalsStepperRow: View {
                 Button(action: increment) {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel("Increase \(title)")
             }
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(BramColor.textSecondary)
