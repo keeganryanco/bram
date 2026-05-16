@@ -36,6 +36,7 @@ Before submission, verify subscriptions, deletion/export, analytics disclosures,
 Saturday, May 16:
 
 - Finish support intake, crash follow-up, analytics, and review prompt instrumentation.
+- Add `LINEAR_API_KEY` in Vercel production and redeploy so authenticated support requests mirror into the Linear `Support Inbox` project.
 - Confirm RevenueCat public iOS SDK key is in `BRAM_IOS_REVENUECAT_API_KEY`; without it the native paywall cannot load offerings.
 - Verify the RevenueCat current/default offering contains `app.trybram.Bram.premium.year` and `app.trybram.Bram.premium.monthly` under entitlement `premium`.
 - Verify Settings can opt into local workout reminders and that saving a workout-like note schedules a contextual local reminder.

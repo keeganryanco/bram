@@ -38,8 +38,20 @@ Waitlist:
 - `REVENUECAT_SECRET_API_KEY`
 - `REVENUECAT_WEBHOOK_AUTH_HEADER`
 - `BRAM_ADMIN_GRANT_TOKEN`
+- `LINEAR_API_KEY`
+- `LINEAR_TEAM_ID`
+- `LINEAR_SUPPORT_PROJECT_ID` optional
+- `LINEAR_SUPPORT_LABEL_IDS` optional
 
-Current status: production has `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API`, `RESEND_FROM_EMAIL`, and `NEXT_PUBLIC_SITE_URL` configured. `NEXT_PUBLIC_SITE_URL` should be `https://www.trybram.app` so password recovery links do not lose auth fragments through the apex-domain redirect. `WAITLIST_NOTIFY_EMAIL` is still optional.
+Current status: production has `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API`, `RESEND_FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL`, `LINEAR_TEAM_ID`, and `LINEAR_SUPPORT_PROJECT_ID` configured. `NEXT_PUBLIC_SITE_URL` should be `https://www.trybram.app` so password recovery links do not lose auth fragments through the apex-domain redirect. `LINEAR_API_KEY` is still required before support requests can mirror into Linear. `WAITLIST_NOTIFY_EMAIL` is still optional.
+
+Linear support intake:
+
+- Team: `Bram-workout-notes`
+- Team ID: `4aa33b91-ad1b-499c-b2ac-db3a09744282`
+- Project: `Support Inbox`
+- Project ID: `d5d9a5ee-768e-44f5-a91c-862969c76744`
+- Create a Linear API key in Linear settings, add it to Vercel as `LINEAR_API_KEY` for Production, then redeploy the website so serverless functions read the new env.
 
 AI, when enabled:
 
