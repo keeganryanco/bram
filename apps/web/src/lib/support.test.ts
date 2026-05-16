@@ -5,7 +5,9 @@ import {
   SupportRequestError,
 } from "./support";
 
-function makeSupabase(overrides: { userError?: boolean; insertError?: boolean } = {}) {
+function makeSupabase(
+  overrides: { userError?: boolean; insertError?: boolean | Record<string, unknown> } = {},
+) {
   const updates: Record<string, unknown>[] = [];
   const inserts: Record<string, unknown>[] = [];
   return {
@@ -35,7 +37,12 @@ function makeSupabase(overrides: { userError?: boolean; insertError?: boolean } 
             select: () => ({
               single: async () => ({
                 data: overrides.insertError ? null : { id: "22222222-2222-4222-8222-222222222222" },
-                error: overrides.insertError ? new Error("insert failed") : null,
+                error:
+                  typeof overrides.insertError === "object"
+                    ? overrides.insertError
+                    : overrides.insertError
+                      ? new Error("insert failed")
+                      : null,
               }),
             }),
           };
@@ -135,5 +142,25 @@ describe("support intake", () => {
         { supabase: client },
       ),
     ).rejects.toBeInstanceOf(SupportRequestError);
+  });
+
+  it("surfaces missing Supabase support tables as configuration errors", async () => {
+    const { client } = makeSupabase({
+      insertError: {
+        code: "PGRST205",
+        message: "Could not find the 'support_requests' table in the schema cache",
+      },
+    });
+
+    await expect(
+      createSupportRequestForToken(
+        "token",
+        { category: "BUG", message: "Support submit failed." },
+        { supabase: client, linearIssueCreator: async () => null },
+      ),
+    ).rejects.toMatchObject({
+      name: "SupportConfigError",
+      message: "Support tables are missing in Supabase.",
+    });
   });
 });

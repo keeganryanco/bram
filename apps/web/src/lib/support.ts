@@ -85,6 +85,34 @@ export class SupportRequestError extends Error {
   }
 }
 
+function isMissingSupportTableError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as { code?: unknown; message?: unknown; details?: unknown };
+  const code = typeof candidate.code === "string" ? candidate.code : "";
+  const message = typeof candidate.message === "string" ? candidate.message.toLowerCase() : "";
+  const details = typeof candidate.details === "string" ? candidate.details.toLowerCase() : "";
+  const text = `${message} ${details}`;
+
+  return (
+    code === "42P01" ||
+    code === "PGRST106" ||
+    code === "PGRST205" ||
+    text.includes("support_requests") && (
+      text.includes("schema cache") ||
+      text.includes("could not find") ||
+      text.includes("does not exist")
+    ) ||
+    text.includes("app_error_reports") && (
+      text.includes("schema cache") ||
+      text.includes("could not find") ||
+      text.includes("does not exist")
+    )
+  );
+}
+
 let supabaseAdmin: SupabaseSupportClient | null = null;
 
 function getSupabaseAdmin() {
@@ -211,6 +239,9 @@ export async function createSupportRequestForToken(
     .single();
 
   if (error || !data || typeof data !== "object" || !("id" in data)) {
+    if (isMissingSupportTableError(error)) {
+      throw new SupportConfigError("Support tables are missing in Supabase.");
+    }
     throw new SupportRequestError("Could not create support request.");
   }
 
@@ -266,6 +297,9 @@ export async function recordAppErrorForToken(
     .single();
 
   if (error || !data || typeof data !== "object" || !("id" in data)) {
+    if (isMissingSupportTableError(error)) {
+      throw new SupportConfigError("Support tables are missing in Supabase.");
+    }
     throw new SupportRequestError("Could not record app error.");
   }
 

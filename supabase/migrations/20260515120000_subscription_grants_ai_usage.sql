@@ -44,6 +44,16 @@ create table if not exists public.ai_usage_events (
   )
 );
 
+alter table public.ai_usage_events
+add column if not exists usage_month date,
+add column if not exists task text,
+add column if not exists model text,
+add column if not exists requested_model text,
+add column if not exists estimated_cost_cents integer not null default 0,
+add column if not exists policy_decision text,
+add column if not exists response_id text,
+add column if not exists created_at timestamptz not null default now();
+
 create index if not exists ai_usage_events_user_month_idx
   on public.ai_usage_events(user_id, usage_month);
 
