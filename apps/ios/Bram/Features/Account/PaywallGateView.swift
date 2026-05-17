@@ -35,19 +35,19 @@ struct PaywallGateView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        Text("Bram Premium")
+                        Text("Try Bram free for 3 days.")
                             .font(BramFont.largeTitle(size: 42))
                             .foregroundStyle(BramColor.textPrimary)
-                        Text("Unlock progress stats, Apple Health context, suggestions, and the full workout notes system.")
+                        Text("Start tracking workouts as easily as writing in Notes. Bram turns each session into progress, streaks, and next-session context.")
                             .font(BramFont.body(size: 17))
                             .foregroundStyle(BramColor.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
 
                         VStack(alignment: .leading, spacing: 10) {
-                            PaywallBenefit("Natural workout notes")
-                            PaywallBenefit("Stats and progress insights")
-                            PaywallBenefit("Apple Health context")
-                            PaywallBenefit("3-day free trial")
+                            PaywallBenefit("Write workouts naturally")
+                            PaywallBenefit("See progress without spreadsheets")
+                            PaywallBenefit("Keep stats, goals, and Health context together")
+                            PaywallBenefit("Cancel anytime during the free trial")
                         }
                         .padding(.vertical, 8)
 
@@ -85,18 +85,18 @@ struct PaywallGateView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                VStack(spacing: 12) {
-                    BramCapsuleButton(action: {
+                VStack(spacing: 14) {
+                    PaywallPrimaryButton(
+                        title: isSubmitting ? "Checking..." : "Try 3 days free",
+                        isDisabled: selectedPackageId == nil || isSubmitting
+                    ) {
                         guard let selectedPackageId else { return }
                         isSubmitting = true
                         Task {
                             await purchase(selectedPackageId)
                             await MainActor.run { isSubmitting = false }
                         }
-                    }) {
-                        Text(isSubmitting ? "Checking..." : "Start free trial")
                     }
-                    .disabled(selectedPackageId == nil || isSubmitting)
 
                     HStack(spacing: 18) {
                         Button("Restore") {
@@ -114,8 +114,16 @@ struct PaywallGateView: View {
                     .disabled(isSubmitting)
                 }
                 .padding(.horizontal, 22)
-                .padding(.bottom, 18)
-                .background(.thinMaterial)
+                .padding(.top, 8)
+                .padding(.bottom, 30)
+                .background(
+                    LinearGradient(
+                        colors: [BramColor.appBackground.opacity(0), BramColor.appBackground],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .allowsHitTesting(false)
+                )
             }
         }
         .task {
@@ -139,6 +147,27 @@ struct PaywallGateView: View {
             message = error.localizedDescription
         }
         isLoading = false
+    }
+}
+
+private struct PaywallPrimaryButton: View {
+    let title: String
+    let isDisabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(BramFont.button(size: 16))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(BramColor.violet, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .shadow(color: BramColor.violet.opacity(0.30), radius: 22, y: 12)
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.50 : 1)
     }
 }
 
