@@ -38,16 +38,16 @@ struct PaywallGateView: View {
                         Text("Try Bram free for 3 days.")
                             .font(BramFont.largeTitle(size: 42))
                             .foregroundStyle(BramColor.textPrimary)
-                        Text("Start tracking workouts as easily as writing in Notes. Bram turns each session into progress, streaks, and next-session context.")
+                        Text("Log your workouts like a note. Bram tracks your lifts, PRs, and streaks so you can stop guessing and actually progress.")
                             .font(BramFont.body(size: 17))
                             .foregroundStyle(BramColor.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
 
                         VStack(alignment: .leading, spacing: 10) {
                             PaywallBenefit("Write workouts naturally")
-                            PaywallBenefit("See progress without spreadsheets")
-                            PaywallBenefit("Keep stats, goals, and Health context together")
-                            PaywallBenefit("Cancel anytime during the free trial")
+                            PaywallBenefit("Track PRs without spreadsheets")
+                            PaywallBenefit("See what to beat next time")
+                            PaywallBenefit("Cancel anytime during the trial")
                         }
                         .padding(.vertical, 8)
 
