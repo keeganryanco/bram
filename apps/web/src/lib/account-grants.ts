@@ -4,7 +4,11 @@ import { z } from "zod";
 export const AccountGrantKindSchema = z.enum([
   "TESTFLIGHT",
   "PRODUCT_HUNT",
+  "TESTFLIGHT_1MONTH",
+  "PRODUCT_HUNT_1MONTH",
+  "FOUNDER_1MONTH",
   "FOUNDER_LIFETIME",
+  "FRIENDS_DISCOUNT",
 ]);
 
 export const AccountGrantRequestSchema = z
@@ -101,12 +105,63 @@ function oneMonthFromNow(now = new Date()) {
   return value.toISOString();
 }
 
+function canonicalGrantKind(grantKind: z.infer<typeof AccountGrantKindSchema>) {
+  switch (grantKind) {
+    case "TESTFLIGHT":
+      return "TESTFLIGHT_1MONTH";
+    case "PRODUCT_HUNT":
+      return "PRODUCT_HUNT_1MONTH";
+    default:
+      return grantKind;
+  }
+}
+
 function defaultExpiration(grantKind: z.infer<typeof AccountGrantKindSchema>) {
-  return grantKind === "FOUNDER_LIFETIME" ? null : oneMonthFromNow();
+  const canonical = canonicalGrantKind(grantKind);
+  return canonical === "FOUNDER_LIFETIME" || canonical === "FRIENDS_DISCOUNT"
+    ? null
+    : oneMonthFromNow();
 }
 
 function entitlementSource(grantKind: z.infer<typeof AccountGrantKindSchema>) {
-  return grantKind === "FOUNDER_LIFETIME" ? "FOUNDER_OFFER" : "MANUAL";
+  const canonical = canonicalGrantKind(grantKind);
+  return canonical === "FOUNDER_LIFETIME" || canonical === "FOUNDER_1MONTH"
+    ? "FOUNDER_OFFER"
+    : "MANUAL";
+}
+
+function promoCode(grantKind: string) {
+  switch (grantKind) {
+    case "TESTFLIGHT_1MONTH":
+      return "TESTFLIGHT1MONTH";
+    case "PRODUCT_HUNT_1MONTH":
+      return "PRODUCTHUNT1MONTH";
+    case "FOUNDER_1MONTH":
+      return "FOUNDER1MONTH";
+    case "FOUNDER_LIFETIME":
+      return "FOUNDERLIFETIME";
+    case "FRIENDS_DISCOUNT":
+      return "FRIENDS";
+    default:
+      return null;
+  }
+}
+
+function promoLabel(grantKind: string) {
+  switch (grantKind) {
+    case "TESTFLIGHT_1MONTH":
+      return "TestFlight month";
+    case "PRODUCT_HUNT_1MONTH":
+      return "Product Hunt month";
+    case "FOUNDER_1MONTH":
+      return "Founder month";
+    case "FOUNDER_LIFETIME":
+      return "Founder lifetime";
+    case "FRIENDS_DISCOUNT":
+      return "Friends access";
+    default:
+      return null;
+  }
 }
 
 async function resolveUserId(
@@ -142,23 +197,29 @@ export async function grantAccountAccess(
   const request = AccountGrantRequestSchema.parse(input);
   const supabase = clients.supabase ?? getSupabaseAdmin();
   const userId = await resolveUserId(supabase, request);
-  const source = entitlementSource(request.grantKind);
+  const grantKind = canonicalGrantKind(request.grantKind);
+  const source = entitlementSource(grantKind);
   const premiumExpiresAt =
     request.premiumExpiresAt === undefined
-      ? defaultExpiration(request.grantKind)
+      ? defaultExpiration(grantKind)
       : request.premiumExpiresAt;
   const reason =
     request.reason ??
-    (request.grantKind === "FOUNDER_LIFETIME"
+    (grantKind === "FOUNDER_LIFETIME"
       ? "Founder lifetime grant."
-      : `${request.grantKind} one-month grant.`);
+      : grantKind === "FRIENDS_DISCOUNT"
+        ? "Friends access grant."
+        : `${grantKind} grant.`);
   const update = {
     account_tier: "FREE_PREMIUM",
     subscription_status: "FREE_PREMIUM",
     entitlement_source: source,
     premium_expires_at: premiumExpiresAt,
+    active_promo_kind: grantKind,
+    active_promo_code: promoCode(grantKind),
+    active_promo_label: promoLabel(grantKind),
     manual_reason: reason,
-    ...(request.grantKind === "FOUNDER_LIFETIME"
+    ...(grantKind === "FOUNDER_LIFETIME" || grantKind === "FOUNDER_1MONTH"
       ? { founder_offer_redeemed_at: new Date().toISOString() }
       : {}),
   };
@@ -174,7 +235,7 @@ export async function grantAccountAccess(
 
   const { error: insertError } = await supabase.from("account_grant_events").insert({
     user_id: userId,
-    grant_kind: request.grantKind,
+    grant_kind: grantKind,
     entitlement_source: source,
     premium_expires_at: premiumExpiresAt,
     ai_soft_cap_cents: request.aiSoftCapCents ?? 50,
@@ -189,7 +250,7 @@ export async function grantAccountAccess(
 
   return {
     userId,
-    grantKind: request.grantKind,
+    grantKind,
     entitlementSource: source,
     premiumExpiresAt,
   };

@@ -57,13 +57,13 @@ Monday, May 18:
 Tuesday-Thursday, May 19-21:
 
 - Use TestFlight for Reddit/forum/friends feedback. TestFlight in-app purchases use Apple's sandbox and are free to testers, so use Supabase admin grants only when testers need app access without completing sandbox purchase flows.
-- Apply `TESTFLIGHT1MONTH` style grants through Bram's admin grant route for selected testers; keep Product Hunt grants separate as `PRODUCT_HUNT` one-month grants.
+- Apply `TESTFLIGHT1MONTH` grants by inserting `account_promo_eligibilities` allowlist rows or by using the admin grant route with `grantKind: "TESTFLIGHT_1MONTH"` for selected testers. Keep Product Hunt grants separate as `PRODUCT_HUNT_1MONTH`.
 - Fix only launch-blocking bugs: crashes, account loss/mixing, broken onboarding, broken paywall, broken note parsing, broken data deletion/export, and metadata/privacy mismatches.
 
 Friday, May 22:
 
 - Product Hunt launch.
-- Use Product Hunt one-month access via Bram-owned Supabase grants first; public Apple/RevenueCat offer codes can follow after App Store subscription approval and offer-code setup.
+- Use Product Hunt one-month access via Bram-owned Supabase grants first. Allowlisted users can redeem `PRODUCTHUNT1MONTH` in the native paywall; public Apple/RevenueCat offer codes can follow after App Store subscription approval and offer-code setup.
 - Monitor PostHog onboarding/paywall funnels, Supabase support requests/error reports, Linear support issues, RevenueCat purchase state, and App Store/TestFlight feedback.
 
 ## Review Notes Checklist

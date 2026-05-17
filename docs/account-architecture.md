@@ -77,12 +77,14 @@ RevenueCat sync maps active paid access to `PREMIUM`, active trials to `TRIAL`, 
 
 ### Admin grants
 
-Server grants use `POST /api/admin/account-grants`, protected by `BRAM_ADMIN_GRANT_TOKEN`. The route accepts a `userId` or account email, `grantKind` (`TESTFLIGHT`, `PRODUCT_HUNT`, or `FOUNDER_LIFETIME`), optional expiration, and optional AI budget caps.
+Server grants use `POST /api/admin/account-grants`, protected by `BRAM_ADMIN_GRANT_TOKEN`. The route accepts a `userId` or account email, `grantKind` (`TESTFLIGHT_1MONTH`, `PRODUCT_HUNT_1MONTH`, `FOUNDER_1MONTH`, `FOUNDER_LIFETIME`, or `FRIENDS_DISCOUNT`), optional expiration, and optional AI budget caps. Legacy `TESTFLIGHT` and `PRODUCT_HUNT` inputs are normalized to the one-month grant kinds.
 
-- TestFlight and Product Hunt grants default to one month of `FREE_PREMIUM`.
+- TestFlight, Product Hunt, and first-month founder grants default to one month of `FREE_PREMIUM`.
 - Founder lifetime grants use `entitlement_source = FOUNDER_OFFER` and `premium_expires_at = null`.
+- Friends discount grants use `FREE_PREMIUM` with `premium_expires_at = null`, `entitlement_source = MANUAL`, and the promo/founder AI budget policy so access is lifetime but model costs stay capped.
 - Every grant writes an `account_grant_events` audit row.
-- Apple/RevenueCat offer codes remain the public campaign path later; Bram-owned grants are the controllable prelaunch path.
+- `POST /api/account/redeem-promo` lets the iOS paywall submit a code, but Supabase still decides eligibility. TestFlight/Product Hunt codes require a row in `account_promo_eligibilities`; founder codes require the account or matching waitlist email to be founder eligible.
+- Apple/RevenueCat offer codes remain the public App Store campaign path later; Bram-owned grants are the controllable prelaunch path.
 
 ### Promo/founder AI budget
 
@@ -97,6 +99,7 @@ It creates:
 - `profiles` row with lowercased email and best-effort display name from OAuth/email metadata
 - `account_entitlements` row with default `FREE` access
 - founder offer linkage when the signup email matches `waitlist_signups.email`
+- one free founder month auto-applied when that waitlist row is founder eligible
 
 If a waitlist match exists, the user gets:
 

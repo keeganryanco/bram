@@ -178,6 +178,8 @@ struct SettingsAccountState: Hashable {
     var accountTier: BramAccountTier
     var isDeveloper: Bool
     var founderOfferEligible: Bool
+    var activePromoKind: String?
+    var activePromoLabel: String?
     var appleHealthConnected: Bool
     var appearance: String
     var preferredUnits: String
@@ -191,5 +193,13 @@ struct SettingsAccountState: Hashable {
         case .freePremium:
             "Lifetime Premium"
         }
+    }
+
+    var hasVisiblePaywallPromo: Bool {
+        founderOfferEligible || activePromoKind != nil
+    }
+
+    var paywallPromoLabel: String {
+        activePromoLabel ?? (founderOfferEligible ? "Founder month" : "Promo")
     }
 }

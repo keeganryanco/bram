@@ -22,6 +22,7 @@ final class AccountSessionState: ObservableObject {
     private(set) var localStore: any WorkoutLocalStore
     private let paywallService: (any BramPaywallServicing)?
     private let entitlementRefreshService: (any BramEntitlementRefreshing)?
+    private let promoRedemptionService: (any BramPromoRedeeming)?
     private let accountDeletionService: (any BramAccountDeleting)?
     private let passwordResetService: (any BramPasswordResetting)?
     private let analytics: any AnalyticsTracking
@@ -41,6 +42,7 @@ final class AccountSessionState: ObservableObject {
         localStore: any WorkoutLocalStore = SQLiteWorkoutLocalStore.shared,
         paywallService: (any BramPaywallServicing)? = nil,
         entitlementRefreshService: (any BramEntitlementRefreshing)? = nil,
+        promoRedemptionService: (any BramPromoRedeeming)? = nil,
         accountDeletionService: (any BramAccountDeleting)? = nil,
         passwordResetService: (any BramPasswordResetting)? = nil,
         analytics: any AnalyticsTracking = NoopAnalyticsService(),
@@ -57,6 +59,7 @@ final class AccountSessionState: ObservableObject {
         self.localStore = localStore
         self.paywallService = paywallService
         self.entitlementRefreshService = entitlementRefreshService
+        self.promoRedemptionService = promoRedemptionService
         self.accountDeletionService = accountDeletionService
         self.passwordResetService = passwordResetService
         self.analytics = analytics
@@ -81,6 +84,7 @@ final class AccountSessionState: ObservableObject {
                 localStore: SQLiteWorkoutLocalStore.shared,
                 paywallService: RevenueCatPaywallService.configuredFromBundle(),
                 entitlementRefreshService: BramRevenueCatEntitlementRefreshClient.configuredFromBundle(),
+                promoRedemptionService: BramPromoRedemptionClient.configuredFromBundle(),
                 accountDeletionService: BramAccountDeletionClient.configuredFromBundle(),
                 passwordResetService: BramPasswordResetClient.configuredFromBundle(),
                 analytics: analytics,
@@ -108,6 +112,8 @@ final class AccountSessionState: ObservableObject {
             accountTier: account.accountTier,
             isDeveloper: account.isDeveloper,
             founderOfferEligible: account.founderOfferEligible,
+            activePromoKind: account.activePromoKind,
+            activePromoLabel: account.activePromoLabel,
             appleHealthConnected: false,
             appearance: "System",
             preferredUnits: account.preferredUnits
@@ -389,9 +395,23 @@ final class AccountSessionState: ObservableObject {
         }
     }
 
-    func redeemCode() {
-        analytics.track(AnalyticsEvent(name: "redeem_code_opened", properties: ["source": "paywall"]))
-        paywallService?.presentCodeRedemption()
+    func redeemPromoCode(_ code: String) async throws {
+        guard let token = try await authService?.currentAccessToken(),
+              let promoRedemptionService
+        else {
+            throw AccountSessionError.accountServicesUnavailable
+        }
+
+        analytics.track(AnalyticsEvent(name: "promo_redemption_started", properties: ["source": "paywall"]))
+        let refreshed = try await promoRedemptionService.redeem(code: code, accessToken: token)
+        analytics.track(
+            AnalyticsEvent(
+                name: "promo_redemption_succeeded",
+                properties: ["account_tier": refreshed.accountTier.rawValue]
+            )
+        )
+        let result = AccountBootstrapResult(account: refreshed, goalsProfile: goalsProfile)
+        apply(result)
     }
 
     func track(_ event: AnalyticsEvent) {

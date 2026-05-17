@@ -190,6 +190,8 @@ enum BramPreviewData {
         accountTier: .freePremium,
         isDeveloper: true,
         founderOfferEligible: true,
+        activePromoKind: "FRIENDS_DISCOUNT",
+        activePromoLabel: "Friends access",
         appleHealthConnected: false,
         appearance: "System",
         preferredUnits: "lb"

@@ -6,7 +6,7 @@ struct PaywallGateView: View {
     let trackImpression: () -> Void
     let purchase: (String) async -> Void
     let restore: () async -> Void
-    let redeem: () -> Void
+    let redeemPromo: (String) async throws -> Void
     let signOut: () async -> Void
 
     @State private var snapshot = BramPaywallSnapshot.unavailable
@@ -15,6 +15,7 @@ struct PaywallGateView: View {
     @State private var isSubmitting = false
     @State private var message: String?
     @State private var didTrackImpression = false
+    @State private var showingPromoSheet = false
 
     var body: some View {
         ZStack {
@@ -51,6 +52,10 @@ struct PaywallGateView: View {
                         }
                         .padding(.vertical, 8)
 
+                        if account.hasVisiblePaywallPromo {
+                            PaywallPromoBanner(label: account.paywallPromoLabel)
+                        }
+
                         if isLoading {
                             ProgressView()
                                 .frame(maxWidth: .infinity)
@@ -63,7 +68,7 @@ struct PaywallGateView: View {
                                 .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         } else {
                             VStack(spacing: 10) {
-                                ForEach(snapshot.packages) { package in
+                                ForEach(paywallPackages) { package in
                                     PaywallPackageButton(
                                         package: package,
                                         isSelected: selectedPackageId == package.id
@@ -103,7 +108,7 @@ struct PaywallGateView: View {
                             Task { await restore() }
                         }
                         Button("Redeem code") {
-                            redeem()
+                            showingPromoSheet = true
                         }
                         Button("Retry") {
                             Task { await reload() }
@@ -134,6 +139,11 @@ struct PaywallGateView: View {
             didTrackImpression = true
             trackImpression()
         }
+        .sheet(isPresented: $showingPromoSheet) {
+            PromoCodeSheet(redeem: redeemPromo)
+                .presentationDetents([.height(280)])
+                .presentationCornerRadius(28)
+        }
     }
 
     private func reload() async {
@@ -147,6 +157,15 @@ struct PaywallGateView: View {
             message = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private var paywallPackages: [BramPaywallPackage] {
+        guard account.hasVisiblePaywallPromo else { return snapshot.packages }
+        return snapshot.packages.map { package in
+            var copy = package
+            copy.promoPrice = "$0 first month"
+            return copy
+        }
     }
 }
 
@@ -189,6 +208,27 @@ private struct PaywallBenefit: View {
     }
 }
 
+private struct PaywallPromoBanner: View {
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "ticket.fill")
+                .foregroundStyle(BramColor.violet)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(BramFont.label(size: 13))
+                    .foregroundStyle(BramColor.textPrimary)
+                Text("Eligible accounts get one month of Bram before normal App Store billing.")
+                    .font(BramFont.callout(size: 12))
+                    .foregroundStyle(BramColor.textTertiary)
+            }
+        }
+        .padding(14)
+        .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
 private struct PaywallPackageButton: View {
     let package: BramPaywallPackage
     let isSelected: Bool
@@ -216,8 +256,17 @@ private struct PaywallPackageButton: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(package.price)
-                        .font(BramFont.label())
+                    if package.promoPrice != nil {
+                        Text(package.price)
+                            .font(BramFont.callout(size: 12))
+                            .foregroundStyle(BramColor.textTertiary)
+                            .strikethrough()
+                        Text(package.displayPrice)
+                            .font(BramFont.label())
+                    } else {
+                        Text(package.price)
+                            .font(BramFont.label())
+                    }
                     Text(package.period)
                         .font(BramFont.callout(size: 12))
                         .foregroundStyle(BramColor.textTertiary)
@@ -239,5 +288,56 @@ private struct PaywallPackageButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityValue(isSelected ? "Selected" : "")
+    }
+}
+
+private struct PromoCodeSheet: View {
+    let redeem: (String) async throws -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var code = ""
+    @State private var isSubmitting = false
+    @State private var message: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Redeem code")
+                .font(BramFont.headline(size: 24))
+                .foregroundStyle(BramColor.textPrimary)
+            TextField("TESTFLIGHT1MONTH", text: $code)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .font(BramFont.body(size: 16))
+                .padding(.horizontal, 16)
+                .frame(height: 52)
+                .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(BramColor.hairline)
+                }
+            if let message {
+                Text(message)
+                    .font(BramFont.callout(size: 13))
+                    .foregroundStyle(BramColor.textTertiary)
+            }
+            PaywallPrimaryButton(
+                title: isSubmitting ? "Checking..." : "Redeem",
+                isDisabled: code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting
+            ) {
+                Task {
+                    isSubmitting = true
+                    do {
+                        try await redeem(code)
+                        dismiss()
+                    } catch {
+                        message = error.localizedDescription
+                    }
+                    isSubmitting = false
+                }
+            }
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BramColor.appBackground)
     }
 }

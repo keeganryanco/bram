@@ -38,6 +38,9 @@ struct AccountSnapshot: Codable, Equatable {
     var isDeveloper: Bool
     var founderOfferEligible: Bool
     var premiumExpiresAt: Date?
+    var activePromoKind: String?
+    var activePromoCode: String?
+    var activePromoLabel: String?
     var entitlementsUpdatedAt: Date
 
     var hasPremiumAccess: Bool {
@@ -60,6 +63,9 @@ struct AccountSnapshot: Codable, Equatable {
         isDeveloper: Bool,
         founderOfferEligible: Bool,
         premiumExpiresAt: Date?,
+        activePromoKind: String? = nil,
+        activePromoCode: String? = nil,
+        activePromoLabel: String? = nil,
         entitlementsUpdatedAt: Date
     ) {
         self.userId = userId
@@ -73,6 +79,9 @@ struct AccountSnapshot: Codable, Equatable {
         self.isDeveloper = isDeveloper
         self.founderOfferEligible = founderOfferEligible
         self.premiumExpiresAt = premiumExpiresAt
+        self.activePromoKind = activePromoKind
+        self.activePromoCode = activePromoCode
+        self.activePromoLabel = activePromoLabel
         self.entitlementsUpdatedAt = entitlementsUpdatedAt
     }
 
@@ -89,6 +98,9 @@ struct AccountSnapshot: Codable, Equatable {
         isDeveloper = try container.decode(Bool.self, forKey: .isDeveloper)
         founderOfferEligible = try container.decode(Bool.self, forKey: .founderOfferEligible)
         premiumExpiresAt = try container.decodeFlexibleDateIfPresent(forKey: .premiumExpiresAt)
+        activePromoKind = try container.decodeIfPresent(String.self, forKey: .activePromoKind)
+        activePromoCode = try container.decodeIfPresent(String.self, forKey: .activePromoCode)
+        activePromoLabel = try container.decodeIfPresent(String.self, forKey: .activePromoLabel)
         entitlementsUpdatedAt = try container.decodeFlexibleDate(forKey: .entitlementsUpdatedAt)
     }
 
@@ -104,6 +116,9 @@ struct AccountSnapshot: Codable, Equatable {
         case isDeveloper = "is_developer"
         case founderOfferEligible = "founder_offer_eligible"
         case premiumExpiresAt = "premium_expires_at"
+        case activePromoKind = "active_promo_kind"
+        case activePromoCode = "active_promo_code"
+        case activePromoLabel = "active_promo_label"
         case entitlementsUpdatedAt = "entitlements_updated_at"
     }
 }

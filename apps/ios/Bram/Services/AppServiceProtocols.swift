@@ -93,6 +93,10 @@ protocol BramEntitlementRefreshing: Sendable {
     func refresh(accessToken: String) async throws -> AccountSnapshot
 }
 
+protocol BramPromoRedeeming: Sendable {
+    func redeem(code: String, accessToken: String) async throws -> AccountSnapshot
+}
+
 protocol BramAccountDeleting: Sendable {
     func deleteAccount(accessToken: String) async throws
 }

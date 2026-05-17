@@ -62,6 +62,7 @@
 		9BD5A0764C345400B676B112 /* BramAccountDeletionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D077F220AC1F6AB73DBA65 /* BramAccountDeletionClient.swift */; };
 		9F3A88AC0545AF749A61A2A7 /* HealthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FDFA49B51AFA8F341AED9DE /* HealthModels.swift */; };
 		A192132E3FDCA418DE46411E /* BramCapsuleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D8EA3B5EF9141732E59EAF /* BramCapsuleButton.swift */; };
+		A333FC15B768D439955D5105 /* BramPromoRedemptionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD8AA7C56755F1E5A81DC30 /* BramPromoRedemptionClient.swift */; };
 		A971E8974B54D660BA5EBFA5 /* AdobeCaslonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = FCAF644B58904EE3D59604C0 /* AdobeCaslonPro-Regular.otf */; };
 		AD26E87A15CA1B930CE427CF /* SuisseIntl-Semibold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */; };
 		B6E799B949C4052344F65028 /* BramSupportClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574132B8C13C0460E91CE547 /* BramSupportClient.swift */; };
@@ -148,6 +149,7 @@
 		53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Semibold.otf"; sourceTree = "<group>"; };
 		574132B8C13C0460E91CE547 /* BramSupportClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramSupportClient.swift; sourceTree = "<group>"; };
 		5AA3ADDAC2241E5048F15325 /* ExerciseMatchingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseMatchingService.swift; sourceTree = "<group>"; };
+		5CD8AA7C56755F1E5A81DC30 /* BramPromoRedemptionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramPromoRedemptionClient.swift; sourceTree = "<group>"; };
 		5DD2FE9B17C1CDA26A1E2564 /* WorkoutLoadBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutLoadBar.swift; sourceTree = "<group>"; };
 		5E6F487E7AF0279EB62D4B05 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		607DA913FB66384CF350D64A /* BramApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramApp.swift; sourceTree = "<group>"; };
@@ -459,6 +461,7 @@
 				96250692678EF920FD0F60F4 /* BramBackendWorkoutSuggestionClient.swift */,
 				96D67AE9B05C7CC50DF665FD /* BramNotificationService.swift */,
 				AB7826884E0A6EDA4AF60350 /* BramPasswordResetClient.swift */,
+				5CD8AA7C56755F1E5A81DC30 /* BramPromoRedemptionClient.swift */,
 				92B4CAC26C537CF935CF42C4 /* BramRevenueCatEntitlementRefreshClient.swift */,
 				2246542FAF17835F1E7A7FC2 /* BramSupabaseConfiguration.swift */,
 				574132B8C13C0460E91CE547 /* BramSupportClient.swift */,
@@ -616,6 +619,7 @@
 				C0CB7ABCA229112CBED72425 /* BramPasswordResetClient.swift in Sources */,
 				74A67E9EAF61CBF5486728DC /* BramPaywallModels.swift in Sources */,
 				5A3F515D20485B4DFBB2C0F6 /* BramPreviewData.swift in Sources */,
+				A333FC15B768D439955D5105 /* BramPromoRedemptionClient.swift in Sources */,
 				4E07ED7ABBFD21DEA8948168 /* BramRevenueCatEntitlementRefreshClient.swift in Sources */,
 				CC919A32D4530CCF081428B2 /* BramSupabaseConfiguration.swift in Sources */,
 				B6E799B949C4052344F65028 /* BramSupportClient.swift in Sources */,

@@ -11,9 +11,14 @@ struct BramPaywallPackage: Identifiable, Equatable, Hashable {
     var productId: String
     var title: String
     var price: String
+    var promoPrice: String?
     var period: String
     var detail: String
     var isRecommended: Bool
+
+    var displayPrice: String {
+        promoPrice ?? price
+    }
 }
 
 struct BramPaywallSnapshot: Equatable {

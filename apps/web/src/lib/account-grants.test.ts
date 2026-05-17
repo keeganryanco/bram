@@ -87,7 +87,7 @@ describe("grantAccountAccess", () => {
         table: "account_grant_events",
         operation: "insert",
         values: expect.objectContaining({
-          grant_kind: "PRODUCT_HUNT",
+          grant_kind: "PRODUCT_HUNT_1MONTH",
           ai_soft_cap_cents: 50,
           ai_hard_cap_cents: 200,
         }),
@@ -116,6 +116,33 @@ describe("grantAccountAccess", () => {
           entitlement_source: "FOUNDER_OFFER",
           premium_expires_at: null,
           founder_offer_redeemed_at: expect.any(String),
+        }),
+      }),
+    );
+  });
+
+  it("creates a friends discount grant without an expiration", async () => {
+    const supabase = supabaseMock();
+
+    const grant = await grantAccountAccess(
+      {
+        userId,
+        grantKind: "FRIENDS_DISCOUNT",
+      },
+      { supabase },
+    );
+
+    expect(grant.entitlementSource).toBe("MANUAL");
+    expect(grant.premiumExpiresAt).toBeNull();
+    expect(supabase.calls).toContainEqual(
+      expect.objectContaining({
+        table: "account_entitlements",
+        operation: "update",
+        values: expect.objectContaining({
+          account_tier: "FREE_PREMIUM",
+          premium_expires_at: null,
+          active_promo_kind: "FRIENDS_DISCOUNT",
+          active_promo_label: "Friends access",
         }),
       }),
     );

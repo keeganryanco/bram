@@ -128,10 +128,19 @@ function isManualGrantActive(existing: {
   account_tier: string;
   entitlement_source: string;
   is_developer: boolean;
+  active_promo_kind?: string | null;
   premium_expires_at?: string | null;
 }) {
   if (existing.is_developer) {
     return true;
+  }
+
+  if (
+    ["FOUNDER_LIFETIME", "FRIENDS_DISCOUNT"].includes(
+      existing.active_promo_kind ?? "",
+    )
+  ) {
+    return isActive(existing.premium_expires_at);
   }
 
   if (
@@ -188,7 +197,7 @@ async function fetchRevenueCatSubscriber(
 async function currentAccountEntitlement(supabase: SupabaseLike, userId: string) {
   const { data, error } = await supabase
     .from("account_entitlements")
-    .select("account_tier, entitlement_source, is_developer, premium_expires_at")
+    .select("account_tier, entitlement_source, is_developer, premium_expires_at, active_promo_kind")
     .eq("user_id", userId)
     .single();
 
@@ -201,7 +210,12 @@ async function currentAccountEntitlement(supabase: SupabaseLike, userId: string)
     entitlement_source: string;
     is_developer: boolean;
     premium_expires_at: string | null;
+    active_promo_kind: string | null;
   };
+}
+
+function grantEntitlementSource(activePromoKind: string | null | undefined) {
+  return activePromoKind?.startsWith("FOUNDER_") ? "FOUNDER_OFFER" : "MANUAL";
 }
 
 export async function syncRevenueCatEntitlement(
@@ -221,6 +235,20 @@ export async function syncRevenueCatEntitlement(
   const existing = await currentAccountEntitlement(supabase, appUserId);
 
   if (!active && isManualGrantActive(existing)) {
+    const { error } = await supabase
+      .from("account_entitlements")
+      .update({
+        account_tier: "FREE_PREMIUM",
+        subscription_status: "FREE_PREMIUM",
+        entitlement_source: grantEntitlementSource(existing.active_promo_kind),
+        premium_expires_at: existing.premium_expires_at ?? null,
+      })
+      .eq("user_id", appUserId);
+
+    if (error) {
+      throw error;
+    }
+
     return fetchAccountSnapshot(supabase, appUserId);
   }
 

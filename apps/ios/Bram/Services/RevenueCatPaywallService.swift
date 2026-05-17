@@ -75,6 +75,7 @@ final class RevenueCatPaywallService: BramPaywallServicing {
                 productId: package.storeProduct.productIdentifier,
                 title: title(for: package),
                 price: package.storeProduct.localizedPriceString,
+                promoPrice: nil,
                 period: periodText(for: package),
                 detail: detailText(for: package),
                 isRecommended: package.packageType == .annual

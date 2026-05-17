@@ -38,7 +38,7 @@ struct AppRootView: View {
                     trackImpression: accountState.trackPaywallImpression,
                     purchase: accountState.purchase,
                     restore: accountState.restorePurchases,
-                    redeem: accountState.redeemCode,
+                    redeemPromo: accountState.redeemPromoCode,
                     signOut: accountState.signOut
                 )
             case .ready:
