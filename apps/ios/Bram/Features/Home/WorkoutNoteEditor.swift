@@ -132,9 +132,14 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         textView.textContainer.lineFragmentPadding = 0
         textView.keyboardDismissMode = .interactive
         textView.autocapitalizationType = .sentences
-        textView.autocorrectionType = .yes
+        textView.autocorrectionType = .no
+        textView.spellCheckingType = .no
+        textView.smartDashesType = .no
+        textView.smartQuotesType = .no
+        textView.smartInsertDeleteType = .no
         textView.tintColor = .bramViolet
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        applyTypingAttributes(to: textView, traitCollection: textView.traitCollection)
 
         let exerciseDoubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleExerciseDoubleTap(_:)))
         exerciseDoubleTap.numberOfTapsRequired = 2
@@ -145,22 +150,27 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
 
     func updateUIView(_ textView: UITextView, context: Context) {
         context.coordinator.parent = self
-        let selectedRange = textView.selectedRange
-        let wasFirstResponder = textView.isFirstResponder
-        let attributedText = makeAttributedText(
-            text: text,
-            interpretedLines: interpretedLines,
-            traitCollection: textView.traitCollection,
-            coordinator: context.coordinator
-        )
 
-        if textView.attributedText != attributedText {
-            context.coordinator.isUpdatingText = true
-            textView.attributedText = attributedText
-            if wasFirstResponder, selectedRange.location <= textView.text.utf16.count {
-                textView.selectedRange = selectedRange
-            }
-            context.coordinator.isUpdatingText = false
+        let renderSignature = Self.renderSignature(
+            interpretedLines: interpretedLines,
+            traitCollection: textView.traitCollection
+        )
+        applyTypingAttributes(to: textView, traitCollection: textView.traitCollection)
+
+        if textView.markedTextRange == nil,
+           textView.text != text {
+            applyAttributedText(
+                to: textView,
+                coordinator: context.coordinator,
+                renderSignature: renderSignature
+            )
+        } else if textView.markedTextRange == nil,
+                  context.coordinator.lastRenderSignature != renderSignature {
+            applyAttributedText(
+                to: textView,
+                coordinator: context.coordinator,
+                renderSignature: renderSignature
+            )
         }
 
         recalculateHeight(textView)
@@ -219,6 +229,59 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         }
 
         return attributed
+    }
+
+    private func applyAttributedText(
+        to textView: UITextView,
+        coordinator: Coordinator,
+        renderSignature: String
+    ) {
+        let selectedRange = textView.selectedRange
+        let wasFirstResponder = textView.isFirstResponder
+        let attributedText = makeAttributedText(
+            text: text,
+            interpretedLines: interpretedLines,
+            traitCollection: textView.traitCollection,
+            coordinator: coordinator
+        )
+
+        guard textView.attributedText != attributedText else {
+            coordinator.lastRenderedText = text
+            coordinator.lastRenderSignature = renderSignature
+            return
+        }
+
+        coordinator.isUpdatingText = true
+        textView.attributedText = attributedText
+        applyTypingAttributes(to: textView, traitCollection: textView.traitCollection)
+        if wasFirstResponder, selectedRange.location <= textView.text.utf16.count {
+            textView.selectedRange = selectedRange
+        }
+        coordinator.lastRenderedText = text
+        coordinator.lastRenderSignature = renderSignature
+        coordinator.isUpdatingText = false
+    }
+
+    private func applyTypingAttributes(to textView: UITextView, traitCollection: UITraitCollection) {
+        textView.typingAttributes = [
+            .font: UIFont.bramBody(size: 20),
+            .foregroundColor: UIColor.bramTextPrimary(for: traitCollection),
+            .paragraphStyle: paragraphStyle
+        ]
+    }
+
+    private static func renderSignature(
+        interpretedLines: [InterpretedWorkoutLine],
+        traitCollection: UITraitCollection
+    ) -> String {
+        let lineSignature = interpretedLines.map { line in
+            let anchor = line.exerciseAnchor?.displayName ?? ""
+            let cardio = line.cardioEntry?.activityType ?? ""
+            let badges = line.badges.map(\.label).joined(separator: ",")
+            return "\(line.lineIndex):\(line.rawText):\(anchor):\(cardio):\(badges)"
+        }
+        .joined(separator: "|")
+        return "\(traitCollection.userInterfaceStyle.rawValue):\(lineSignature)"
     }
 
     private var paragraphStyle: NSParagraphStyle {
@@ -302,6 +365,8 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         var anchorRanges: [(range: NSRange, anchor: ExerciseAnchor)] = []
         var cardioRanges: [(range: NSRange, entry: CardioEntry)] = []
         var isUpdatingText = false
+        var lastRenderedText = ""
+        var lastRenderSignature = ""
 
         init(parent: WorkoutNoteTextView) {
             self.parent = parent
@@ -309,6 +374,9 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             guard !isUpdatingText else { return }
+            anchorRanges = []
+            cardioRanges = []
+            lastRenderedText = textView.text
             parent.text = textView.text
             parent.recalculateHeight(textView)
         }
