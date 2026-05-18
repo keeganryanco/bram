@@ -8,6 +8,7 @@ struct HomeView: View {
     @AppStorage("bram.review.prompt_count") private var reviewPromptCount = 0
     @AppStorage("bram.review.last_prompt_at") private var reviewLastPromptAt = 0.0
     @AppStorage("bram.review.first_workout_prompted") private var reviewFirstWorkoutPrompted = false
+    @AppStorage("bramWorkoutRemindersEnabled") private var workoutRemindersEnabled = false
     @State private var note: DailyWorkoutNote
     @State private var selectedExercise: ExerciseAnchor?
     @State private var selectedCardioHistory: CardioHistorySummary?
@@ -273,7 +274,7 @@ struct HomeView: View {
                         await loadGoalsProfile()
                     }
                 },
-                enableWorkoutReminders: enableWorkoutReminders,
+                setWorkoutRemindersEnabled: setWorkoutRemindersEnabled,
                 submitSupportRequest: submitSupportRequest,
                 onSupportOpened: {
                     track(AnalyticsEvent(name: "support_opened", properties: ["source": "settings"]))
@@ -1039,10 +1040,23 @@ struct HomeView: View {
         ]
     }
 
-    private func enableWorkoutReminders() async {
+    private func setWorkoutRemindersEnabled(_ isEnabled: Bool) async -> Bool {
+        guard let reminderService else { return false }
+        if !isEnabled {
+            workoutRemindersEnabled = false
+            await reminderService.cancelReminders()
+            track(
+                AnalyticsEvent(
+                    name: "workout_reminders_preference_set",
+                    properties: ["enabled": "false"]
+                )
+            )
+            return false
+        }
+
         do {
-            guard let reminderService else { return }
             let granted = try await reminderService.requestAuthorization()
+            workoutRemindersEnabled = granted
             track(
                 AnalyticsEvent(
                     name: "workout_reminders_permission_set",
@@ -1052,12 +1066,16 @@ struct HomeView: View {
             if granted {
                 await reminderService.scheduleReminder(after: note, goals: goalsProfile)
             }
+            return granted
         } catch {
             reportError("settings", "workout_reminders_permission_failed", nil, error, [:])
+            workoutRemindersEnabled = false
+            return false
         }
     }
 
     private func scheduleWorkoutReminder(after draft: DailyWorkoutNote) async {
+        guard workoutRemindersEnabled else { return }
         guard isWorkoutLike(draft) else { return }
         await reminderService?.scheduleReminder(after: draft, goals: goalsProfile)
     }

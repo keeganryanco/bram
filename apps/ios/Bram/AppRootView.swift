@@ -3,6 +3,7 @@ import SwiftUI
 struct AppRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("bramAppearancePreference") private var appearancePreferenceRaw = BramAppearancePreference.system.rawValue
     @ObservedObject var accountState: AccountSessionState
 
     init(accountState: AccountSessionState) {
@@ -69,6 +70,7 @@ struct AppRootView: View {
         }
             .tint(BramColor.violet)
             .font(BramFont.body())
+            .preferredColorScheme(appearancePreference.colorScheme)
             .task {
                 await accountState.start()
             }
@@ -109,6 +111,10 @@ struct AppRootView: View {
                 }
             }
         )
+    }
+
+    private var appearancePreference: BramAppearancePreference {
+        BramAppearancePreference(rawValue: appearancePreferenceRaw) ?? .system
     }
 
     private func accountGate(message: String?) -> some View {

@@ -77,6 +77,7 @@
 		C10A185661DD1B3C7E814744 /* TrainingGoalsProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DAC3226D99B3211B744A83 /* TrainingGoalsProfile.swift */; };
 		C205F5DB6AE4B4DAFC6DA6BC /* AccountGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E07A855DC9B72493F32B54F /* AccountGateView.swift */; };
 		C2E38DF743B1F5B4F8C0EEEE /* ParsedWorkoutSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 057A5BDB2AEB506DF6CAC1FE /* ParsedWorkoutSummaryCard.swift */; };
+		C690E8A78FD7917B4D40A8CE /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAE14D01A7E49B9BF82DC37 /* AppPreferences.swift */; };
 		CC33179D2C50DED641B0A869 /* PanelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 951BBA2DD0BCCD1E65278379 /* PanelModels.swift */; };
 		CC919A32D4530CCF081428B2 /* BramSupabaseConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2246542FAF17835F1E7A7FC2 /* BramSupabaseConfiguration.swift */; };
 		CDED3E74D69383AA5F0FB813 /* PaywallGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D90437D189CE593CFAAB77 /* PaywallGateView.swift */; };
@@ -145,6 +146,7 @@
 		41A4668272501B851CB8F7A6 /* BramPreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramPreviewData.swift; sourceTree = "<group>"; };
 		46154B11165956CF3C23EAD7 /* PremiumFeaturePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumFeaturePromptView.swift; sourceTree = "<group>"; };
 		46B005EC835121B4DD018517 /* SuisseIntl-Book.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Book.otf"; sourceTree = "<group>"; };
+		4BAE14D01A7E49B9BF82DC37 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		4D5F33D2CB5B7CC5EBE56D49 /* WorkoutDomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDomainModels.swift; sourceTree = "<group>"; };
 		4DA2D14FA871797BDD78DFB6 /* NoopAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopAnalyticsService.swift; sourceTree = "<group>"; };
 		4E5E05652F6ED1BC5EFC9195 /* AppleHealthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleHealthService.swift; sourceTree = "<group>"; };
@@ -375,6 +377,7 @@
 			isa = PBXGroup;
 			children = (
 				E1F2089FF64A66F45D80DC73 /* AccountSnapshot.swift */,
+				4BAE14D01A7E49B9BF82DC37 /* AppPreferences.swift */,
 				8128529C6AB2A0A93F6CE981 /* BramPaywallModels.swift */,
 				7DB33F0A73E4B91B68AE5964 /* DailyWorkoutModels.swift */,
 				2FDFA49B51AFA8F341AED9DE /* HealthModels.swift */,
@@ -608,6 +611,7 @@
 				2A5B1911C6574478ADFA90A6 /* AccountSessionState.swift in Sources */,
 				E4A337251BB3650D1819B429 /* AccountSnapshot.swift in Sources */,
 				B7DFAC71053019420892BA32 /* AppDiagnosticsRecorder.swift in Sources */,
+				C690E8A78FD7917B4D40A8CE /* AppPreferences.swift in Sources */,
 				D0D76F222745C8E32E87FE19 /* AppRootView.swift in Sources */,
 				3473811A6998AF7C94454699 /* AppServiceProtocols.swift in Sources */,
 				77E15CE6C83182BB87BDA99E /* AppleHealthService.swift in Sources */,

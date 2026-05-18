@@ -192,6 +192,7 @@ protocol AppErrorReporting: Sendable {
 protocol WorkoutReminderScheduling: Sendable {
     func requestAuthorization() async throws -> Bool
     func scheduleReminder(after note: DailyWorkoutNote, goals: TrainingGoalsProfile) async
+    func cancelReminders() async
 }
 
 struct WorkoutInterpretationResult: Hashable {

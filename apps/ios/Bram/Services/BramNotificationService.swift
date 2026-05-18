@@ -30,6 +30,10 @@ struct BramNotificationService: WorkoutReminderScheduling, @unchecked Sendable {
         try? await center.add(request)
     }
 
+    func cancelReminders() async {
+        center.removePendingNotificationRequests(withIdentifiers: ["bram.next-workout"])
+    }
+
     private func reminderBody(after note: DailyWorkoutNote, goals: TrainingGoalsProfile) -> String {
         if note.metrics.prCount > 0 {
             return "You logged a PR last time. Keep the rhythm going today."

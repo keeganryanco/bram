@@ -1,6 +1,8 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
+    @Environment(\.openURL) private var openURL
     let account: SettingsAccountState
     let goalsProfile: TrainingGoalsProfile
     let healthConnected: Bool
@@ -11,13 +13,17 @@ struct SettingsView: View {
     let onSignOut: () async -> Void
     let onDeleteAccount: () async -> Void
     let onHealthUpdated: () -> Void
-    let enableWorkoutReminders: () async -> Void
+    let setWorkoutRemindersEnabled: (Bool) async -> Bool
     let openGoals: () -> Void
     let openHealth: () -> Void
     let submitSupportRequest: (SupportRequestDraft) async throws -> Void
     let onSupportOpened: () -> Void
+    @AppStorage("bramAppearancePreference") private var appearancePreferenceRaw = BramAppearancePreference.system.rawValue
+    @AppStorage("bramWorkoutRemindersEnabled") private var workoutRemindersEnabled = false
     @State private var showingDeleteConfirmation = false
     @State private var showingSupport = false
+    @State private var showingNotificationSettingsAlert = false
+    @State private var isUpdatingWorkoutReminders = false
 
     init(
         account: SettingsAccountState,
@@ -30,7 +36,7 @@ struct SettingsView: View {
         onSignOut: @escaping () async -> Void = {},
         onDeleteAccount: @escaping () async -> Void = {},
         onHealthUpdated: @escaping () -> Void = {},
-        enableWorkoutReminders: @escaping () async -> Void = {},
+        setWorkoutRemindersEnabled: @escaping (Bool) async -> Bool = { _ in false },
         openGoals: @escaping () -> Void = {},
         openHealth: @escaping () -> Void = {},
         submitSupportRequest: @escaping (SupportRequestDraft) async throws -> Void = { _ in },
@@ -46,7 +52,7 @@ struct SettingsView: View {
         self.onSignOut = onSignOut
         self.onDeleteAccount = onDeleteAccount
         self.onHealthUpdated = onHealthUpdated
-        self.enableWorkoutReminders = enableWorkoutReminders
+        self.setWorkoutRemindersEnabled = setWorkoutRemindersEnabled
         self.openGoals = openGoals
         self.openHealth = openHealth
         self.submitSupportRequest = submitSupportRequest
@@ -102,12 +108,11 @@ struct SettingsView: View {
             }
 
             SettingsSection(title: "Preferences") {
-                SettingsInfoRow(title: "Appearance", value: account.appearance)
-                SettingsActionRow(title: "Workout reminders", systemImage: "bell.fill", tint: BramColor.violet) {
-                    Task {
-                        await enableWorkoutReminders()
-                    }
-                }
+                SettingsAppearanceRow(selection: appearanceBinding)
+                SettingsReminderToggleRow(
+                    isOn: reminderBinding,
+                    isUpdating: isUpdatingWorkoutReminders
+                )
                 SettingsToggleRow(title: "Developer mode", subtitle: "Visible when account entitlement allows it", systemImage: "hammer.fill", tint: BramColor.cool, isOn: account.isDeveloper)
             }
 
@@ -138,6 +143,16 @@ struct SettingsView: View {
         } message: {
             Text("This permanently deletes your Bram account and synced account data. Local data on this device will also be cleared.")
         }
+        .alert("Notifications are off", isPresented: $showingNotificationSettingsAlert) {
+            Button("Not now", role: .cancel) {}
+            Button("Open Settings") {
+                if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(settingsURL)
+                }
+            }
+        } message: {
+            Text("Turn on notifications in iOS Settings to use workout reminders.")
+        }
         .sheet(isPresented: $showingSupport) {
             SupportRequestSheet(account: account, submit: submitSupportRequest)
                 .presentationDetents([.medium, .large])
@@ -151,6 +166,36 @@ struct SettingsView: View {
         } else {
             "Manage through App Store"
         }
+    }
+
+    private var appearanceBinding: Binding<BramAppearancePreference> {
+        Binding(
+            get: { BramAppearancePreference(rawValue: appearancePreferenceRaw) ?? .system },
+            set: { appearancePreferenceRaw = $0.rawValue }
+        )
+    }
+
+    private var reminderBinding: Binding<Bool> {
+        Binding(
+            get: { workoutRemindersEnabled },
+            set: { nextValue in
+                guard !isUpdatingWorkoutReminders else { return }
+                if !nextValue {
+                    workoutRemindersEnabled = false
+                }
+                isUpdatingWorkoutReminders = true
+                Task {
+                    let enabled = await setWorkoutRemindersEnabled(nextValue)
+                    await MainActor.run {
+                        workoutRemindersEnabled = enabled
+                        if nextValue, !enabled {
+                            showingNotificationSettingsAlert = true
+                        }
+                        isUpdatingWorkoutReminders = false
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -351,6 +396,70 @@ private struct SettingsInfoRow: View {
                 .foregroundStyle(BramColor.textPrimary)
         }
         .font(BramFont.body(size: 15))
+        .padding(16)
+    }
+}
+
+private struct SettingsAppearanceRow: View {
+    @Binding var selection: BramAppearancePreference
+
+    var body: some View {
+        Menu {
+            ForEach(BramAppearancePreference.allCases) { preference in
+                Button {
+                    selection = preference
+                } label: {
+                    HStack {
+                        Text(preference.label)
+                        if selection == preference {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "circle.lefthalf.filled")
+                    .foregroundStyle(BramColor.violet)
+                    .frame(width: 24)
+                Text("Appearance")
+                    .font(BramFont.label())
+                    .foregroundStyle(BramColor.textPrimary)
+                Spacer()
+                Text(selection.label)
+                    .font(BramFont.body(size: 15))
+                    .foregroundStyle(BramColor.textSecondary)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(BramColor.textTertiary)
+            }
+            .padding(16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Appearance")
+        .accessibilityValue(selection.label)
+    }
+}
+
+private struct SettingsReminderToggleRow: View {
+    @Binding var isOn: Bool
+    let isUpdating: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "bell.fill")
+                .foregroundStyle(BramColor.violet)
+                .frame(width: 24)
+            Text("Workout reminders")
+                .font(BramFont.label())
+                .foregroundStyle(BramColor.textPrimary)
+            Spacer()
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .tint(BramColor.violet)
+                .disabled(isUpdating)
+        }
         .padding(16)
     }
 }
