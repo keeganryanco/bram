@@ -28,10 +28,13 @@ struct HomeView: View {
     @State private var pendingCoachCards: [WorkoutCoachCard]?
     @State private var coachCardReplacementTask: Task<Void, Never>?
     @State private var backendSuggestionTask: Task<Void, Never>?
+    @State private var foregroundHealthRefreshTask: Task<Void, Never>?
+    @State private var isRefreshingForegroundHealth = false
     private let noteStore: any WorkoutLocalStore
     private let interpreter: any WorkoutInterpretationService
     private let backendInterpreter: (any WorkoutInterpretationBackendClient)?
     private let suggestionBackend: (any WorkoutSuggestionBackendClient)?
+    private let healthService: any AppleHealthProviding
     private let featureAccess: BramFeatureAccess
     private let account: SettingsAccountState
     private let onSignOut: () async -> Void
@@ -51,6 +54,7 @@ struct HomeView: View {
         interpreter: any WorkoutInterpretationService = HeuristicWorkoutInterpretationService(),
         backendInterpreter: (any WorkoutInterpretationBackendClient)? = BramBackendWorkoutInterpretationClient.configuredFromBundle(),
         suggestionBackend: (any WorkoutSuggestionBackendClient)? = BramBackendWorkoutSuggestionClient.configuredFromBundle(),
+        healthService: any AppleHealthProviding = AppleHealthService(),
         featureAccess: BramFeatureAccess = .previewPremium,
         onSignOut: @escaping () async -> Void = {},
         onDeleteAccount: @escaping () async -> Void = {},
@@ -68,6 +72,7 @@ struct HomeView: View {
         self.interpreter = interpreter
         self.backendInterpreter = backendInterpreter
         self.suggestionBackend = suggestionBackend
+        self.healthService = healthService
         self.featureAccess = featureAccess
         self.onSignOut = onSignOut
         self.onDeleteAccount = onDeleteAccount
@@ -192,6 +197,7 @@ struct HomeView: View {
             await refreshCalendarDays()
             await refreshProgressStats()
             await loadGoalsProfile()
+            startForegroundHealthRefreshIfNeeded()
         }
         .onChange(of: note.body) { _, _ in
             scheduleDraftInterpretation()
@@ -201,13 +207,20 @@ struct HomeView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .inactive || phase == .background {
                 flushAutosave()
+                stopForegroundHealthRefresh()
+            } else if phase == .active {
+                startForegroundHealthRefreshIfNeeded()
             }
+        }
+        .onChange(of: selectedDayKey) { _, _ in
+            restartForegroundHealthRefreshIfNeeded()
         }
         .onDisappear {
             draftInterpretationTask?.cancel()
             backendInterpretationTask?.cancel()
             backendSuggestionTask?.cancel()
             coachCardReplacementTask?.cancel()
+            stopForegroundHealthRefresh()
             flushAutosave()
             loadTask?.cancel()
         }
@@ -852,6 +865,113 @@ struct HomeView: View {
                 note.lastSyncError = "Could not refresh progress stats."
             }
         }
+    }
+
+    private func startForegroundHealthRefreshIfNeeded() {
+        guard scenePhase == .active,
+              featureAccess.canUseHealth,
+              healthService.authorizationState() == .requested,
+              foregroundHealthRefreshTask == nil
+        else { return }
+
+        foregroundHealthRefreshTask = Task {
+            while !Task.isCancelled {
+                await refreshForegroundHealthData()
+                guard !Task.isCancelled else { return }
+                try? await Task.sleep(for: .seconds(10))
+            }
+        }
+    }
+
+    private func restartForegroundHealthRefreshIfNeeded() {
+        stopForegroundHealthRefresh()
+        startForegroundHealthRefreshIfNeeded()
+    }
+
+    private func stopForegroundHealthRefresh() {
+        foregroundHealthRefreshTask?.cancel()
+        foregroundHealthRefreshTask = nil
+        isRefreshingForegroundHealth = false
+    }
+
+    private func refreshForegroundHealthData() async {
+        guard !isRefreshingForegroundHealth else { return }
+        isRefreshingForegroundHealth = true
+        defer { isRefreshingForegroundHealth = false }
+
+        do {
+            let previousMetric = try? await noteStore.healthDailyMetric(for: note.date)
+            let previousWorkouts = (try? await noteStore.healthWorkoutSamples(on: note.date)) ?? []
+            let previousMatch = try? await noteStore.healthWorkoutMatch(for: note.id)
+            let refreshed = try await healthService.refreshHealthData(for: note.date)
+            if let metric = refreshed.dailyMetric {
+                try await noteStore.save(metric)
+            }
+            try await noteStore.save(refreshed.workouts)
+
+            let match = healthService.matchWorkout(note: note, workouts: refreshed.workouts)
+            if let match {
+                try await noteStore.save(match)
+            }
+            if healthDataChanged(
+                previousMetric: previousMetric,
+                refreshedMetric: refreshed.dailyMetric,
+                previousWorkouts: previousWorkouts,
+                refreshedWorkouts: refreshed.workouts,
+                previousMatch: previousMatch,
+                refreshedMatch: match
+            ) {
+                try await noteStore.save(note)
+                await onWorkoutDataSaved?()
+                track(AnalyticsEvent(name: "health_data_refreshed", properties: ["source": "foreground_loop"]))
+            }
+
+            let refreshedNote = try await noteStore.note(for: note.date)
+            await MainActor.run {
+                note.metrics = refreshedNote.metrics
+                note.interpretedLines = refreshedNote.interpretedLines
+                note.suggestion = refreshedNote.suggestion
+                note.parsedSummary = refreshedNote.parsedSummary
+                note.lastSyncError = nil
+            }
+            await refreshProgressStats()
+            await refreshCalendarDays()
+        } catch {
+            reportError(
+                "health",
+                "foreground_health_refresh_failed",
+                nil,
+                error,
+                ["source": "home_foreground_loop"]
+            )
+        }
+    }
+
+    private func healthDataChanged(
+        previousMetric: HealthDailyMetric?,
+        refreshedMetric: HealthDailyMetric?,
+        previousWorkouts: [HealthWorkoutSample],
+        refreshedWorkouts: [HealthWorkoutSample],
+        previousMatch: HealthWorkoutMatch?,
+        refreshedMatch: HealthWorkoutMatch?
+    ) -> Bool {
+        let meaningfulMetricChanged: Bool
+        if let refreshedMetric, Self.hasHealthMetricValue(refreshedMetric) {
+            meaningfulMetricChanged = previousMetric != refreshedMetric
+        } else {
+            meaningfulMetricChanged = false
+        }
+        return meaningfulMetricChanged
+            || Set(previousWorkouts) != Set(refreshedWorkouts)
+            || previousMatch != refreshedMatch
+    }
+
+    private static func hasHealthMetricValue(_ metric: HealthDailyMetric) -> Bool {
+        metric.activeEnergyCalories != nil
+            || metric.averageHeartRate != nil
+            || metric.maxHeartRate != nil
+            || metric.bodyweightValue != nil
+            || metric.workoutDurationMinutes != nil
     }
 
     private func loadGoalsProfile() async {
