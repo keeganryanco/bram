@@ -690,7 +690,7 @@ private struct StreakOverview: View {
                     }
 
                     HStack(spacing: 10) {
-                        StreakMetric(value: "\(stats.currentStreak)", label: "day run", colorRole: .energy)
+                        StreakMetric(value: "\(stats.currentStreak)", label: "goal run", colorRole: .energy)
                         StreakMetric(value: "\(stats.highestStreak)", label: "best", colorRole: .violet)
                         StreakMetric(value: "\(stats.workoutDaysInPeriod)/\(stats.weeklyTarget)", label: "target", colorRole: stats.workoutDaysInPeriod >= stats.weeklyTarget ? .recovery : .violet)
                     }

@@ -232,7 +232,12 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         let setVolumeDelta = totalSets - previousTotalSets
         let goals = (try? reconciledTrainingGoalsProfileSync()) ?? TrainingGoalsProfile()
         let bodyweightTrend = try bodyweightTrend(from: interval.start, to: endDate, goals: goals)
-        let streak = currentStreak(from: workoutDays)
+        let streak = try currentGoalStreak(
+            containing: date,
+            weeklyTarget: goals.weeklyTrainingDays,
+            currentWeekWorkoutDays: workoutDays,
+            calendar: calendar
+        )
         let streakAwards = Self.streakAwards(
             workoutDays: workoutDays.count,
             weeklyTarget: goals.weeklyTrainingDays,
@@ -1249,17 +1254,6 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         }
     }
 
-    private func currentStreak(from workoutDays: Set<String>) -> Int {
-        var streak = 0
-        var cursor = workoutDays.compactMap(Self.date(from:)).max() ?? Date()
-        while workoutDays.contains(Self.dayKey(for: cursor)) {
-            streak += 1
-            guard let previous = Calendar.current.date(byAdding: .day, value: -1, to: cursor) else { break }
-            cursor = previous
-        }
-        return streak
-    }
-
     private func longestStreak(from workoutDays: Set<String>) -> Int {
         let dates = workoutDays.compactMap(Self.date(from:)).sorted()
         guard !dates.isEmpty else { return 0 }
@@ -1275,6 +1269,72 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             }
         }
         return max(longest, current)
+    }
+
+    private func currentGoalStreak(
+        containing date: Date,
+        weeklyTarget: Int,
+        currentWeekWorkoutDays: Set<String>,
+        calendar: Calendar
+    ) throws -> Int {
+        guard let selectedWeek = calendar.dateInterval(of: .weekOfYear, for: date) else {
+            return currentWeekWorkoutDays.isEmpty ? 0 : 1
+        }
+
+        let target = max(weeklyTarget, 1)
+        var streak = 0
+        var cursorStart = selectedWeek.start
+        var cursorWorkoutDays = currentWeekWorkoutDays.count
+
+        while true {
+            guard let cursorWeek = calendar.dateInterval(of: .weekOfYear, for: cursorStart),
+                  weekQualifiesForGoal(
+                    workoutDays: cursorWorkoutDays,
+                    weeklyTarget: target,
+                    week: cursorWeek,
+                    calendar: calendar
+                  )
+            else { break }
+
+            streak += 1
+            guard let previousWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: cursorStart) else {
+                break
+            }
+            cursorStart = previousWeekStart
+            guard let previousWeek = calendar.dateInterval(of: .weekOfYear, for: cursorStart) else {
+                break
+            }
+            let previousWeekEnd = calendar.date(byAdding: .day, value: -1, to: previousWeek.end) ?? previousWeek.start
+            cursorWorkoutDays = try workoutDayCount(
+                from: Self.dayKey(for: previousWeek.start),
+                to: Self.dayKey(for: previousWeekEnd)
+            )
+        }
+
+        return streak
+    }
+
+    private func weekQualifiesForGoal(
+        workoutDays: Int,
+        weeklyTarget: Int,
+        week: DateInterval,
+        calendar: Calendar
+    ) -> Bool {
+        guard workoutDays > 0 else { return false }
+        if workoutDays >= weeklyTarget { return true }
+
+        let now = Date()
+        guard week.contains(now) else { return false }
+
+        let elapsedDays = min(
+            7,
+            max((calendar.dateComponents([.day], from: week.start, to: now).day ?? 0) + 1, 1)
+        )
+        let expectedByNow = min(
+            weeklyTarget,
+            max(Int(ceil(Double(weeklyTarget) * Double(elapsedDays) / 7.0)), 1)
+        )
+        return workoutDays >= expectedByNow
     }
 
     private func streakRepairsAvailable(from workoutDays: Set<String>) -> Int {

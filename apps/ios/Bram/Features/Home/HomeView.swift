@@ -87,7 +87,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     HomeHeader(
                         date: note.date,
-                        streakDays: note.metrics.streakDays,
+                        streakDays: progressStats.currentStreak,
                         openCalendar: {
                             track(AnalyticsEvent(name: "calendar_opened", properties: ["source": "home_header"]))
                             activePanel = .calendar

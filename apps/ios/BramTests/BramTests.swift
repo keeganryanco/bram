@@ -1156,6 +1156,67 @@ struct BramTests {
         #expect(stats.streakAwards.contains { $0.title == "Record Spark" && $0.isUnlocked })
     }
 
+    @Test func currentWeekOnPaceCountsAsGoalStreak() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramCurrentGoalStreakTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let calendar = Calendar.current
+        let today = Date()
+        let week = calendar.dateInterval(of: .weekOfYear, for: today)!
+        let weeklyTarget = 4
+        let elapsedDays = min(
+            7,
+            max((calendar.dateComponents([.day], from: week.start, to: today).day ?? 0) + 1, 1)
+        )
+        let requiredByToday = min(
+            weeklyTarget,
+            max(Int(ceil(Double(weeklyTarget) * Double(elapsedDays) / 7.0)), 1)
+        )
+
+        try await store.save(TrainingGoalsProfile(weeklyTrainingDays: weeklyTarget))
+
+        for offset in 0..<requiredByToday {
+            let date = calendar.date(byAdding: .day, value: offset, to: week.start)!
+            var note = try await store.note(for: date)
+            note.body = "Bench 185 3x8"
+            try await store.save(note)
+        }
+
+        let stats = try await store.statsWeek(containing: today)
+
+        #expect(stats.workoutDaysInPeriod == requiredByToday)
+        #expect(stats.currentStreak >= 1)
+    }
+
+    @Test func backfilledGoalWeeksCountTowardStreakWithoutConsecutiveDays() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramBackfilledGoalStreakTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let calendar = Calendar.current
+        let referenceDate = Calendar.current.date(from: DateComponents(year: 2026, month: 5, day: 20))!
+        let secondWeek = calendar.dateInterval(of: .weekOfYear, for: referenceDate)!
+        let firstWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: secondWeek.start)!
+
+        try await store.save(TrainingGoalsProfile(weeklyTrainingDays: 2))
+
+        for weekStart in [firstWeekStart, secondWeek.start] {
+            for offset in [0, 2] {
+                let date = calendar.date(byAdding: .day, value: offset, to: weekStart)!
+                var note = try await store.note(for: date)
+                note.body = "Squat 225 3x5"
+                try await store.save(note)
+            }
+        }
+
+        let stats = try await store.statsWeek(containing: referenceDate)
+
+        #expect(stats.workoutDaysInPeriod == 2)
+        #expect(stats.currentStreak == 2)
+        #expect(stats.highestStreak >= 2)
+    }
+
     @Test func sqliteWorkoutStoreBuildsExerciseHistoryFromSavedSets() async throws {
         let path = FileManager.default.temporaryDirectory
             .appendingPathComponent("BramExerciseHistoryTests-\(UUID().uuidString).sqlite")
