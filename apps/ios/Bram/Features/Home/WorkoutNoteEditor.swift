@@ -374,9 +374,6 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             guard !isUpdatingText else { return }
-            anchorRanges = []
-            cardioRanges = []
-            lastRenderedText = textView.text
             parent.text = textView.text
             parent.recalculateHeight(textView)
         }
