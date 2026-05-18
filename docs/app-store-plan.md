@@ -41,6 +41,7 @@ Saturday, May 16 DONE:
 - Verify the RevenueCat current/default offering contains `app.trybram.Bram.premium.year` and `app.trybram.Bram.premium.monthly` under entitlement `premium`.
 - Verify Settings can opt into local workout reminders and that saving a workout-like note schedules a contextual local reminder.
 - Verify onboarding permission screens trigger Apple Health and notification prompts before the baseline recap.
+- Verify Apple Health on a physical iPhone before App Store submission. Bram has the local HealthKit entitlement, `HealthKit.framework`, and `NSHealthShareUsageDescription`; the Apple Developer App ID for `app.trybram.Bram` must also have HealthKit enabled. Simulator/iPad-style runs can report Health unavailable or have no Health store data. On device, confirm the permission sheet appears, then check iOS Health > Sharing > Apps > Bram for workouts, active energy, heart rate, distance, and bodyweight read access.
 
 Sunday, May 17:
 

@@ -27,7 +27,7 @@ final class AppleHealthService: AppleHealthProviding, @unchecked Sendable {
         guard HKHealthStore.isHealthDataAvailable() else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
-        let samples: [HKWorkout] = try await sampleQuery(type: .workoutType(), predicate: predicate, sortDescriptors: [sort])
+        let samples: [HKWorkout] = (try? await sampleQuery(type: .workoutType(), predicate: predicate, sortDescriptors: [sort])) ?? []
         return samples.map(makeWorkoutSample)
     }
 
@@ -42,11 +42,11 @@ final class AppleHealthService: AppleHealthProviding, @unchecked Sendable {
             guard let nextDay = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
             let dayStart = cursor
             let dayEnd = nextDay
-            let energy = try await quantitySum(.activeEnergyBurned, unit: .kilocalorie(), from: dayStart, to: dayEnd)
-            let heartRateAverage = try await quantityAverage(.heartRate, unit: heartRateUnit, from: dayStart, to: dayEnd)
-            let heartRateMax = try await quantityMax(.heartRate, unit: heartRateUnit, from: dayStart, to: dayEnd)
-            let bodyMass = try await latestQuantity(.bodyMass, unit: .pound(), from: dayStart, to: dayEnd)
-            let dayWorkouts = try await workouts(from: dayStart, to: dayEnd)
+            let energy = try? await quantitySum(.activeEnergyBurned, unit: .kilocalorie(), from: dayStart, to: dayEnd)
+            let heartRateAverage = try? await quantityAverage(.heartRate, unit: heartRateUnit, from: dayStart, to: dayEnd)
+            let heartRateMax = try? await quantityMax(.heartRate, unit: heartRateUnit, from: dayStart, to: dayEnd)
+            let bodyMass = try? await latestQuantity(.bodyMass, unit: .pound(), from: dayStart, to: dayEnd)
+            let dayWorkouts = (try? await workouts(from: dayStart, to: dayEnd)) ?? []
             let duration = dayWorkouts.reduce(0) { $0 + $1.durationMinutes }
             metrics.append(
                 HealthDailyMetric(

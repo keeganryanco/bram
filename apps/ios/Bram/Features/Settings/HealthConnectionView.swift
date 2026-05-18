@@ -290,7 +290,11 @@ struct HealthConnectionContent: View {
 #endif
             await MainActor.run {
                 authorizationState = .accessNeedsReview
+#if DEBUG
+                message = "Bram could not read Health data: \(error.localizedDescription)"
+#else
                 message = "Bram could not read Health data. Check Bram in iOS Health data access, then try again."
+#endif
             }
         }
     }
