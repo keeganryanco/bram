@@ -608,10 +608,17 @@ struct HomeView: View {
             return
         }
 
+        let sameVisibleIdentity = coachCards.map(\.stableDisplayKey) == nextCards.map(\.stableDisplayKey)
         let remaining = WorkoutCoachCardDisplayPolicy.remainingVisibleTime(
             current: current,
             shownAt: coachCardsShownAt
         )
+        if phase == .typing,
+           sameVisibleIdentity,
+           remaining > 0 {
+            return
+        }
+
         guard remaining > 0 else {
             setVisibleCoachCards(nextCards)
             return

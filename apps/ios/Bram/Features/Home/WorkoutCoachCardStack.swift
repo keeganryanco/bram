@@ -6,14 +6,12 @@ struct WorkoutCoachCardStack: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            ForEach(cards) { card in
+            ForEach(cards, id: \.stableDisplayKey) { card in
                 WorkoutCoachCardView(card: card) { action in
                     onFeedback(card, action)
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(.easeInOut(duration: 0.26), value: cards)
     }
 }
 
@@ -63,7 +61,6 @@ private struct WorkoutCoachCardView: View {
                             onFeedback(.thumbsDown)
                         }
                     }
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .leading)))
                 }
             }
         }
@@ -76,15 +73,13 @@ private struct WorkoutCoachCardView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(card.title). \(card.metadata ?? ""). \(card.text)")
-        .task(id: card.id) {
+        .task(id: card.stableDisplayKey) {
             showsFeedback = false
             guard card.feedbackEligible else { return }
             let delay = Int((max(4, card.minimumVisibleSeconds * 0.75) * 1_000).rounded())
             try? await Task.sleep(for: .milliseconds(delay))
             guard !Task.isCancelled else { return }
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showsFeedback = true
-            }
+            showsFeedback = true
         }
     }
 

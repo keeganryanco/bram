@@ -20,6 +20,9 @@ struct WorkoutCoachCard: Identifiable, Hashable {
     var feedbackEligible: Bool
     var affectedExerciseKey: String?
     var coarseContext: [String: String]
+    var stableDisplayKey: String {
+        "\(kind.rawValue)|\(title)|\(affectedExerciseKey ?? coarseContext["evidence"] ?? "")"
+    }
 
     init(
         id: UUID = UUID(),
@@ -29,7 +32,7 @@ struct WorkoutCoachCard: Identifiable, Hashable {
         text: String,
         source: SuggestionSource = .local,
         priority: Int,
-        minimumVisibleSeconds: TimeInterval = 8,
+        minimumVisibleSeconds: TimeInterval = 12,
         feedbackEligible: Bool = false,
         affectedExerciseKey: String? = nil,
         coarseContext: [String: String] = [:]
