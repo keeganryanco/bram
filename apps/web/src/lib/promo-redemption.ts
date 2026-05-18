@@ -13,11 +13,9 @@ const PromoCodeSchema = z
 const promoCodes = {
   TESTFLIGHT1MONTH: {
     grantKind: "TESTFLIGHT_1MONTH",
-    requiresAllowlist: true,
   },
   PRODUCTHUNT1MONTH: {
     grantKind: "PRODUCT_HUNT_1MONTH",
-    requiresAllowlist: true,
   },
   FOUNDER1MONTH: {
     grantKind: "FOUNDER_1MONTH",
@@ -134,44 +132,6 @@ async function hasFounderEligibility(
   return Array.isArray(waitlist) && waitlist.length > 0;
 }
 
-async function findAllowlistEligibility(
-  supabase: SupabasePromoClient,
-  userId: string,
-  email: string,
-  code: string,
-) {
-  const selectColumns = "id, expires_at, redeemed_at, grant_kind";
-  const byUser = await supabase
-    .from("account_promo_eligibilities")
-    .select(selectColumns)
-    .eq("user_id", userId)
-    .eq("promo_code", code)
-    .limit(1);
-
-  const byEmail = await supabase
-    .from("account_promo_eligibilities")
-    .select(selectColumns)
-    .eq("email", email)
-    .eq("promo_code", code)
-    .limit(1);
-
-  const row = [...(byUser.data ?? []), ...(byEmail.data ?? [])][0];
-  if (!row || byUser.error || byEmail.error) {
-    return null;
-  }
-
-  if (row.redeemed_at) {
-    throw new PromoRedemptionError("That promo code has already been redeemed.", 409);
-  }
-
-  const expiresAt = typeof row.expires_at === "string" ? row.expires_at : null;
-  if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
-    throw new PromoRedemptionError("That promo code has expired.", 410);
-  }
-
-  return row as { id: string; grant_kind: string };
-}
-
 export async function redeemPromoCodeForToken(
   accessToken: string,
   rawCode: string,
@@ -189,21 +149,12 @@ export async function redeemPromoCodeForToken(
   const userId = data.user.id;
   const { email } = await profileForUser(supabase, userId);
   const promo = promoCodes[code];
-  let eligibilityId: string | null = null;
 
   if ("requiresFounderEligibility" in promo) {
     const eligible = await hasFounderEligibility(supabase, userId, email);
     if (!eligible) {
       throw new PromoRedemptionError("That promo code is not available for this account.", 403);
     }
-  }
-
-  if ("requiresAllowlist" in promo) {
-    const eligibility = await findAllowlistEligibility(supabase, userId, email, code);
-    if (!eligibility) {
-      throw new PromoRedemptionError("That promo code is not available for this account.", 403);
-    }
-    eligibilityId = eligibility.id;
   }
 
   await grantAccountAccess(
@@ -215,13 +166,6 @@ export async function redeemPromoCodeForToken(
     },
     { supabase },
   );
-
-  if (eligibilityId) {
-    await supabase
-      .from("account_promo_eligibilities")
-      .update({ redeemed_by_user_id: userId, redeemed_at: new Date().toISOString() })
-      .eq("id", eligibilityId);
-  }
 
   return fetchAccountSnapshot(supabase, userId);
 }

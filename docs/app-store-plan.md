@@ -33,7 +33,7 @@ Before submission, verify subscriptions, deletion/export, analytics disclosures,
 
 ## May 16-22, 2026 Launch Plan
 
-Saturday, May 16:
+Saturday, May 16 DONE:
 
 - Finish support intake, crash follow-up, analytics, and review prompt instrumentation.
 - Add `LINEAR_API_KEY` in Vercel production and redeploy so authenticated support requests mirror into the Linear `Support Inbox` project.
@@ -57,13 +57,13 @@ Monday, May 18:
 Tuesday-Thursday, May 19-21:
 
 - Use TestFlight for Reddit/forum/friends feedback. TestFlight in-app purchases use Apple's sandbox and are free to testers, so use Supabase admin grants only when testers need app access without completing sandbox purchase flows.
-- Apply `TESTFLIGHT1MONTH` grants by inserting `account_promo_eligibilities` allowlist rows or by using the admin grant route with `grantKind: "TESTFLIGHT_1MONTH"` for selected testers. Keep Product Hunt grants separate as `PRODUCT_HUNT_1MONTH`.
+- Share the public `TESTFLIGHT1MONTH` code with testers who should get the one-month promo. Use `account_promo_eligibilities` only for account-specific automatic pre-grants; the app applies the best available pre-grant on bootstrap.
 - Fix only launch-blocking bugs: crashes, account loss/mixing, broken onboarding, broken paywall, broken note parsing, broken data deletion/export, and metadata/privacy mismatches.
 
 Friday, May 22:
 
 - Product Hunt launch.
-- Use Product Hunt one-month access via Bram-owned Supabase grants first. Allowlisted users can redeem `PRODUCTHUNT1MONTH` in the native paywall; public Apple/RevenueCat offer codes can follow after App Store subscription approval and offer-code setup.
+- Use Product Hunt one-month access via Bram-owned Supabase grants first. Users can redeem the public `PRODUCTHUNT1MONTH` code in the native paywall; public Apple/RevenueCat offer codes can follow after App Store subscription approval and offer-code setup.
 - Monitor PostHog onboarding/paywall funnels, Supabase support requests/error reports, Linear support issues, RevenueCat purchase state, and App Store/TestFlight feedback.
 
 ## Review Notes Checklist

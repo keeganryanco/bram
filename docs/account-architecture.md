@@ -83,7 +83,8 @@ Server grants use `POST /api/admin/account-grants`, protected by `BRAM_ADMIN_GRA
 - Founder lifetime grants use `entitlement_source = FOUNDER_OFFER` and `premium_expires_at = null`.
 - Friends discount grants use `FREE_PREMIUM` with `premium_expires_at = null`, `entitlement_source = MANUAL`, and the promo/founder AI budget policy so access is lifetime but model costs stay capped.
 - Every grant writes an `account_grant_events` audit row.
-- `POST /api/account/redeem-promo` lets the iOS paywall submit a code, but Supabase still decides eligibility. TestFlight/Product Hunt codes require a row in `account_promo_eligibilities`; founder codes require the account or matching waitlist email to be founder eligible.
+- `POST /api/account/redeem-promo` lets the iOS paywall submit a public Bram code. `TESTFLIGHT1MONTH` and `PRODUCTHUNT1MONTH` can be redeemed by any signed-in account; `FOUNDER1MONTH` requires the account or matching waitlist email to be founder eligible.
+- `account_promo_eligibilities` is for account-specific pre-grants, not required for public code redemption. On account bootstrap, the app calls `apply_best_available_promo()` so Supabase can automatically apply the best unredeemed eligibility for that account. Precedence is friends discount, founder lifetime, founder month, Product Hunt month, then TestFlight month.
 - Apple/RevenueCat offer codes remain the public App Store campaign path later; Bram-owned grants are the controllable prelaunch path.
 
 ### Promo/founder AI budget
