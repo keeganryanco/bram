@@ -1480,6 +1480,7 @@ struct BramTests {
             metrics: WorkoutMetricSnapshot(totalSets: 14, estimatedVolume: 12_000, prCount: 0, streakDays: 0, parseState: .parsed),
             goals: TrainingGoalsProfile(primaryGoal: .stronger),
             currentMuscleSets: [MuscleSetMetric(muscleGroup: "Chest", sets: 14, colorRole: .chest)],
+            currentExerciseSetCounts: ["barbell_bench_press": 3],
             exerciseSummaries: [
                 ExerciseHistorySummary(
                     id: UUID(),
@@ -1516,6 +1517,7 @@ struct BramTests {
             metrics: WorkoutMetricSnapshot(totalSets: 12, estimatedVolume: 8_000, prCount: 0, streakDays: 0, parseState: .parsed),
             goals: TrainingGoalsProfile(primaryGoal: .buildMuscle),
             currentMuscleSets: [MuscleSetMetric(muscleGroup: "Chest", sets: 10, colorRole: .chest)],
+            currentExerciseSetCounts: [:],
             exerciseSummaries: [],
             cardioSummaries: [],
             readinessHint: nil,
@@ -1579,14 +1581,19 @@ struct BramTests {
             exerciseSummaries: [summary]
         )
 
-        let cards = WorkoutCoachCardEngine.cards(context: context, interpretedLines: [], phase: .typing)
+        let cards = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: [coachAnchorLine(lineIndex: 0, exerciseKey: "bench_press", displayName: "Bench Press")],
+            activeLineIndex: 1,
+            phase: .typing
+        )
 
         #expect(cards.first?.title == "Bench Press")
         #expect(cards.first?.metadata == "Last 205 x 5")
         #expect(cards.first?.text.contains("Next target: 210 x 4-5.") == true)
     }
 
-    @Test func coachCardsUseWorkoutTargetOverExerciseHistoryWhenSessionHasContext() {
+    @Test func coachCardsDoNotShowWorkoutTargetFromSameSessionMuscleCount() {
         let summary = coachExerciseSummary(
             exerciseKey: "bench_press",
             displayName: "Bench Press",
@@ -1609,9 +1616,88 @@ struct BramTests {
 
         let cards = WorkoutCoachCardEngine.cards(context: context, interpretedLines: [], phase: .typing)
 
-        #expect(cards.first?.title == "Today's target")
-        #expect(cards.first?.text.contains("chest") == true)
-        #expect(cards.first?.text.contains("Last time") == false)
+        #expect(cards.isEmpty)
+        #expect(cards.contains { $0.text.contains("Most work is chest") } == false)
+    }
+
+    @Test func coachExerciseProgressionDisappearsAfterMovingToNextExercise() {
+        let dumbbellSummary = coachExerciseSummary(
+            exerciseKey: "dumbbell_curls",
+            displayName: "Dumbbell curls",
+            sessions: [
+                coachSession(date: .now, bestSetText: "35 x 7", estimatedOneRepMax: 43, volume: 700),
+                coachSession(date: .now.addingTimeInterval(-86_400 * 7), bestSetText: "30 x 8", estimatedOneRepMax: 38, volume: 600)
+            ],
+            suggestion: ExerciseSuggestion(
+                exerciseKey: "dumbbell_curls",
+                text: "Keep the same load and try to match or add one rep before pushing weight again.",
+                target: "35 x 8",
+                evidence: ["saved_history"]
+            )
+        )
+        let hammerSummary = coachExerciseSummary(
+            exerciseKey: "hammer_curls",
+            displayName: "Hammer curls",
+            sessions: [
+                coachSession(date: .now, bestSetText: "20 x 10", estimatedOneRepMax: 27, volume: 200)
+            ],
+            suggestion: ExerciseSuggestion(
+                exerciseKey: "hammer_curls",
+                text: "Build a little more history before chasing progression.",
+                target: "20 x 11",
+                evidence: ["thin_history"]
+            )
+        )
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 5, estimatedVolume: 900, prCount: 0, streakDays: 0, parseState: .parsed),
+            exerciseSummaries: [dumbbellSummary, hammerSummary],
+            currentExerciseSetCounts: ["dumbbell_curls": 4, "hammer_curls": 1]
+        )
+        let lines = [
+            coachAnchorLine(lineIndex: 0, exerciseKey: "dumbbell_curls", displayName: "Dumbbell curls"),
+            coachAnchorLine(lineIndex: 6, exerciseKey: "hammer_curls", displayName: "Hammer curls")
+        ]
+
+        let cards = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: lines,
+            activeLineIndex: 7,
+            phase: .typing
+        )
+
+        #expect(cards.contains { $0.affectedExerciseKey == "dumbbell_curls" } == false)
+        #expect(cards.isEmpty)
+    }
+
+    @Test func coachExerciseProgressionHidesAfterThreeCompletedSets() {
+        let summary = coachExerciseSummary(
+            exerciseKey: "dumbbell_curls",
+            displayName: "Dumbbell curls",
+            sessions: [
+                coachSession(date: .now, bestSetText: "35 x 7", estimatedOneRepMax: 43, volume: 700),
+                coachSession(date: .now.addingTimeInterval(-86_400 * 7), bestSetText: "30 x 8", estimatedOneRepMax: 38, volume: 600)
+            ],
+            suggestion: ExerciseSuggestion(
+                exerciseKey: "dumbbell_curls",
+                text: "Keep the same load and try to match or add one rep before pushing weight again.",
+                target: "35 x 8",
+                evidence: ["saved_history"]
+            )
+        )
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 700, prCount: 0, streakDays: 0, parseState: .parsed),
+            exerciseSummaries: [summary],
+            currentExerciseSetCounts: ["dumbbell_curls": 3]
+        )
+
+        let cards = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: [coachAnchorLine(lineIndex: 0, exerciseKey: "dumbbell_curls", displayName: "Dumbbell curls")],
+            activeLineIndex: 3,
+            phase: .typing
+        )
+
+        #expect(cards.isEmpty)
     }
 
     @Test func coachProgressionCardUsesEffortToTemperNextTarget() {
@@ -1635,7 +1721,12 @@ struct BramTests {
             exerciseSummaries: [summary]
         )
 
-        let cards = WorkoutCoachCardEngine.cards(context: context, interpretedLines: [], phase: .typing)
+        let cards = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: [coachAnchorLine(lineIndex: 0, exerciseKey: "bench_press", displayName: "Bench Press")],
+            activeLineIndex: 1,
+            phase: .typing
+        )
 
         #expect(cards.first?.text.contains("repeat before adding load") == true)
     }
@@ -2246,6 +2337,7 @@ struct BramTests {
         readiness: String? = nil,
         currentMuscleSets: [MuscleSetMetric] = [],
         exerciseSummaries: [ExerciseHistorySummary] = [],
+        currentExerciseSetCounts: [String: Int]? = nil,
         cardioSummaries: [CardioHistorySummary] = []
     ) -> WorkoutSuggestionRequestContext {
         WorkoutSuggestionRequestContext(
@@ -2253,6 +2345,7 @@ struct BramTests {
             metrics: metrics,
             goals: TrainingGoalsProfile(primaryGoal: goal),
             currentMuscleSets: currentMuscleSets,
+            currentExerciseSetCounts: currentExerciseSetCounts ?? Dictionary(uniqueKeysWithValues: exerciseSummaries.map { ($0.exerciseKey, 2) }),
             exerciseSummaries: exerciseSummaries,
             cardioSummaries: cardioSummaries,
             readinessHint: readiness,
@@ -2261,6 +2354,28 @@ struct BramTests {
             cardioIntent: nil,
             sessionKind: metrics.cardioMinutes > 0 && metrics.totalSets > 0 ? "mixed" : "strength",
             recentFeedbackSummary: [:]
+        )
+    }
+
+    private func coachAnchorLine(lineIndex: Int, exerciseKey: String, displayName: String) -> InterpretedWorkoutLine {
+        let exercise = ExerciseAnchor(
+            id: UUID(),
+            displayName: displayName,
+            normalizedName: displayName,
+            exerciseKey: exerciseKey,
+            history: .supersetPlaceholder(members: [])
+        )
+        return InterpretedWorkoutLine(
+            noteId: UUID(),
+            lineIndex: lineIndex,
+            rawText: displayName,
+            kind: .strength,
+            segments: [InterpretedLineSegment(kind: .exerciseAnchor, text: displayName, exerciseKey: exerciseKey)],
+            exerciseAnchor: exercise,
+            chipText: "",
+            detailTitle: displayName,
+            detailText: "",
+            confidence: 0.9
         )
     }
 

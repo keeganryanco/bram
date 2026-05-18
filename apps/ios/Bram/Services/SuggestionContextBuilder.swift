@@ -11,6 +11,8 @@ enum SuggestionContextBuilder {
     ) async -> WorkoutSuggestionRequestContext {
         let hints = NoteSuggestionHints(body: note.body)
         let currentMuscleSets = muscleSetMetrics(from: result.strengthSets)
+        let currentExerciseSetCounts = Dictionary(grouping: result.strengthSets, by: \.exerciseKey)
+            .mapValues(\.count)
         let exerciseSummaries = await exerciseSummaries(from: result.strengthSets, store: store, currentMuscleSets: currentMuscleSets)
         let cardioSummaries = await cardioSummaries(from: result.cardioEntries, store: store)
 
@@ -19,6 +21,7 @@ enum SuggestionContextBuilder {
             metrics: result.metrics,
             goals: goals,
             currentMuscleSets: currentMuscleSets,
+            currentExerciseSetCounts: currentExerciseSetCounts,
             exerciseSummaries: exerciseSummaries,
             cardioSummaries: cardioSummaries,
             readinessHint: hints.readiness,

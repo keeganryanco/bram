@@ -4,10 +4,10 @@ enum WorkoutCoachCardEngine {
     static func cards(
         context: WorkoutSuggestionRequestContext,
         interpretedLines: [InterpretedWorkoutLine],
+        activeLineIndex: Int? = nil,
         phase: WorkoutCoachCardPhase
     ) -> [WorkoutCoachCard] {
         var cards: [WorkoutCoachCard] = []
-
         if let recovery = recoveryCard(context: context) {
             cards.append(recovery)
         }
@@ -16,20 +16,27 @@ enum WorkoutCoachCardEngine {
             cards.append(prCard)
         }
 
-        if let target = workoutTargetCard(context: context) {
+        if let target = workoutTargetCard(context: context, phase: phase) {
             cards.append(target)
         }
 
-        if let progression = progressionCard(context: context, phase: phase) {
+        if let progression = progressionCard(
+            context: context,
+            interpretedLines: interpretedLines,
+            activeLineIndex: activeLineIndex,
+            phase: phase
+        ) {
             cards.append(progression)
         }
 
-        if let balance = balanceCard(context: context) {
-            cards.append(balance)
-        }
+        if phase != .typing {
+            if let balance = balanceCard(context: context) {
+                cards.append(balance)
+            }
 
-        if let cardio = cardioCard(context: context) {
-            cards.append(cardio)
+            if let cardio = cardioCard(context: context) {
+                cards.append(cardio)
+            }
         }
 
         return deduplicated(cards)
@@ -47,11 +54,13 @@ enum WorkoutCoachCardEngine {
     static func cards(
         from response: WorkoutSuggestionResponse,
         context: WorkoutSuggestionRequestContext,
+        activeExerciseKey: String? = nil,
         phase: WorkoutCoachCardPhase
     ) -> [WorkoutCoachCard] {
         var cards: [WorkoutCoachCard] = []
 
-        if let daily = response.dailySuggestion {
+        if let daily = response.dailySuggestion,
+           phase != .typing || daily.kind == .recovery {
             cards.append(
                 WorkoutCoachCard(
                     kind: WorkoutCoachCardKind(suggestionKind: daily.kind),
@@ -64,7 +73,10 @@ enum WorkoutCoachCardEngine {
             )
         }
 
-        cards.append(contentsOf: response.exerciseSuggestions.prefix(2).map { suggestion in
+        let exerciseSuggestions = phase == .typing
+            ? response.exerciseSuggestions.filter { $0.exerciseKey == activeExerciseKey }.prefix(1)
+            : response.exerciseSuggestions.prefix(2)
+        cards.append(contentsOf: exerciseSuggestions.map { suggestion in
             WorkoutCoachCard(
                 kind: .progression,
                 title: suggestion.title,
@@ -83,6 +95,28 @@ enum WorkoutCoachCardEngine {
             .sorted { $0.priority > $1.priority }
             .prefix(phase.maximumVisibleCards)
             .map { $0 }
+    }
+
+    static func activeExerciseKey(
+        interpretedLines: [InterpretedWorkoutLine],
+        activeLineIndex: Int?
+    ) -> String? {
+        guard let activeLineIndex else { return nil }
+        let sortedAnchors = interpretedLines
+            .compactMap { line -> (lineIndex: Int, exerciseKey: String)? in
+                guard let key = line.exerciseAnchor?.exerciseKey else { return nil }
+                return (line.lineIndex, key)
+            }
+            .sorted { $0.lineIndex < $1.lineIndex }
+
+        guard let direct = sortedAnchors.last(where: { $0.lineIndex <= activeLineIndex }) else {
+            return nil
+        }
+        let nextAnchor = sortedAnchors.first { $0.lineIndex > direct.lineIndex }
+        guard nextAnchor == nil || activeLineIndex < nextAnchor!.lineIndex else {
+            return nil
+        }
+        return direct.exerciseKey
     }
 
     private static func recoveryCard(context: WorkoutSuggestionRequestContext) -> WorkoutCoachCard? {
@@ -108,7 +142,7 @@ enum WorkoutCoachCardEngine {
         interpretedLines: [InterpretedWorkoutLine]
     ) -> WorkoutCoachCard? {
         guard context.metrics.prCount > 0,
-              let prLine = interpretedLines.first(where: { line in
+              let prLine = interpretedLines.last(where: { line in
                   line.chipText == "PR" || line.badges.contains { $0.kind == .pr }
               })
         else { return nil }
@@ -147,30 +181,12 @@ enum WorkoutCoachCardEngine {
         )
     }
 
-    private static func workoutTargetCard(context: WorkoutSuggestionRequestContext) -> WorkoutCoachCard? {
+    private static func workoutTargetCard(
+        context: WorkoutSuggestionRequestContext,
+        phase: WorkoutCoachCardPhase
+    ) -> WorkoutCoachCard? {
+        guard phase != .typing else { return nil }
         guard context.metrics.totalSets >= 4 else { return nil }
-
-        if let muscle = context.currentMuscleSets.first, muscle.sets >= 4 {
-            let text: String
-            switch context.goals.primaryGoal {
-            case .stronger:
-                text = "Most work is \(muscle.muscleGroup.lowercased()) today. Keep warmups honest, then beat one clean set if it is there."
-            case .buildMuscle:
-                text = "Most work is \(muscle.muscleGroup.lowercased()) today. Keep reps clean and add volume only while the set quality stays high."
-            case .leaner, .maintain:
-                text = "Most work is \(muscle.muscleGroup.lowercased()) today. Match the useful work and keep the pace steady."
-            case .betterCardio, .healthyRoutine:
-                text = "You have a real session going. Keep the next block repeatable and leave enough room to finish well."
-            }
-            return WorkoutCoachCard(
-                kind: .balance,
-                title: "Today's target",
-                text: text,
-                priority: 91,
-                feedbackEligible: true,
-                coarseContext: coarseContext(context: context, evidence: ["workout_target", "muscle_\(muscle.muscleGroup.lowercased())"])
-            )
-        }
 
         guard let summary = context.exerciseSummaries.first,
               let latest = summary.recentSessions.first
@@ -190,14 +206,28 @@ enum WorkoutCoachCardEngine {
 
     private static func progressionCard(
         context: WorkoutSuggestionRequestContext,
+        interpretedLines: [InterpretedWorkoutLine],
+        activeLineIndex: Int?,
         phase: WorkoutCoachCardPhase
     ) -> WorkoutCoachCard? {
+        let activeExercise = activeExerciseContext(
+            activeLineIndex: activeLineIndex,
+            interpretedLines: interpretedLines,
+            currentExerciseSetCounts: context.currentExerciseSetCounts
+        )
         guard let summary = context.exerciseSummaries.first(where: { summary in
             guard let suggestion = summary.primarySuggestion else { return false }
+            if phase == .typing {
+                guard let activeExercise,
+                      activeExercise.exerciseKey == summary.exerciseKey,
+                      activeExercise.completedSetCount < 3,
+                      summary.recentSessions.count >= 2
+                else { return false }
+            }
             return suggestion.evidence.contains("upward_trend")
                 || suggestion.evidence.contains("stalled_trend")
                 || suggestion.evidence.contains("saved_history")
-                || suggestion.evidence.contains("thin_history")
+                || (phase != .typing && suggestion.evidence.contains("thin_history"))
         }),
         let suggestion = summary.primarySuggestion
         else { return nil }
@@ -302,6 +332,24 @@ enum WorkoutCoachCardEngine {
         formatter.locale = .current
         formatter.dateFormat = "EEEE"
         return formatter.string(from: date)
+    }
+
+    private struct ActiveExerciseContext: Hashable {
+        var exerciseKey: String
+        var completedSetCount: Int
+    }
+
+    private static func activeExerciseContext(
+        activeLineIndex: Int?,
+        interpretedLines: [InterpretedWorkoutLine],
+        currentExerciseSetCounts: [String: Int]
+    ) -> ActiveExerciseContext? {
+        guard let exerciseKey = activeExerciseKey(
+            interpretedLines: interpretedLines,
+            activeLineIndex: activeLineIndex
+        ) else { return nil }
+        let completedSets = currentExerciseSetCounts[exerciseKey] ?? 0
+        return ActiveExerciseContext(exerciseKey: exerciseKey, completedSetCount: completedSets)
     }
 
     private static func deduplicated(_ cards: [WorkoutCoachCard]) -> [WorkoutCoachCard] {

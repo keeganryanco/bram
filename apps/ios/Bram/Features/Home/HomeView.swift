@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var loadTask: Task<Void, Never>?
     @State private var isLoadingNote = false
     @State private var isEditingNote = false
+    @State private var activeNoteLineIndex: Int?
     @State private var showingReviewPrompt = false
     @State private var activeSuggestionDraft: SuggestionDraft?
     @State private var coachCards: [WorkoutCoachCard] = []
@@ -121,7 +122,8 @@ struct HomeView: View {
                                 await selectCardio(entry)
                             }
                         },
-                        isEditing: $isEditingNote
+                        isEditing: $isEditingNote,
+                        activeLineIndex: $activeNoteLineIndex
                     )
 
                     if featureAccess.canUseSuggestions, !coachCards.isEmpty {
@@ -203,6 +205,11 @@ struct HomeView: View {
             scheduleDraftInterpretation()
             scheduleBackendInterpretation()
             scheduleAutosave()
+        }
+        .onChange(of: activeNoteLineIndex) { _, _ in
+            guard isEditingNote else { return }
+            scheduleDraftInterpretation()
+            scheduleBackendInterpretation()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .inactive || phase == .background {
@@ -413,6 +420,7 @@ struct HomeView: View {
             let cards = WorkoutCoachCardEngine.cards(
                 context: context,
                 interpretedLines: result.lines,
+                activeLineIndex: activeNoteLineIndex,
                 phase: .typing
             )
             await MainActor.run {
@@ -424,7 +432,7 @@ struct HomeView: View {
                 note.suggestion = suggestion ?? note.suggestion
                 note.parsedSummary = nil
                 applyCoachCards(cards, phase: .typing)
-                scheduleBackendCoachCards(context: context, phase: .typing)
+                scheduleBackendCoachCards(context: context, interpretedLines: result.lines, phase: .typing)
             }
         }
     }
@@ -459,6 +467,7 @@ struct HomeView: View {
             let cards = WorkoutCoachCardEngine.cards(
                 context: context,
                 interpretedLines: result.lines,
+                activeLineIndex: activeNoteLineIndex,
                 phase: .typing
             )
             await MainActor.run {
@@ -472,7 +481,7 @@ struct HomeView: View {
                 note.suggestion = suggestion ?? note.suggestion
                 note.parsedSummary = nil
                 applyCoachCards(cards, phase: .typing)
-                scheduleBackendCoachCards(context: context, phase: .typing)
+                scheduleBackendCoachCards(context: context, interpretedLines: result.lines, phase: .typing)
             }
         }
     }
@@ -654,14 +663,26 @@ struct HomeView: View {
 
     private func scheduleBackendCoachCards(
         context: WorkoutSuggestionRequestContext,
+        interpretedLines: [InterpretedWorkoutLine],
         phase: WorkoutCoachCardPhase
     ) {
         guard featureAccess.canUseSuggestions, let suggestionBackend else { return }
+        let activeExerciseKey = phase == .typing
+            ? WorkoutCoachCardEngine.activeExerciseKey(
+                interpretedLines: interpretedLines,
+                activeLineIndex: activeNoteLineIndex
+            )
+            : nil
         backendSuggestionTask?.cancel()
         backendSuggestionTask = Task {
             do {
                 let response = try await suggestionBackend.suggestions(for: context)
-                let cards = WorkoutCoachCardEngine.cards(from: response, context: context, phase: phase)
+                let cards = WorkoutCoachCardEngine.cards(
+                    from: response,
+                    context: context,
+                    activeExerciseKey: activeExerciseKey,
+                    phase: phase
+                )
                 guard !Task.isCancelled, !cards.isEmpty else { return }
                 await MainActor.run {
                     applyCoachCards(cards, phase: phase)
@@ -737,7 +758,7 @@ struct HomeView: View {
             await MainActor.run {
                 note = loaded
                 applyCoachCards(cards, phase: .saved)
-                scheduleBackendCoachCards(context: context, phase: .saved)
+                scheduleBackendCoachCards(context: context, interpretedLines: loaded.interpretedLines, phase: .saved)
             }
         } catch {
             reportError("home", "note_load_failed", nil, error, ["day": SQLiteWorkoutLocalStore.dayKey(for: date)])
@@ -794,7 +815,7 @@ struct HomeView: View {
                     note.suggestion = refreshed.suggestion
                     note.parsedSummary = nil
                     applyCoachCards(cards, phase: .saved)
-                    scheduleBackendCoachCards(context: context, phase: .saved)
+                    scheduleBackendCoachCards(context: context, interpretedLines: refreshed.interpretedLines, phase: .saved)
                     upsertCalendarDay(for: refreshed)
                     Task { await refreshProgressStats() }
                 }
@@ -838,7 +859,7 @@ struct HomeView: View {
                     note.suggestion = refreshed.suggestion
                     note.parsedSummary = nil
                     applyCoachCards(cards, phase: .saved)
-                    scheduleBackendCoachCards(context: context, phase: .saved)
+                    scheduleBackendCoachCards(context: context, interpretedLines: refreshed.interpretedLines, phase: .saved)
                     upsertCalendarDay(for: refreshed)
                     Task { await refreshProgressStats() }
                 }

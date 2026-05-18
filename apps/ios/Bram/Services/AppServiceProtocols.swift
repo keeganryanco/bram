@@ -208,6 +208,7 @@ struct WorkoutSuggestionRequestContext: Hashable {
     var metrics: WorkoutMetricSnapshot
     var goals: TrainingGoalsProfile
     var currentMuscleSets: [MuscleSetMetric]
+    var currentExerciseSetCounts: [String: Int]
     var exerciseSummaries: [ExerciseHistorySummary]
     var cardioSummaries: [CardioHistorySummary]
     var readinessHint: String?

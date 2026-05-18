@@ -8,6 +8,7 @@ struct WorkoutNoteEditor: View {
     let onSelectExercise: (ExerciseAnchor) -> Void
     let onSelectCardio: (CardioEntry) -> Void
     @Binding var isEditing: Bool
+    @Binding var activeLineIndex: Int?
     @State private var editorHeight: CGFloat = 250
 
     init(
@@ -16,7 +17,8 @@ struct WorkoutNoteEditor: View {
         interpretationEnabled: Bool,
         onSelectExercise: @escaping (ExerciseAnchor) -> Void,
         onSelectCardio: @escaping (CardioEntry) -> Void = { _ in },
-        isEditing: Binding<Bool> = .constant(false)
+        isEditing: Binding<Bool> = .constant(false),
+        activeLineIndex: Binding<Int?> = .constant(nil)
     ) {
         _noteBody = noteBody
         self.interpretedLines = interpretedLines
@@ -24,6 +26,7 @@ struct WorkoutNoteEditor: View {
         self.onSelectExercise = onSelectExercise
         self.onSelectCardio = onSelectCardio
         _isEditing = isEditing
+        _activeLineIndex = activeLineIndex
     }
 
     var body: some View {
@@ -58,6 +61,7 @@ struct WorkoutNoteEditor: View {
                 interpretedLines: interpretationEnabled ? interpretedLines : [],
                 dynamicHeight: $editorHeight,
                 isEditing: $isEditing,
+                activeLineIndex: $activeLineIndex,
                 onSelectExercise: onSelectExercise,
                 onSelectCardio: onSelectCardio
             )
@@ -118,6 +122,7 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
     let interpretedLines: [InterpretedWorkoutLine]
     @Binding var dynamicHeight: CGFloat
     @Binding var isEditing: Bool
+    @Binding var activeLineIndex: Int?
     let onSelectExercise: (ExerciseAnchor) -> Void
     let onSelectCardio: (CardioEntry) -> Void
 
@@ -140,6 +145,7 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         textView.tintColor = .bramViolet
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         applyTypingAttributes(to: textView, traitCollection: textView.traitCollection)
+        updateActiveLineIndex(from: textView)
 
         let exerciseDoubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleExerciseDoubleTap(_:)))
         exerciseDoubleTap.numberOfTapsRequired = 2
@@ -174,6 +180,7 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         }
 
         recalculateHeight(textView)
+        updateActiveLineIndex(from: textView)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -360,6 +367,29 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         }
     }
 
+    private func updateActiveLineIndex(from textView: UITextView) {
+        let nextLineIndex = Self.lineIndex(forUTF16Location: textView.selectedRange.location, in: textView.text)
+        guard activeLineIndex != nextLineIndex else { return }
+        DispatchQueue.main.async {
+            activeLineIndex = nextLineIndex
+        }
+    }
+
+    private static func lineIndex(forUTF16Location location: Int, in text: String) -> Int {
+        let nsText = text as NSString
+        let clampedLocation = min(max(location, 0), nsText.length)
+        var lineIndex = 0
+        var cursor = 0
+        while cursor < clampedLocation {
+            let character = nsText.substring(with: NSRange(location: cursor, length: 1))
+            if character == "\n" {
+                lineIndex += 1
+            }
+            cursor += 1
+        }
+        return lineIndex
+    }
+
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: WorkoutNoteTextView
         var anchorRanges: [(range: NSRange, anchor: ExerciseAnchor)] = []
@@ -375,7 +405,12 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             guard !isUpdatingText else { return }
             parent.text = textView.text
+            parent.updateActiveLineIndex(from: textView)
             parent.recalculateHeight(textView)
+        }
+
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            parent.updateActiveLineIndex(from: textView)
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {

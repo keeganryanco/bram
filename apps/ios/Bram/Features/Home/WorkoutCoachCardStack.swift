@@ -48,7 +48,6 @@ private struct WorkoutCoachCardView: View {
                     Text(card.text)
                         .font(BramFont.callout())
                         .foregroundStyle(BramColor.textPrimary)
-                        .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
