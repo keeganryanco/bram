@@ -91,13 +91,7 @@ struct GoalsSettingsContent: View {
                 GoalsTextField(title: "Target weight", detail: draft.preferredUnits.weightUnit, text: $targetWeightText, keyboardType: .decimalPad)
 
                 GoalsDivider()
-                Picker("Sex", selection: sexBinding) {
-                    Text("Not set").tag(nil as BodySex?)
-                    ForEach(BodySex.allCases) { sex in
-                        Text(sex.label).tag(Optional(sex))
-                    }
-                }
-                .pickerStyle(.menu)
+                GoalsSexSelector(selection: $draft.sex)
 
                 if draft.sex == .selfDescribe {
                     GoalsTextField(title: "Self-description", text: $draft.sexSelfDescription, keyboardType: .default)
@@ -136,13 +130,6 @@ struct GoalsSettingsContent: View {
             return "\(draft.preferredUnits.weightUnit) · \(source.label)"
         }
         return draft.preferredUnits.weightUnit
-    }
-
-    private var sexBinding: Binding<BodySex?> {
-        Binding(
-            get: { draft.sex },
-            set: { draft.sex = $0 }
-        )
     }
 
     private func icon(for goal: TrainingPrimaryGoal) -> String {
@@ -373,6 +360,58 @@ private struct GoalsTextField: View {
                 .tint(BramColor.violet)
                 .frame(maxWidth: 120)
         }
+    }
+}
+
+private struct GoalsSexSelector: View {
+    @Binding var selection: BodySex?
+
+    private var options: [(id: String, label: String, value: BodySex?)] {
+        [("not_set", "Not set", nil)] + BodySex.allCases.map { ($0.id, $0.label, Optional($0)) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Sex")
+                .font(BramFont.label(size: 13))
+                .foregroundStyle(BramColor.textSecondary)
+
+            FlowLayout(spacing: 8, rowSpacing: 8) {
+                ForEach(options, id: \.id) { option in
+                    Button {
+                        withAnimation(.snappy) {
+                            selection = option.value
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            if isSelected(option.value) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            Text(option.label)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                        }
+                        .font(BramFont.label(size: 13))
+                        .foregroundStyle(isSelected(option.value) ? .white : BramColor.textPrimary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .background(isSelected(option.value) ? BramColor.violet : BramColor.elevated, in: Capsule())
+                        .overlay {
+                            Capsule()
+                                .stroke(isSelected(option.value) ? BramColor.violet.opacity(0.1) : BramColor.hairline, lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(option.label)
+                    .accessibilityAddTraits(isSelected(option.value) ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private func isSelected(_ value: BodySex?) -> Bool {
+        selection == value
     }
 }
 
