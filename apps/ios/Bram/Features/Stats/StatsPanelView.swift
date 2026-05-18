@@ -121,9 +121,6 @@ private struct StatsOverview: View {
             }
 
             ProgressSummaryCard(stats: stats)
-            if let insight = stats.insight {
-                StatsInsightCard(insight: insight)
-            }
             MuscleSetCard(stats: stats)
             BodyweightProgressCard(stats: stats)
             HealthPlaceholderCard(
