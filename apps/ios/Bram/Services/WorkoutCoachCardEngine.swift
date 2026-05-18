@@ -12,23 +12,6 @@ enum WorkoutCoachCardEngine {
             cards.append(recovery)
         }
 
-        if let prCard = prCard(context: context, interpretedLines: interpretedLines) {
-            cards.append(prCard)
-        }
-
-        if let target = workoutTargetCard(context: context, phase: phase) {
-            cards.append(target)
-        }
-
-        if let progression = progressionCard(
-            context: context,
-            interpretedLines: interpretedLines,
-            activeLineIndex: activeLineIndex,
-            phase: phase
-        ) {
-            cards.append(progression)
-        }
-
         if phase != .typing {
             if let balance = balanceCard(context: context) {
                 cards.append(balance)
@@ -60,6 +43,7 @@ enum WorkoutCoachCardEngine {
         var cards: [WorkoutCoachCard] = []
 
         if let daily = response.dailySuggestion,
+           daily.kind != .progression,
            phase != .typing || daily.kind == .recovery {
             cards.append(
                 WorkoutCoachCard(
@@ -72,24 +56,6 @@ enum WorkoutCoachCardEngine {
                 )
             )
         }
-
-        let exerciseSuggestions = phase == .typing
-            ? response.exerciseSuggestions.filter { $0.exerciseKey == activeExerciseKey }.prefix(1)
-            : response.exerciseSuggestions.prefix(2)
-        cards.append(contentsOf: exerciseSuggestions.map { suggestion in
-            WorkoutCoachCard(
-                kind: .progression,
-                title: suggestion.title,
-                text: [suggestion.text, suggestion.target.map { "Aim for \($0)." }]
-                    .compactMap { $0 }
-                    .joined(separator: " "),
-                source: .ai,
-                priority: 86,
-                feedbackEligible: true,
-                affectedExerciseKey: suggestion.exerciseKey,
-                coarseContext: coarseContext(context: context, evidence: suggestion.evidence)
-            )
-        })
 
         return deduplicated(cards)
             .sorted { $0.priority > $1.priority }

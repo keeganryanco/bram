@@ -29,7 +29,7 @@ private struct ExerciseHistoryContent: View {
 
             RecentSessionsCard(sessions: exercise.history.recentSessions)
 
-            RecommendationCard(suggestion: exercise.history.primarySuggestion, fallbackText: exercise.history.recommendation)
+            RecommendationCard(history: exercise.history)
 
             BramCard {
                 HStack {
@@ -168,17 +168,28 @@ private struct RecentSessionsCard: View {
 }
 
 private struct RecommendationCard: View {
-    let suggestion: ExerciseSuggestion?
-    let fallbackText: String
+    let history: ExerciseHistorySummary
+
+    private var suggestion: ExerciseSuggestion? {
+        history.primarySuggestion
+    }
 
     var body: some View {
         BramCard {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label(suggestion?.title ?? "Recommendation", systemImage: "arrow.up.right")
+                    Label("Coach", systemImage: "arrow.up.right")
                         .font(BramFont.label())
                         .foregroundStyle(BramColor.violet)
                     Spacer()
+                    if let latest = history.recentSessions.first {
+                        Text("Last \(latest.bestSetText)")
+                            .font(BramFont.label(size: 12))
+                            .foregroundStyle(BramColor.textSecondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(BramColor.violet.opacity(0.08), in: Capsule())
+                    }
                     if let target = suggestion?.target {
                         Text(target)
                             .font(BramFont.label(size: 12))
@@ -186,9 +197,9 @@ private struct RecommendationCard: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .background(BramColor.violet.opacity(0.12), in: Capsule())
-                    }
+                        }
                 }
-                Text(suggestion?.text ?? fallbackText)
+                Text(suggestion?.text ?? history.recommendation)
                     .font(BramFont.callout())
                     .foregroundStyle(BramColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)

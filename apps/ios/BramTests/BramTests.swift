@@ -1560,7 +1560,7 @@ struct BramTests {
         #expect(cards.isEmpty)
     }
 
-    @Test func coachCardsShowRelevantExerciseProgressionForStableSet() {
+    @Test func coachCardsDoNotShowExerciseProgressionInMainNotes() {
         let summary = coachExerciseSummary(
             exerciseKey: "bench_press",
             displayName: "Bench Press",
@@ -1588,9 +1588,8 @@ struct BramTests {
             phase: .typing
         )
 
-        #expect(cards.first?.title == "Bench Press")
-        #expect(cards.first?.metadata == "Last 205 x 5")
-        #expect(cards.first?.text.contains("Next target: 210 x 4-5.") == true)
+        #expect(cards.isEmpty)
+        #expect(cards.contains { $0.affectedExerciseKey == "bench_press" } == false)
     }
 
     @Test func coachCardsDoNotShowWorkoutTargetFromSameSessionMuscleCount() {
@@ -1700,7 +1699,7 @@ struct BramTests {
         #expect(cards.isEmpty)
     }
 
-    @Test func coachProgressionCardUsesEffortToTemperNextTarget() {
+    @Test func coachExerciseSpecificEffortAdviceStaysOutOfMainNotes() {
         let summary = coachExerciseSummary(
             exerciseKey: "bench_press",
             displayName: "Bench Press",
@@ -1728,10 +1727,10 @@ struct BramTests {
             phase: .typing
         )
 
-        #expect(cards.first?.text.contains("repeat before adding load") == true)
+        #expect(cards.isEmpty)
     }
 
-    @Test func coachPRCardIsSpecificAndNotGeneric() {
+    @Test func coachPRCardsStayOutOfMainNotes() {
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 1, streakDays: 0, parseState: .parsed),
             goal: .stronger,
@@ -1753,12 +1752,10 @@ struct BramTests {
             phase: .saved
         )
 
-        #expect(cards.first?.title == "Record")
-        #expect(cards.first?.text.contains("Bench Press") == true)
-        #expect(cards.first?.text.contains("Nice record. Keep the next session steady before pushing load again.") == false)
+        #expect(cards.isEmpty)
     }
 
-    @Test func coachFirstRecordedExerciseUsesBaselineInsteadOfCelebration() {
+    @Test func coachFirstRecordedExerciseBaselineStaysOutOfMainNotes() {
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 2_000, prCount: 1, streakDays: 0, parseState: .parsed),
             exerciseSummaries: [
@@ -1778,11 +1775,10 @@ struct BramTests {
             phase: .saved
         )
 
-        #expect(cards.first?.kind == .baseline)
-        #expect(cards.first?.text.contains("starting point") == true)
+        #expect(cards.isEmpty)
     }
 
-    @Test func coachLeanGoalDampensPRChasingAdvice() {
+    @Test func coachGoalSpecificPRAdviceStaysOutOfMainNotes() {
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 1, streakDays: 0, parseState: .parsed),
             goal: .leaner,
@@ -1804,8 +1800,7 @@ struct BramTests {
             phase: .saved
         )
 
-        #expect(cards.first?.text.contains("match it cleanly") == true)
-        #expect(cards.first?.text.contains("another small jump") == false)
+        #expect(cards.isEmpty)
     }
 
     @Test func coachLowReadinessPrioritizesRecovery() {
@@ -1853,8 +1848,8 @@ struct BramTests {
             phase: .wrapUp
         )
 
-        #expect(typing.count == 1)
-        #expect(wrapUp.count <= 3)
+        #expect(typing.count <= 1)
+        #expect(wrapUp.count <= 1)
     }
 
     @Test func coachCardDisplayPolicyQueuesBeforeMinimumReadableTime() {

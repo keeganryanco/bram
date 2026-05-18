@@ -57,14 +57,7 @@ enum WorkoutCoachCardPhase: Hashable {
     case wrapUp
 
     var maximumVisibleCards: Int {
-        switch self {
-        case .typing:
-            1
-        case .saved:
-            2
-        case .wrapUp:
-            3
-        }
+        1
     }
 }
 
