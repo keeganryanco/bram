@@ -23,9 +23,15 @@ struct HomeView: View {
     @State private var isEditingNote = false
     @State private var showingReviewPrompt = false
     @State private var activeSuggestionDraft: SuggestionDraft?
+    @State private var coachCards: [WorkoutCoachCard] = []
+    @State private var coachCardsShownAt = Date.distantPast
+    @State private var pendingCoachCards: [WorkoutCoachCard]?
+    @State private var coachCardReplacementTask: Task<Void, Never>?
+    @State private var backendSuggestionTask: Task<Void, Never>?
     private let noteStore: any WorkoutLocalStore
     private let interpreter: any WorkoutInterpretationService
     private let backendInterpreter: (any WorkoutInterpretationBackendClient)?
+    private let suggestionBackend: (any WorkoutSuggestionBackendClient)?
     private let featureAccess: BramFeatureAccess
     private let account: SettingsAccountState
     private let onSignOut: () async -> Void
@@ -44,6 +50,7 @@ struct HomeView: View {
         noteStore: any WorkoutLocalStore = SQLiteWorkoutLocalStore.shared,
         interpreter: any WorkoutInterpretationService = HeuristicWorkoutInterpretationService(),
         backendInterpreter: (any WorkoutInterpretationBackendClient)? = BramBackendWorkoutInterpretationClient.configuredFromBundle(),
+        suggestionBackend: (any WorkoutSuggestionBackendClient)? = BramBackendWorkoutSuggestionClient.configuredFromBundle(),
         featureAccess: BramFeatureAccess = .previewPremium,
         onSignOut: @escaping () async -> Void = {},
         onDeleteAccount: @escaping () async -> Void = {},
@@ -60,6 +67,7 @@ struct HomeView: View {
         self.noteStore = noteStore
         self.interpreter = interpreter
         self.backendInterpreter = backendInterpreter
+        self.suggestionBackend = suggestionBackend
         self.featureAccess = featureAccess
         self.onSignOut = onSignOut
         self.onDeleteAccount = onDeleteAccount
@@ -111,8 +119,8 @@ struct HomeView: View {
                         isEditing: $isEditingNote
                     )
 
-                    if featureAccess.canUseSuggestions, let suggestion = note.suggestion {
-                        WorkoutSuggestionCard(suggestion: suggestion)
+                    if featureAccess.canUseSuggestions, !coachCards.isEmpty {
+                        WorkoutCoachCardStack(cards: coachCards, onFeedback: handleCoachCardFeedback)
                     }
 
                     if featureAccess.canUseSuggestions,
@@ -198,6 +206,8 @@ struct HomeView: View {
         .onDisappear {
             draftInterpretationTask?.cancel()
             backendInterpretationTask?.cancel()
+            backendSuggestionTask?.cancel()
+            coachCardReplacementTask?.cancel()
             flushAutosave()
             loadTask?.cancel()
         }
@@ -387,6 +397,11 @@ struct HomeView: View {
                 store: noteStore
             )
             let suggestion = LocalSuggestionEngine.dailySuggestion(context: context) ?? result.suggestion
+            let cards = WorkoutCoachCardEngine.cards(
+                context: context,
+                interpretedLines: result.lines,
+                phase: .typing
+            )
             await MainActor.run {
                 guard note.id == draft.id, note.body == draft.body else { return }
                 note.interpretedLines = linesByPreservingAuthoritativePRs(result.lines, currentLines: note.interpretedLines)
@@ -395,6 +410,8 @@ struct HomeView: View {
                 note.metrics = metrics
                 note.suggestion = suggestion ?? note.suggestion
                 note.parsedSummary = nil
+                applyCoachCards(cards, phase: .typing)
+                scheduleBackendCoachCards(context: context, phase: .typing)
             }
         }
     }
@@ -426,6 +443,11 @@ struct HomeView: View {
                 store: noteStore
             )
             let suggestion = LocalSuggestionEngine.dailySuggestion(context: context) ?? result.suggestion
+            let cards = WorkoutCoachCardEngine.cards(
+                context: context,
+                interpretedLines: result.lines,
+                phase: .typing
+            )
             await MainActor.run {
                 guard note.id == draft.id, note.body == draft.body else { return }
                 note.interpretedLines = result.lines.isEmpty
@@ -436,6 +458,8 @@ struct HomeView: View {
                 note.metrics = metrics
                 note.suggestion = suggestion ?? note.suggestion
                 note.parsedSummary = nil
+                applyCoachCards(cards, phase: .typing)
+                scheduleBackendCoachCards(context: context, phase: .typing)
             }
         }
     }
@@ -536,6 +560,137 @@ struct HomeView: View {
         scheduleAutosave()
     }
 
+    @MainActor
+    private func applyCoachCards(_ cards: [WorkoutCoachCard], phase: WorkoutCoachCardPhase) {
+        guard featureAccess.canUseSuggestions else {
+            coachCards = []
+            pendingCoachCards = nil
+            coachCardReplacementTask?.cancel()
+            return
+        }
+
+        let nextCards = Array(cards.prefix(phase.maximumVisibleCards))
+        guard !nextCards.isEmpty else {
+            if phase == .typing,
+               let current = coachCards.first,
+               WorkoutCoachCardDisplayPolicy.remainingVisibleTime(
+                current: current,
+                shownAt: coachCardsShownAt
+               ) > 0 {
+                return
+            }
+            coachCards = []
+            pendingCoachCards = nil
+            coachCardReplacementTask?.cancel()
+            return
+        }
+
+        guard let current = coachCards.first else {
+            setVisibleCoachCards(nextCards)
+            return
+        }
+
+        if sameCoachCardStack(coachCards, nextCards) {
+            coachCards = nextCards
+            return
+        }
+
+        let remaining = WorkoutCoachCardDisplayPolicy.remainingVisibleTime(
+            current: current,
+            shownAt: coachCardsShownAt
+        )
+        guard remaining > 0 else {
+            setVisibleCoachCards(nextCards)
+            return
+        }
+
+        pendingCoachCards = nextCards
+        coachCardReplacementTask?.cancel()
+        coachCardReplacementTask = Task {
+            try? await Task.sleep(for: .milliseconds(Int((remaining * 1_000).rounded())))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                if let pendingCoachCards {
+                    setVisibleCoachCards(pendingCoachCards)
+                    self.pendingCoachCards = nil
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func setVisibleCoachCards(_ cards: [WorkoutCoachCard]) {
+        coachCards = cards
+        coachCardsShownAt = Date()
+    }
+
+    private func sameCoachCardStack(_ lhs: [WorkoutCoachCard], _ rhs: [WorkoutCoachCard]) -> Bool {
+        lhs.map(coachCardSignature) == rhs.map(coachCardSignature)
+    }
+
+    private func coachCardSignature(_ card: WorkoutCoachCard) -> String {
+        "\(card.kind.rawValue)|\(card.title)|\(card.text)|\(card.affectedExerciseKey ?? "")"
+    }
+
+    private func scheduleBackendCoachCards(
+        context: WorkoutSuggestionRequestContext,
+        phase: WorkoutCoachCardPhase
+    ) {
+        guard featureAccess.canUseSuggestions, let suggestionBackend else { return }
+        backendSuggestionTask?.cancel()
+        backendSuggestionTask = Task {
+            do {
+                let response = try await suggestionBackend.suggestions(for: context)
+                let cards = WorkoutCoachCardEngine.cards(from: response, context: context, phase: phase)
+                guard !Task.isCancelled, !cards.isEmpty else { return }
+                await MainActor.run {
+                    applyCoachCards(cards, phase: phase)
+                }
+            } catch {
+                reportError("home", "backend_suggestions_failed", nil, error, [
+                    "session_kind": context.sessionKind,
+                    "set_count_bucket": Self.countBucket(context.metrics.totalSets)
+                ])
+            }
+        }
+    }
+
+    private func handleCoachCardFeedback(_ card: WorkoutCoachCard, action: SuggestionFeedbackAction) {
+        track(
+            AnalyticsEvent(
+                name: "suggestion_feedback_submitted",
+                properties: [
+                    "action": action.rawValue,
+                    "kind": card.kind.rawValue,
+                    "source": card.source.rawValue
+                ]
+            )
+        )
+
+        if action == .thumbsDown {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                coachCards.removeAll { $0.id == card.id }
+            }
+        }
+
+        guard let suggestionBackend else { return }
+        let feedback = SuggestionFeedback(
+            installId: "local-install",
+            suggestionId: card.id,
+            suggestionType: "daily",
+            action: action,
+            source: card.source,
+            coarseContext: card.coarseContext
+        )
+        Task {
+            do {
+                try await suggestionBackend.sendFeedback(feedback)
+            } catch {
+                reportError("home", "suggestion_feedback_failed", nil, error, ["kind": card.kind.rawValue])
+            }
+        }
+    }
+
     private var selectedDayKey: String {
         SQLiteWorkoutLocalStore.dayKey(for: note.date)
     }
@@ -547,8 +702,22 @@ struct HomeView: View {
         let store = noteStore
         do {
             let loaded = try await store.note(for: date)
+            let coachResult = await coachCardInterpretation(for: loaded)
+            let context = await SuggestionContextBuilder.build(
+                note: loaded,
+                result: coachResult,
+                goals: goalsProfile,
+                store: store
+            )
+            let cards = WorkoutCoachCardEngine.cards(
+                context: context,
+                interpretedLines: loaded.interpretedLines,
+                phase: .saved
+            )
             await MainActor.run {
                 note = loaded
+                applyCoachCards(cards, phase: .saved)
+                scheduleBackendCoachCards(context: context, phase: .saved)
             }
         } catch {
             reportError("home", "note_load_failed", nil, error, ["day": SQLiteWorkoutLocalStore.dayKey(for: date)])
@@ -556,6 +725,14 @@ struct HomeView: View {
                 note.lastSyncError = "Could not load this workout note."
             }
         }
+    }
+
+    private func coachCardInterpretation(for note: DailyWorkoutNote) async -> WorkoutInterpretationResult {
+        var result = await interpreter.interpret(note: note)
+        result.lines = note.interpretedLines.isEmpty ? result.lines : note.interpretedLines
+        result.metrics = note.metrics
+        result.suggestion = note.suggestion
+        return result
     }
 
     private func scheduleAutosave() {
@@ -579,11 +756,25 @@ struct HomeView: View {
             }
             await onWorkoutDataSaved?()
             if let refreshed = try? await store.note(for: draft.date), !Task.isCancelled {
+                let coachResult = await coachCardInterpretation(for: refreshed)
+                let context = await SuggestionContextBuilder.build(
+                    note: refreshed,
+                    result: coachResult,
+                    goals: goalsProfile,
+                    store: store
+                )
+                let cards = WorkoutCoachCardEngine.cards(
+                    context: context,
+                    interpretedLines: refreshed.interpretedLines,
+                    phase: .saved
+                )
                 await MainActor.run {
                     note.interpretedLines = refreshed.interpretedLines
                     note.metrics = refreshed.metrics
                     note.suggestion = refreshed.suggestion
                     note.parsedSummary = nil
+                    applyCoachCards(cards, phase: .saved)
+                    scheduleBackendCoachCards(context: context, phase: .saved)
                     upsertCalendarDay(for: refreshed)
                     Task { await refreshProgressStats() }
                 }
@@ -609,11 +800,25 @@ struct HomeView: View {
             }
             await onWorkoutDataSaved?()
             if let refreshed = try? await store.note(for: draft.date) {
+                let coachResult = await coachCardInterpretation(for: refreshed)
+                let context = await SuggestionContextBuilder.build(
+                    note: refreshed,
+                    result: coachResult,
+                    goals: goalsProfile,
+                    store: store
+                )
+                let cards = WorkoutCoachCardEngine.cards(
+                    context: context,
+                    interpretedLines: refreshed.interpretedLines,
+                    phase: .saved
+                )
                 await MainActor.run {
                     note.interpretedLines = refreshed.interpretedLines
                     note.metrics = refreshed.metrics
                     note.suggestion = refreshed.suggestion
                     note.parsedSummary = nil
+                    applyCoachCards(cards, phase: .saved)
+                    scheduleBackendCoachCards(context: context, phase: .saved)
                     upsertCalendarDay(for: refreshed)
                     Task { await refreshProgressStats() }
                 }

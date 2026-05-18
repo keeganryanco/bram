@@ -175,7 +175,7 @@ enum LocalSuggestionEngine {
         }
 
         if metrics.prCount > 0 {
-            return WorkoutSuggestion(kind: .progression, text: "Good record; repeat the pattern once before pushing load again.")
+            return nil
         }
 
         if metrics.totalSets >= 14 {

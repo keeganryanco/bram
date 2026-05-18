@@ -1327,6 +1327,185 @@ struct BramTests {
         #expect(feedback.coarseContext["readiness"] == "low")
     }
 
+    @Test func coachCardsIgnoreIncompleteSetInput() {
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 0, estimatedVolume: 0, prCount: 0, streakDays: 0, parseState: .interpreting),
+            exerciseSummaries: []
+        )
+
+        let cards = WorkoutCoachCardEngine.cards(context: context, interpretedLines: [], phase: .typing)
+
+        #expect(cards.isEmpty)
+    }
+
+    @Test func coachCardsShowRelevantExerciseProgressionForStableSet() {
+        let summary = coachExerciseSummary(
+            exerciseKey: "bench_press",
+            displayName: "Bench Press",
+            sessions: [
+                coachSession(date: .now, bestSetText: "205 x 5", estimatedOneRepMax: 239, volume: 3_075),
+                coachSession(date: .now.addingTimeInterval(-86_400 * 7), bestSetText: "185 x 5", estimatedOneRepMax: 216, volume: 2_775)
+            ],
+            suggestion: ExerciseSuggestion(
+                exerciseKey: "bench_press",
+                title: "Progress",
+                text: "If the top set moves well, make a small load jump or add one rep.",
+                target: "210 x 4-5",
+                evidence: ["upward_trend"]
+            )
+        )
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 0, streakDays: 0, parseState: .parsed),
+            exerciseSummaries: [summary]
+        )
+
+        let cards = WorkoutCoachCardEngine.cards(context: context, interpretedLines: [], phase: .typing)
+
+        #expect(cards.first?.title == "Bench Press")
+        #expect(cards.first?.text.contains("210 x 4-5") == true)
+    }
+
+    @Test func coachPRCardIsSpecificAndNotGeneric() {
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 1, streakDays: 0, parseState: .parsed),
+            goal: .stronger,
+            exerciseSummaries: [
+                coachExerciseSummary(
+                    exerciseKey: "bench_press",
+                    displayName: "Bench Press",
+                    sessions: [
+                        coachSession(date: .now, bestSetText: "205 x 5", estimatedOneRepMax: 239, volume: 3_075),
+                        coachSession(date: .now.addingTimeInterval(-86_400 * 7), bestSetText: "185 x 5", estimatedOneRepMax: 216, volume: 2_775)
+                    ]
+                )
+            ]
+        )
+
+        let cards = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: [coachPRLine(exerciseKey: "bench_press", displayName: "Bench Press")],
+            phase: .saved
+        )
+
+        #expect(cards.first?.title == "Record")
+        #expect(cards.first?.text.contains("Bench Press") == true)
+        #expect(cards.first?.text.contains("Nice record. Keep the next session steady before pushing load again.") == false)
+    }
+
+    @Test func coachFirstRecordedExerciseUsesBaselineInsteadOfCelebration() {
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 2_000, prCount: 1, streakDays: 0, parseState: .parsed),
+            exerciseSummaries: [
+                coachExerciseSummary(
+                    exerciseKey: "front_squat",
+                    displayName: "Front Squat",
+                    sessions: [
+                        coachSession(date: .now, bestSetText: "135 x 5", estimatedOneRepMax: 158, volume: 2_025)
+                    ]
+                )
+            ]
+        )
+
+        let cards = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: [coachPRLine(exerciseKey: "front_squat", displayName: "Front Squat")],
+            phase: .saved
+        )
+
+        #expect(cards.first?.kind == .baseline)
+        #expect(cards.first?.text.contains("starting point") == true)
+    }
+
+    @Test func coachLeanGoalDampensPRChasingAdvice() {
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 1, streakDays: 0, parseState: .parsed),
+            goal: .leaner,
+            exerciseSummaries: [
+                coachExerciseSummary(
+                    exerciseKey: "bench_press",
+                    displayName: "Bench Press",
+                    sessions: [
+                        coachSession(date: .now, bestSetText: "205 x 5", estimatedOneRepMax: 239, volume: 3_075),
+                        coachSession(date: .now.addingTimeInterval(-86_400 * 7), bestSetText: "185 x 5", estimatedOneRepMax: 216, volume: 2_775)
+                    ]
+                )
+            ]
+        )
+
+        let cards = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: [coachPRLine(exerciseKey: "bench_press", displayName: "Bench Press")],
+            phase: .saved
+        )
+
+        #expect(cards.first?.text.contains("match it cleanly") == true)
+        #expect(cards.first?.text.contains("another small jump") == false)
+    }
+
+    @Test func coachLowReadinessPrioritizesRecovery() {
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 8, estimatedVolume: 5_000, prCount: 1, streakDays: 0, parseState: .parsed),
+            readiness: "low",
+            currentMuscleSets: [MuscleSetMetric(muscleGroup: "Legs", sets: 8, colorRole: .legs)]
+        )
+
+        let cards = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: [coachPRLine(exerciseKey: "squat", displayName: "Squat")],
+            phase: .saved
+        )
+
+        #expect(cards.first?.kind == .recovery)
+        #expect(cards.first?.text.contains("Legs") == true)
+    }
+
+    @Test func coachCardCapsRespectTypingAndWrapUpPhases() {
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 12, estimatedVolume: 8_000, prCount: 1, streakDays: 0, cardioMinutes: 12, parseState: .parsed),
+            currentMuscleSets: [MuscleSetMetric(muscleGroup: "Chest", sets: 10, colorRole: .chest)],
+            exerciseSummaries: [
+                coachExerciseSummary(
+                    exerciseKey: "bench_press",
+                    displayName: "Bench Press",
+                    sessions: [
+                        coachSession(date: .now, bestSetText: "205 x 5", estimatedOneRepMax: 239, volume: 3_075),
+                        coachSession(date: .now.addingTimeInterval(-86_400 * 7), bestSetText: "185 x 5", estimatedOneRepMax: 216, volume: 2_775)
+                    ]
+                )
+            ],
+            cardioSummaries: [CardioHistorySummary(activityType: "Running", recentSessions: [], recommendation: "Repeat the easy mile and keep it smooth.")]
+        )
+
+        let typing = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: [coachPRLine(exerciseKey: "bench_press", displayName: "Bench Press")],
+            phase: .typing
+        )
+        let wrapUp = WorkoutCoachCardEngine.cards(
+            context: context,
+            interpretedLines: [coachPRLine(exerciseKey: "bench_press", displayName: "Bench Press")],
+            phase: .wrapUp
+        )
+
+        #expect(typing.count == 1)
+        #expect(wrapUp.count <= 3)
+    }
+
+    @Test func coachCardDisplayPolicyQueuesBeforeMinimumReadableTime() {
+        let card = WorkoutCoachCard(
+            kind: .balance,
+            text: "Keep one main movement and limit accessories.",
+            priority: 80,
+            minimumVisibleSeconds: 8
+        )
+        let shownAt = Date(timeIntervalSince1970: 1_000)
+        let now = Date(timeIntervalSince1970: 1_004)
+
+        let remaining = WorkoutCoachCardDisplayPolicy.remainingVisibleTime(current: card, shownAt: shownAt, now: now)
+
+        #expect(remaining == 4)
+    }
+
     @Test func sqliteWorkoutStoreAwardsPRsAgainstAllTimeExerciseHistory() async throws {
         let path = FileManager.default.temporaryDirectory
             .appendingPathComponent("BramAllTimePRTests-\(UUID().uuidString).sqlite")
@@ -1784,6 +1963,90 @@ struct BramTests {
         #expect(OnboardingStep.flowSteps.suffix(3) == [.appleHealth, .notifications, .recap])
         #expect(OnboardingStep.notePreview.nextStep == .appleHealth)
         #expect(OnboardingStep.recap.previousStep == .notifications)
+    }
+
+    private func coachCardContext(
+        metrics: WorkoutMetricSnapshot,
+        goal: TrainingPrimaryGoal = .stronger,
+        readiness: String? = nil,
+        currentMuscleSets: [MuscleSetMetric] = [],
+        exerciseSummaries: [ExerciseHistorySummary] = [],
+        cardioSummaries: [CardioHistorySummary] = []
+    ) -> WorkoutSuggestionRequestContext {
+        WorkoutSuggestionRequestContext(
+            installId: "install-test-123",
+            metrics: metrics,
+            goals: TrainingGoalsProfile(primaryGoal: goal),
+            currentMuscleSets: currentMuscleSets,
+            exerciseSummaries: exerciseSummaries,
+            cardioSummaries: cardioSummaries,
+            readinessHint: readiness,
+            equipmentHint: nil,
+            constraintHint: nil,
+            cardioIntent: nil,
+            sessionKind: metrics.cardioMinutes > 0 && metrics.totalSets > 0 ? "mixed" : "strength",
+            recentFeedbackSummary: [:]
+        )
+    }
+
+    private func coachExerciseSummary(
+        exerciseKey: String,
+        displayName: String,
+        sessions: [ExerciseHistorySession],
+        suggestion: ExerciseSuggestion? = nil
+    ) -> ExerciseHistorySummary {
+        ExerciseHistorySummary(
+            id: UUID(),
+            exerciseKey: exerciseKey,
+            displayName: displayName,
+            estimatedOneRepMax: sessions.first?.estimatedOneRepMax,
+            bestSetText: sessions.first?.bestSetText,
+            recentDates: sessions.map(\.date),
+            recentSessions: sessions,
+            recommendation: suggestion?.text ?? "Repeat the last clean setup.",
+            primarySuggestion: suggestion
+        )
+    }
+
+    private func coachSession(
+        date: Date,
+        bestSetText: String,
+        estimatedOneRepMax: Double,
+        volume: Int
+    ) -> ExerciseHistorySession {
+        ExerciseHistorySession(
+            id: UUID(),
+            date: date,
+            bestSetText: bestSetText,
+            estimatedOneRepMax: estimatedOneRepMax,
+            volume: volume
+        )
+    }
+
+    private func coachPRLine(exerciseKey: String, displayName: String) -> InterpretedWorkoutLine {
+        let exercise = ExerciseAnchor(
+            id: UUID(),
+            displayName: displayName,
+            normalizedName: displayName,
+            exerciseKey: exerciseKey,
+            history: .supersetPlaceholder(members: [])
+        )
+        return InterpretedWorkoutLine(
+            noteId: UUID(),
+            lineIndex: 0,
+            rawText: "\(displayName) 205 x 5",
+            kind: .strength,
+            segments: [
+                InterpretedLineSegment(kind: .exerciseAnchor, text: displayName, exerciseKey: exerciseKey),
+                InterpretedLineSegment(kind: .badge, text: "PR", exerciseKey: exerciseKey)
+            ],
+            exerciseAnchor: exercise,
+            badges: [WorkoutLineBadge(kind: .pr, label: "PR", colorRole: .violet)],
+            chipText: "PR",
+            detailTitle: displayName,
+            detailText: "Best set",
+            confidence: 0.9
+        )
     }
 }
 

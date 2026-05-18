@@ -561,7 +561,7 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
     private func suggestion(for sets: Int, cardioMinutes: Int, prCount: Int) -> WorkoutSuggestion? {
         guard sets > 0 || cardioMinutes > 0 else { return nil }
         if prCount > 0 {
-            return WorkoutSuggestion(kind: .progression, text: "Nice record. Keep the next session steady before pushing load again.")
+            return nil
         }
         if sets >= 12 {
             return WorkoutSuggestion(kind: .balance, text: "Solid volume today. Your weekly balance will get clearer as more days fill in.")

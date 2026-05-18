@@ -1054,9 +1054,6 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
     }
 
     private func suggestionByApplyingHistoricalPRs(_ suggestion: WorkoutSuggestion?, prCount: Int) -> WorkoutSuggestion? {
-        if prCount > 0 {
-            return WorkoutSuggestion(kind: .progression, text: "Nice record. Keep the next session steady before pushing load again.")
-        }
         guard suggestion?.kind == .progression else { return suggestion }
         return nil
     }
