@@ -16,7 +16,11 @@ enum WorkoutCoachCardEngine {
             cards.append(prCard)
         }
 
-        if let progression = progressionCard(context: context) {
+        if let target = workoutTargetCard(context: context) {
+            cards.append(target)
+        }
+
+        if let progression = progressionCard(context: context, phase: phase) {
             cards.append(progression)
         }
 
@@ -143,7 +147,51 @@ enum WorkoutCoachCardEngine {
         )
     }
 
-    private static func progressionCard(context: WorkoutSuggestionRequestContext) -> WorkoutCoachCard? {
+    private static func workoutTargetCard(context: WorkoutSuggestionRequestContext) -> WorkoutCoachCard? {
+        guard context.metrics.totalSets >= 4 else { return nil }
+
+        if let muscle = context.currentMuscleSets.first, muscle.sets >= 4 {
+            let text: String
+            switch context.goals.primaryGoal {
+            case .stronger:
+                text = "Most work is \(muscle.muscleGroup.lowercased()) today. Keep warmups honest, then beat one clean set if it is there."
+            case .buildMuscle:
+                text = "Most work is \(muscle.muscleGroup.lowercased()) today. Keep reps clean and add volume only while the set quality stays high."
+            case .leaner, .maintain:
+                text = "Most work is \(muscle.muscleGroup.lowercased()) today. Match the useful work and keep the pace steady."
+            case .betterCardio, .healthyRoutine:
+                text = "You have a real session going. Keep the next block repeatable and leave enough room to finish well."
+            }
+            return WorkoutCoachCard(
+                kind: .balance,
+                title: "Today's target",
+                text: text,
+                priority: 91,
+                feedbackEligible: true,
+                coarseContext: coarseContext(context: context, evidence: ["workout_target", "muscle_\(muscle.muscleGroup.lowercased())"])
+            )
+        }
+
+        guard let summary = context.exerciseSummaries.first,
+              let latest = summary.recentSessions.first
+        else { return nil }
+
+        return WorkoutCoachCard(
+            kind: .balance,
+            title: "Today's target",
+            metadata: "\(summary.displayName) last \(relativeDay(latest.date))",
+            text: "Go a little harder than last time only if the first working set moves cleanly.",
+            priority: 89,
+            feedbackEligible: true,
+            affectedExerciseKey: summary.exerciseKey,
+            coarseContext: coarseContext(context: context, evidence: ["workout_target", "saved_history"])
+        )
+    }
+
+    private static func progressionCard(
+        context: WorkoutSuggestionRequestContext,
+        phase: WorkoutCoachCardPhase
+    ) -> WorkoutCoachCard? {
         guard let summary = context.exerciseSummaries.first(where: { summary in
             guard let suggestion = summary.primarySuggestion else { return false }
             return suggestion.evidence.contains("upward_trend")
@@ -155,17 +203,17 @@ enum WorkoutCoachCardEngine {
         else { return nil }
 
         let latest = summary.recentSessions.first
-        let lastTime = latest.map { "Last time: \($0.bestSetText)." }
         let target = suggestion.target.map { "Next target: \($0)." }
         let effort = latest?.effortText.flatMap(effortAdvice)
-        let text = [lastTime, target, effort ?? suggestion.text]
+        let text = [target, effort ?? suggestion.text]
             .compactMap { $0 }
             .joined(separator: " ")
         return WorkoutCoachCard(
             kind: .progression,
             title: summary.displayName,
+            metadata: latest.map { "Last \($0.bestSetText)" },
             text: text,
-            priority: 90,
+            priority: phase == .typing ? 86 : 90,
             feedbackEligible: true,
             affectedExerciseKey: suggestion.exerciseKey,
             coarseContext: coarseContext(context: context, evidence: suggestion.evidence)
@@ -244,6 +292,16 @@ enum WorkoutCoachCardEngine {
             return "You have room to progress if it feels the same today."
         }
         return nil
+    }
+
+    private static func relativeDay(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "today" }
+        if calendar.isDateInYesterday(date) { return "yesterday" }
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: date)
     }
 
     private static func deduplicated(_ cards: [WorkoutCoachCard]) -> [WorkoutCoachCard] {

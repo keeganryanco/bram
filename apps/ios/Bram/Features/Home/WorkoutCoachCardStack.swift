@@ -33,12 +33,24 @@ private struct WorkoutCoachCardView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(card.title)
-                        .font(BramFont.label(size: 12))
-                        .foregroundStyle(accentColor)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(card.title)
+                            .font(BramFont.label(size: 12))
+                            .foregroundStyle(accentColor)
+                            .lineLimit(1)
+
+                        if let metadata = card.metadata, !metadata.isEmpty {
+                            Text(metadata)
+                                .font(BramFont.label(size: 12))
+                                .foregroundStyle(accentColor.opacity(0.82))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.82)
+                        }
+                    }
                     Text(card.text)
                         .font(BramFont.callout())
                         .foregroundStyle(BramColor.textPrimary)
+                        .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -63,7 +75,7 @@ private struct WorkoutCoachCardView: View {
                 .stroke(BramColor.hairline, lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(card.title). \(card.text)")
+        .accessibilityLabel("\(card.title). \(card.metadata ?? ""). \(card.text)")
         .task(id: card.id) {
             showsFeedback = false
             guard card.feedbackEligible else { return }

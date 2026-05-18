@@ -1582,8 +1582,36 @@ struct BramTests {
         let cards = WorkoutCoachCardEngine.cards(context: context, interpretedLines: [], phase: .typing)
 
         #expect(cards.first?.title == "Bench Press")
-        #expect(cards.first?.text.contains("Last time: 205 x 5.") == true)
+        #expect(cards.first?.metadata == "Last 205 x 5")
         #expect(cards.first?.text.contains("Next target: 210 x 4-5.") == true)
+    }
+
+    @Test func coachCardsUseWorkoutTargetOverExerciseHistoryWhenSessionHasContext() {
+        let summary = coachExerciseSummary(
+            exerciseKey: "bench_press",
+            displayName: "Bench Press",
+            sessions: [
+                coachSession(date: .now.addingTimeInterval(-86_400 * 5), bestSetText: "205 x 5", estimatedOneRepMax: 239, volume: 3_075)
+            ],
+            suggestion: ExerciseSuggestion(
+                exerciseKey: "bench_press",
+                title: "Progress",
+                text: "If the top set moves well, make a small load jump or add one rep.",
+                target: "210 x 4-5",
+                evidence: ["saved_history"]
+            )
+        )
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 5, estimatedVolume: 5_000, prCount: 0, streakDays: 0, parseState: .parsed),
+            currentMuscleSets: [MuscleSetMetric(muscleGroup: "Chest", sets: 5, colorRole: .chest)],
+            exerciseSummaries: [summary]
+        )
+
+        let cards = WorkoutCoachCardEngine.cards(context: context, interpretedLines: [], phase: .typing)
+
+        #expect(cards.first?.title == "Today's target")
+        #expect(cards.first?.text.contains("chest") == true)
+        #expect(cards.first?.text.contains("Last time") == false)
     }
 
     @Test func coachProgressionCardUsesEffortToTemperNextTarget() {

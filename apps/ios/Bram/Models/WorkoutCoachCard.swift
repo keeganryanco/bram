@@ -12,6 +12,7 @@ struct WorkoutCoachCard: Identifiable, Hashable {
     let id: UUID
     var kind: WorkoutCoachCardKind
     var title: String
+    var metadata: String?
     var text: String
     var source: SuggestionSource
     var priority: Int
@@ -24,6 +25,7 @@ struct WorkoutCoachCard: Identifiable, Hashable {
         id: UUID = UUID(),
         kind: WorkoutCoachCardKind,
         title: String? = nil,
+        metadata: String? = nil,
         text: String,
         source: SuggestionSource = .local,
         priority: Int,
@@ -35,6 +37,7 @@ struct WorkoutCoachCard: Identifiable, Hashable {
         self.id = id
         self.kind = kind
         self.title = title ?? kind.rawValue
+        self.metadata = metadata
         self.text = text
         self.source = source
         self.priority = priority

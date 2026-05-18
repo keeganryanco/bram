@@ -642,7 +642,7 @@ struct HomeView: View {
     }
 
     private func coachCardSignature(_ card: WorkoutCoachCard) -> String {
-        "\(card.kind.rawValue)|\(card.title)|\(card.text)|\(card.affectedExerciseKey ?? "")"
+        "\(card.kind.rawValue)|\(card.title)|\(card.metadata ?? "")|\(card.text)|\(card.affectedExerciseKey ?? "")"
     }
 
     private func scheduleBackendCoachCards(
