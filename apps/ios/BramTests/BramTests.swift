@@ -318,6 +318,38 @@ struct BramTests {
     }
 
     @MainActor
+    @Test func accountBootstrapDoesNotPullRemoteWhenPendingWorkoutSyncFails() async throws {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "sync@trybram.app",
+            displayName: "Sync",
+            preferredUnits: "lb",
+            onboardingCompletedAt: .now,
+            accountTier: .premium,
+            subscriptionStatus: .active,
+            entitlementSource: .appStore,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let syncService = MockWorkoutSyncService(syncError: AccountSessionError.accountServicesUnavailable)
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: MockLocalStore(),
+            workoutSyncService: syncService
+        )
+
+        await state.start()
+
+        #expect(state.status == .ready)
+        #expect(await syncService.didAttemptSync)
+        #expect(await !syncService.didAttemptPull)
+    }
+
+    @MainActor
     @Test func deleteAccountCallsServerClearsLocalDataAndSignsOut() async throws {
         let userId = UUID()
         let account = AccountSnapshot(
@@ -747,6 +779,84 @@ struct BramTests {
         #expect(loaded.metrics.totalSets == 3)
         #expect(stats.workoutDaysInPeriod == 1)
         #expect(stats.loadByDay.contains { $0.volume == 4_440 })
+    }
+
+    @Test func sqliteWorkoutImportDoesNotOverwritePendingLocalWorkoutForSameDate() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramRemoteImportLocalWinsTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let userId = UUID()
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var localNote = try await store.note(for: date)
+        localNote.body = "Bench 225 3x5"
+        localNote.updatedAt = Date(timeIntervalSince1970: 1_800_100_000)
+
+        try await store.save(localNote)
+
+        let remoteNote = DailyWorkoutNote(
+            id: UUID(),
+            remoteId: UUID(),
+            userId: userId,
+            date: date,
+            body: "Bench 185 3x8",
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000),
+            syncState: .synced
+        )
+        try await store.importSyncedWorkoutData([
+            WorkoutSyncPayload(
+                note: remoteNote,
+                metrics: .empty,
+                strengthSets: [],
+                cardioEntries: [],
+                prEvents: []
+            )
+        ])
+
+        let loaded = try await store.note(for: date)
+        let pending = try await store.pendingWorkoutSyncPayloads(limit: 10)
+
+        #expect(loaded.id == localNote.id)
+        #expect(loaded.body == "Bench 225 3x5")
+        #expect(loaded.syncState != .synced)
+        #expect(pending.contains { $0.note.id == localNote.id })
+    }
+
+    @Test func sqliteWorkoutImportDoesNotResurrectPendingLocalDelete() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramRemoteImportDeleteWinsTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let userId = UUID()
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var localNote = try await store.note(for: date)
+        localNote.body = "Bench 225 3x5"
+
+        try await store.save(localNote)
+        try await store.delete(localNote)
+
+        let remoteNote = DailyWorkoutNote(
+            id: localNote.id,
+            remoteId: localNote.id,
+            userId: userId,
+            date: date,
+            body: "Bench 185 3x8",
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000),
+            syncState: .synced
+        )
+        try await store.importSyncedWorkoutData([
+            WorkoutSyncPayload(
+                note: remoteNote,
+                metrics: .empty,
+                strengthSets: [],
+                cardioEntries: [],
+                prEvents: []
+            )
+        ])
+
+        let pending = try await store.pendingWorkoutSyncPayloads(limit: 10)
+
+        #expect(pending.contains { $0.note.id == localNote.id && $0.note.deletedAt != nil })
     }
 
     @Test func sqliteWorkoutStoreBuildsCalendarMarkersFromSavedNotes() async throws {
@@ -2161,6 +2271,25 @@ private actor MockLocalStore: WorkoutLocalStore {
     func markWorkoutSyncFailed(localNoteId: UUID, errorMessage: String) async throws {}
     func importSyncedWorkoutData(_ payloads: [WorkoutSyncPayload]) async throws {}
     func clearLocalAccountData() async throws { didClearLocalAccountData = true }
+}
+
+private actor MockWorkoutSyncService: WorkoutSyncService {
+    var syncError: Error?
+    private(set) var didAttemptSync = false
+    private(set) var didAttemptPull = false
+
+    init(syncError: Error? = nil) {
+        self.syncError = syncError
+    }
+
+    func syncPendingAccountData(userId: UUID) async throws {
+        didAttemptSync = true
+        if let syncError { throw syncError }
+    }
+
+    func pullAccountData(userId: UUID) async throws {
+        didAttemptPull = true
+    }
 }
 
 private actor MockAccountDeletionService: BramAccountDeleting {

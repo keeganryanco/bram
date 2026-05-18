@@ -18,14 +18,19 @@ struct SupabaseWorkoutSyncService: WorkoutSyncService {
 
     func syncPendingAccountData(userId: UUID) async throws {
         let payloads = try await localStore.pendingWorkoutSyncPayloads(limit: 25)
+        var failures: [Error] = []
         for payload in payloads {
             do {
                 let remoteId = payload.note.remoteId ?? payload.note.id
                 try await upsert(payload: payload, userId: userId, remoteId: remoteId)
                 try await localStore.markWorkoutSynced(localNoteId: payload.note.id, remoteId: remoteId, userId: userId)
             } catch {
+                failures.append(error)
                 try? await localStore.markWorkoutSyncFailed(localNoteId: payload.note.id, errorMessage: error.localizedDescription)
             }
+        }
+        if let firstFailure = failures.first {
+            throw firstFailure
         }
     }
 

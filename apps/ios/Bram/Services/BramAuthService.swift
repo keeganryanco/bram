@@ -30,12 +30,16 @@ struct BramAuthService: BramAuthServicing {
             let session = try await client.auth.session
             return session.user.id
         } catch {
-            return nil
+            return client.auth.currentSession?.user.id
         }
     }
 
     func currentAccessToken() async throws -> String? {
-        try await client.auth.session.accessToken
+        do {
+            return try await client.auth.session.accessToken
+        } catch {
+            return client.auth.currentSession?.accessToken
+        }
     }
 
     func signUp(email: String, password: String) async throws -> UUID? {

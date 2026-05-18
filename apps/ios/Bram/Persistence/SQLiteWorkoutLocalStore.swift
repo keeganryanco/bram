@@ -600,7 +600,9 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         var note = payload.note
         note.syncState = .synced
         note.lastSyncError = nil
-        try deleteLocalNoteForImportIfNeeded(note)
+
+        guard try shouldImportRemoteNote(note) else { return }
+        try deleteOlderLocalNoteForImportIfNeeded(note)
         try saveSyncPreservingSyncState(note)
         try deleteStructuredWorkoutRows(noteId: note.id)
         if let metrics = payload.metrics {
@@ -617,13 +619,76 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         }
     }
 
-    private func deleteLocalNoteForImportIfNeeded(_ note: DailyWorkoutNote) throws {
-        let sql = "delete from workout_notes where workout_date = ? and id <> ?;"
+    private func shouldImportRemoteNote(_ note: DailyWorkoutNote) throws -> Bool {
+        if let existing = try noteSync(id: note.id),
+           shouldKeepLocalNote(existing, insteadOfRemote: note) {
+            return false
+        }
+
+        if let existing = try noteSync(workoutDate: note.date),
+           existing.id != note.id,
+           shouldKeepLocalNote(existing, insteadOfRemote: note) {
+            return false
+        }
+
+        return true
+    }
+
+    private func shouldKeepLocalNote(_ local: DailyWorkoutNote, insteadOfRemote remote: DailyWorkoutNote) -> Bool {
+        if local.syncState != .synced { return true }
+        guard local.deletedAt == nil else { return false }
+        return local.updatedAt > remote.updatedAt
+    }
+
+    private func deleteOlderLocalNoteForImportIfNeeded(_ note: DailyWorkoutNote) throws {
+        let sql = """
+        delete from workout_notes
+        where workout_date = ?
+          and id <> ?
+          and sync_state = ?;
+        """
         try database.withStatement(sql) { statement in
             try database.bind(Self.dayKey(for: note.date), to: 1, in: statement)
             try database.bind(note.id.uuidString, to: 2, in: statement)
+            try database.bind(WorkoutSyncState.synced.rawValue, to: 3, in: statement)
             _ = try database.step(statement)
         }
+    }
+
+    private func noteSync(id: UUID) throws -> DailyWorkoutNote? {
+        let sql = """
+        select id, remote_id, user_id, workout_date, timezone_identifier, body,
+               created_at, updated_at, deleted_at, sync_state, last_sync_error
+        from workout_notes
+        where id = ?
+        limit 1;
+        """
+        var note: DailyWorkoutNote?
+        try database.withStatement(sql) { statement in
+            try database.bind(id.uuidString, to: 1, in: statement)
+            if try database.step(statement) {
+                note = makeNote(from: statement)
+            }
+        }
+        return note
+    }
+
+    private func noteSync(workoutDate: Date) throws -> DailyWorkoutNote? {
+        let sql = """
+        select id, remote_id, user_id, workout_date, timezone_identifier, body,
+               created_at, updated_at, deleted_at, sync_state, last_sync_error
+        from workout_notes
+        where workout_date = ? and deleted_at is null
+        limit 1;
+        """
+        var note: DailyWorkoutNote?
+        try database.withStatement(sql) { statement in
+            try database.bind(Self.dayKey(for: workoutDate), to: 1, in: statement)
+            if try database.step(statement) {
+                note = makeNote(from: statement)
+            }
+        }
+        return note
     }
 
     private func saveSyncPreservingSyncState(_ note: DailyWorkoutNote) throws {
