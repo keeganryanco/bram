@@ -151,10 +151,12 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         var energyEstimateByDay: [String: Bool] = [:]
         var durationByDay: [String: Int] = [:]
         var heartRateByDay: [String: Int] = [:]
+        var hardSetsInPeriod = 0
         var workoutDays = Set<String>()
         let metricsSQL = """
         select n.workout_date, m.estimated_volume, m.active_energy_calories,
-               coalesce(m.energy_is_estimated, 0), m.workout_duration_minutes, m.average_heart_rate
+               coalesce(m.energy_is_estimated, 0), m.workout_duration_minutes, m.average_heart_rate,
+               m.hard_sets
         from workout_daily_metrics m
         join workout_notes n on n.id = m.note_id
         where n.deleted_at is null
@@ -180,6 +182,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                 if let heartRate = database.int(at: 5, in: statement) {
                     heartRateByDay[dayKey] = heartRate
                 }
+                hardSetsInPeriod += database.int(at: 6, in: statement) ?? 0
                 workoutDays.insert(dayKey)
             }
         }
@@ -226,6 +229,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         let macroSetVolume = Self.muscleMetrics(from: Self.macroMuscleSets(from: currentSetsByMuscle))
         let previousSetsByMuscle = try setsByMuscle(from: previousStartKey, to: previousEndKey)
         let priorWorkoutDays = try workoutDayCount(from: previousStartKey, to: previousEndKey)
+        let previousHardSets = try hardSetCount(from: previousStartKey, to: previousEndKey)
         let prLabels = try prLabels(from: startKey, to: endKey)
         let totalSets = currentSetsByMuscle.values.reduce(0, +)
         let previousTotalSets = previousSetsByMuscle.values.reduce(0, +)
@@ -260,7 +264,10 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             workoutDays: workoutDays.count,
             weeklyTarget: goals.weeklyTrainingDays,
             bodyweightTrend: bodyweightTrend,
-            targetWeight: goals.targetWeightValue
+            targetWeight: goals.targetWeightValue,
+            hardSets: hardSetsInPeriod,
+            hardSetDelta: hardSetsInPeriod - previousHardSets,
+            goal: goals.primaryGoal
         )
 
         return StatsWeekSnapshot(
@@ -291,7 +298,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
 
     func exerciseHistory(for exercise: ExerciseAnchor) async throws -> ExerciseHistorySummary {
         let sql = """
-        select n.workout_date, s.load_value, s.reps, s.estimated_one_rep_max
+        select n.workout_date, s.load_value, s.reps, s.estimated_one_rep_max, s.effort
         from workout_strength_sets s
         join workout_notes n on n.id = s.note_id
         where n.deleted_at is null
@@ -299,7 +306,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         order by n.workout_date desc, s.estimated_one_rep_max desc;
         """
 
-        var rows: [(date: Date, load: Double, reps: Int, estimatedOneRepMax: Double)] = []
+        var rows: [(date: Date, load: Double, reps: Int, estimatedOneRepMax: Double, effort: String?)] = []
         try database.withStatement(sql) { statement in
             try database.bind(exercise.exerciseKey, to: 1, in: statement)
             while try database.step(statement) {
@@ -309,7 +316,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                       let reps = database.int(at: 2, in: statement),
                       let estimated = database.double(at: 3, in: statement)
                 else { continue }
-                rows.append((date, load, reps, estimated))
+                rows.append((date, load, reps, estimated, database.string(at: 4, in: statement)))
             }
         }
 
@@ -319,12 +326,14 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             let volume = rows.reduce(0) { total, row in
                 total + Int(row.load) * row.reps
             }
+            let effort = Self.effortSummaryText(rows.compactMap(\.effort))
             return ExerciseHistorySession(
                 id: UUID(),
                 date: best.date,
                 bestSetText: "\(Self.loadText(best.load)) x \(best.reps)",
                 estimatedOneRepMax: best.estimatedOneRepMax,
-                volume: volume
+                volume: volume,
+                effortText: effort
             )
         }
         .sorted { $0.date > $1.date }
@@ -347,6 +356,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             recentDates: sessions.map(\.date),
             recentSessions: Array(sessions.prefix(8)),
             recommendation: suggestion.text,
+            recentEffortText: sessions.first(where: { $0.effortText != nil })?.effortText,
             primarySuggestion: suggestion
         )
     }
@@ -413,12 +423,26 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         let recent = Array(sessions.prefix(8))
         let averageDuration = durations.isEmpty ? nil : Int((Double(durations.reduce(0, +)) / Double(durations.count)).rounded())
         let averageCalories = calories.isEmpty ? nil : Int((Double(calories.reduce(0, +)) / Double(calories.count)).rounded())
+        let paceSamples = sessions.compactMap { session -> Double? in
+            guard let duration = session.durationMinutes,
+                  let distance = session.distance,
+                  distance > 0
+            else { return nil }
+            return Double(duration) / distance
+        }
+        let averagePaceText: String? = {
+            guard !paceSamples.isEmpty else { return nil }
+            let unit = sessions.first(where: { ($0.distance ?? 0) > 0 })?.distanceUnit ?? "mi"
+            let minutes = paceSamples.reduce(0, +) / Double(paceSamples.count)
+            return CardioHistorySummary.paceText(durationMinutes: minutes, distance: 1, unit: unit)
+        }()
         let recommendation = Self.cardioRecommendation(activityType: activityType, sessions: sessions)
 
         return CardioHistorySummary(
             activityType: activityType,
             recentSessions: recent,
             averageDurationMinutes: averageDuration,
+            averagePaceText: averagePaceText,
             bestDistanceText: CardioHistorySummary.distanceText(value: bestDistance?.distance, unit: bestDistance?.distanceUnit),
             estimatedCaloriesText: averageCalories.map { "\($0)" } ?? "--",
             recommendation: recommendation
@@ -1185,9 +1209,9 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         let sql = """
         insert into workout_strength_sets (
           id, note_id, exercise_key, exercise_name, muscle_group, line_index,
-          set_number, reps, load_value, load_unit, estimated_one_rep_max, performed_at
+          set_number, reps, load_value, load_unit, estimated_one_rep_max, performed_at, effort
         )
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         for set in sets {
             try database.withStatement(sql) { statement in
@@ -1203,6 +1227,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                 try database.bind(set.unit, to: 10, in: statement)
                 try database.bind(set.estimatedOneRepMax, to: 11, in: statement)
                 try database.bind(set.performedAt, to: 12, in: statement)
+                try database.bind(set.effort, to: 13, in: statement)
                 _ = try database.step(statement)
             }
         }
@@ -1368,6 +1393,25 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         return count
     }
 
+    private func hardSetCount(from startKey: String, to endKey: String) throws -> Int {
+        let sql = """
+        select coalesce(sum(m.hard_sets), 0)
+        from workout_daily_metrics m
+        join workout_notes n on n.id = m.note_id
+        where n.deleted_at is null
+          and n.workout_date between ? and ?;
+        """
+        var count = 0
+        try database.withStatement(sql) { statement in
+            try database.bind(startKey, to: 1, in: statement)
+            try database.bind(endKey, to: 2, in: statement)
+            if try database.step(statement) {
+                count = database.int(at: 0, in: statement) ?? 0
+            }
+        }
+        return count
+    }
+
     private func setsByMuscle(from startKey: String, to endKey: String) throws -> [String: Int] {
         let sql = """
         select coalesce(s.muscle_group, 'Other'), count(*)
@@ -1520,14 +1564,39 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         workoutDays: Int,
         weeklyTarget: Int,
         bodyweightTrend: [BodyweightTrendPoint],
-        targetWeight: Double?
+        targetWeight: Double?,
+        hardSets: Int,
+        hardSetDelta: Int,
+        goal: TrainingPrimaryGoal
     ) -> StatsInsight? {
         if let firstPR = prLabels.first {
             let extra = prLabels.count > 1 ? " and \(prLabels.count - 1) more" : ""
+            let advice: String
+            switch goal {
+            case .stronger:
+                advice = "repeat the setup once before pushing again"
+            case .buildMuscle:
+                advice = "add reps cleanly before another load jump"
+            case .leaner, .maintain:
+                advice = "match it cleanly next time instead of chasing more"
+            case .betterCardio, .healthyRoutine:
+                advice = "keep the effort repeatable next time"
+            }
             return StatsInsight(
                 kind: .progression,
-                text: "\(firstPR)\(extra) moved up this period; keep the next session steady before pushing again.",
-                colorRole: .violet
+                text: "\(firstPR)\(extra) moved up this period; \(advice).",
+                colorRole: .energy
+            )
+        }
+
+        if hardSets >= 3 && hardSetDelta >= 2 {
+            let advice = goal == .leaner || goal == .maintain
+                ? "keep the next session repeatable and leave a rep in reserve"
+                : "use the next session to prove those sets were recoverable"
+            return StatsInsight(
+                kind: .effort,
+                text: "Hard sets are up \(hardSetDelta) this period; \(advice).",
+                colorRole: .energy
             )
         }
 
@@ -1697,6 +1766,15 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
     private static func loadText(_ load: Double) -> String {
         guard load > 0 else { return "BW" }
         return load.rounded() == load ? "\(Int(load))" : String(format: "%.1f", load)
+    }
+
+    private static func effortSummaryText(_ efforts: [String]) -> String? {
+        guard !efforts.isEmpty else { return nil }
+        let counts = Dictionary(grouping: efforts, by: { $0 }).mapValues(\.count)
+        return counts.sorted {
+            if $0.value == $1.value { return $0.key < $1.key }
+            return $0.value > $1.value
+        }.first?.key
     }
 
     private static func estimatedCardioCalories(
@@ -1998,7 +2076,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
     private func strengthSetsSync(noteId: UUID) throws -> [StrengthSetRecord] {
         let sql = """
         select id, exercise_key, exercise_name, line_index, set_number, reps,
-               load_value, load_unit, performed_at
+               load_value, load_unit, performed_at, effort
         from workout_strength_sets
         where note_id = ?
         order by line_index asc, set_number asc;
@@ -2017,7 +2095,8 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                         reps: database.int(at: 5, in: statement) ?? 0,
                         load: database.double(at: 6, in: statement) ?? 0,
                         unit: database.string(at: 7, in: statement) ?? "lb",
-                        performedAt: database.date(at: 8, in: statement) ?? .now
+                        performedAt: database.date(at: 8, in: statement) ?? .now,
+                        effort: database.string(at: 9, in: statement)
                     )
                 )
             }
@@ -2257,7 +2336,8 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
           load_value real not null,
           load_unit text not null default 'lb',
           estimated_one_rep_max real not null,
-          performed_at text not null
+          performed_at text not null,
+          effort text
         );
 
         create table if not exists workout_pr_events (
@@ -2343,6 +2423,9 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         }
         if try !Self.columnExists("current_weight_source", in: "training_goals_profile", database: database) {
             try database.execute("alter table training_goals_profile add column current_weight_source text;")
+        }
+        if try !Self.columnExists("effort", in: "workout_strength_sets", database: database) {
+            try database.execute("alter table workout_strength_sets add column effort text;")
         }
     }
 

@@ -260,6 +260,8 @@ private struct StatsInsightCard: View {
         switch insight.kind {
         case .progression:
             "arrow.up.right"
+        case .effort:
+            "flame.fill"
         case .balance:
             "scale.3d"
         case .consistency:

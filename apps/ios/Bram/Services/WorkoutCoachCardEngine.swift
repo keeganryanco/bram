@@ -144,23 +144,28 @@ enum WorkoutCoachCardEngine {
     }
 
     private static func progressionCard(context: WorkoutSuggestionRequestContext) -> WorkoutCoachCard? {
-        guard let suggestion = context.exerciseSummaries
-            .compactMap(\.primarySuggestion)
-            .first(where: { suggestion in
-                suggestion.evidence.contains("upward_trend")
-                    || suggestion.evidence.contains("stalled_trend")
-                    || suggestion.evidence.contains("saved_history")
-            })
+        guard let summary = context.exerciseSummaries.first(where: { summary in
+            guard let suggestion = summary.primarySuggestion else { return false }
+            return suggestion.evidence.contains("upward_trend")
+                || suggestion.evidence.contains("stalled_trend")
+                || suggestion.evidence.contains("saved_history")
+                || suggestion.evidence.contains("thin_history")
+        }),
+        let suggestion = summary.primarySuggestion
         else { return nil }
 
-        let target = suggestion.target.map { " Aim for \($0)." } ?? ""
-        let summary = context.exerciseSummaries.first { $0.exerciseKey == suggestion.exerciseKey }
-        let title = summary?.displayName ?? suggestion.title
+        let latest = summary.recentSessions.first
+        let lastTime = latest.map { "Last time: \($0.bestSetText)." }
+        let target = suggestion.target.map { "Next target: \($0)." }
+        let effort = latest?.effortText.flatMap(effortAdvice)
+        let text = [lastTime, target, effort ?? suggestion.text]
+            .compactMap { $0 }
+            .joined(separator: " ")
         return WorkoutCoachCard(
             kind: .progression,
-            title: title,
-            text: "\(suggestion.text)\(target)",
-            priority: 84,
+            title: summary.displayName,
+            text: text,
+            priority: 90,
             feedbackEligible: true,
             affectedExerciseKey: suggestion.exerciseKey,
             coarseContext: coarseContext(context: context, evidence: suggestion.evidence)
@@ -222,6 +227,23 @@ enum WorkoutCoachCardEngine {
         case .betterCardio, .healthyRoutine:
             return "Next time, keep the effort repeatable and protect the routine."
         }
+    }
+
+    private static func effortAdvice(_ effort: String) -> String? {
+        let lower = effort.lowercased()
+        if lower.contains("failure") || lower.contains("grinder") {
+            return "Since the last top set was \(effort.lowercased()), repeat before adding load."
+        }
+        if lower.hasPrefix("rpe 9") || lower.hasPrefix("rpe 10") || lower.hasPrefix("rir 0") {
+            return "That was near max effort, so repeat it cleanly before progressing."
+        }
+        if lower.hasPrefix("rpe 8") || lower.hasPrefix("rir 1") || lower.hasPrefix("rir 2") || lower == "hard" {
+            return "Push only if the warmups move well."
+        }
+        if lower == "easy" {
+            return "You have room to progress if it feels the same today."
+        }
+        return nil
     }
 
     private static func deduplicated(_ cards: [WorkoutCoachCard]) -> [WorkoutCoachCard] {

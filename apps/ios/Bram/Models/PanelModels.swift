@@ -143,6 +143,7 @@ struct StreakAward: Identifiable, Hashable {
 
 enum StatsInsightKind: String, Hashable {
     case progression = "Progression"
+    case effort = "Effort"
     case balance = "Balance"
     case consistency = "Consistency"
     case bodyweight = "Bodyweight"

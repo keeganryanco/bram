@@ -164,6 +164,7 @@ struct StrengthSetRecord: Identifiable, Codable, Hashable {
     var unit: String
     var estimatedOneRepMax: Double
     var performedAt: Date
+    var effort: String?
 
     init(
         id: UUID = UUID(),
@@ -174,7 +175,8 @@ struct StrengthSetRecord: Identifiable, Codable, Hashable {
         reps: Int,
         load: Double,
         unit: String = "lb",
-        performedAt: Date = .now
+        performedAt: Date = .now,
+        effort: String? = nil
     ) {
         self.id = id
         self.exerciseKey = exerciseKey
@@ -186,6 +188,7 @@ struct StrengthSetRecord: Identifiable, Codable, Hashable {
         self.unit = unit
         self.estimatedOneRepMax = PRMath.epleyEstimatedOneRepMax(load: load, reps: reps)
         self.performedAt = performedAt
+        self.effort = effort
     }
 }
 
@@ -237,6 +240,7 @@ struct CardioHistorySummary: Identifiable, Codable, Hashable {
     var activityType: String
     var recentSessions: [CardioHistorySession]
     var averageDurationMinutes: Int?
+    var averagePaceText: String?
     var bestDistanceText: String?
     var estimatedCaloriesText: String
     var recommendation: String
@@ -246,6 +250,7 @@ struct CardioHistorySummary: Identifiable, Codable, Hashable {
         activityType: String,
         recentSessions: [CardioHistorySession] = [],
         averageDurationMinutes: Int? = nil,
+        averagePaceText: String? = nil,
         bestDistanceText: String? = nil,
         estimatedCaloriesText: String = "--",
         recommendation: String = "More saved sessions will make this more useful."
@@ -254,6 +259,7 @@ struct CardioHistorySummary: Identifiable, Codable, Hashable {
         self.activityType = activityType
         self.recentSessions = recentSessions
         self.averageDurationMinutes = averageDurationMinutes
+        self.averagePaceText = averagePaceText
         self.bestDistanceText = bestDistanceText
         self.estimatedCaloriesText = estimatedCaloriesText
         self.recommendation = recommendation
@@ -274,6 +280,7 @@ struct CardioHistorySummary: Identifiable, Codable, Hashable {
                 )
             ],
             averageDurationMinutes: entry.durationMinutes,
+            averagePaceText: Self.paceText(durationMinutes: entry.durationMinutes, distance: entry.distance, unit: entry.distanceUnit),
             bestDistanceText: Self.distanceText(value: entry.distance, unit: entry.distanceUnit),
             estimatedCaloriesText: calories
         )
@@ -283,6 +290,22 @@ struct CardioHistorySummary: Identifiable, Codable, Hashable {
         guard let value, let unit, value > 0 else { return nil }
         let amount = value.rounded() == value ? "\(Int(value))" : String(format: "%.1f", value)
         return "\(amount) \(unit)"
+    }
+
+    static func paceText(durationMinutes: Int?, distance: Double?, unit: String?) -> String? {
+        guard let durationMinutes else { return nil }
+        return paceText(durationMinutes: Double(durationMinutes), distance: distance, unit: unit)
+    }
+
+    static func paceText(durationMinutes: Double?, distance: Double?, unit: String?) -> String? {
+        guard let durationMinutes, durationMinutes > 0,
+              let distance, distance > 0,
+              let unit
+        else { return nil }
+        let totalSeconds = Int((durationMinutes * 60 / distance).rounded())
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return "\(minutes):\(String(format: "%02d", seconds))/\(unit)"
     }
 }
 
@@ -295,6 +318,9 @@ struct CardioHistorySession: Identifiable, Codable, Hashable {
     var distanceUnit: String?
     var estimatedCalories: Int?
     var averageHeartRate: Int?
+    var paceText: String {
+        CardioHistorySummary.paceText(durationMinutes: durationMinutes, distance: distance, unit: distanceUnit) ?? "--"
+    }
 
     init(
         id: UUID = UUID(),
@@ -369,6 +395,7 @@ struct ExerciseHistorySession: Identifiable, Codable, Hashable {
     var bestSetText: String
     var estimatedOneRepMax: Double
     var volume: Int
+    var effortText: String? = nil
 }
 
 struct ExerciseHistorySummary: Identifiable, Codable, Hashable {
@@ -380,6 +407,7 @@ struct ExerciseHistorySummary: Identifiable, Codable, Hashable {
     var recentDates: [Date]
     var recentSessions: [ExerciseHistorySession]
     var recommendation: String
+    var recentEffortText: String? = nil
     var primarySuggestion: ExerciseSuggestion? = nil
 
     static func placeholder(for exercise: NormalizedExercise, bestSet: StrengthSetRecord? = nil) -> ExerciseHistorySummary {
@@ -401,10 +429,12 @@ struct ExerciseHistorySummary: Identifiable, Codable, Hashable {
                     date: date,
                     bestSetText: bestSet.map { "\(Int($0.load) - index * 5) x \($0.reps)" } ?? "History pending",
                     estimatedOneRepMax: max((bestSet?.estimatedOneRepMax ?? 0) - Double(index * 4), 0),
-                    volume: max((Int(bestSet?.load ?? 0) * max(bestSet?.reps ?? 0, 1)) - index * 80, 0)
+                    volume: max((Int(bestSet?.load ?? 0) * max(bestSet?.reps ?? 0, 1)) - index * 80, 0),
+                    effortText: bestSet?.effort
                 )
             },
             recommendation: "Keep the next exposure steady, then add a rep or small load jump if the last set moves well.",
+            recentEffortText: bestSet?.effort,
             primarySuggestion: ExerciseSuggestion(
                 exerciseKey: exercise.exerciseKey,
                 text: "Repeat the last clean setup, then add one rep before increasing weight.",

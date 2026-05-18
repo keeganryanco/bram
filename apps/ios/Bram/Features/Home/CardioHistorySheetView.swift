@@ -16,8 +16,8 @@ struct CardioHistorySheetView: View {
                         value: history.bestDistanceText ?? "--"
                     )
                     CardioMetricCard(
-                        title: "Est. Cal",
-                        value: history.estimatedCaloriesText
+                        title: "Avg Pace",
+                        value: history.averagePaceText ?? "--"
                     )
                 }
 
@@ -215,9 +215,12 @@ private struct CardioTrendSelection: View {
             Text(session.distanceText)
                 .font(BramFont.label(size: 12))
                 .foregroundStyle(BramColor.cool)
-            Text(session.durationText)
+            Text(session.paceText)
                 .font(BramFont.label(size: 12))
                 .foregroundStyle(BramColor.textPrimary)
+            Text(session.durationText)
+                .font(BramFont.label(size: 12))
+                .foregroundStyle(BramColor.textSecondary)
             Text("\(session.caloriesText) cal")
                 .font(BramFont.label(size: 12))
                 .foregroundStyle(BramColor.textSecondary)
@@ -258,7 +261,7 @@ private struct CardioRecentSessionsCard: View {
                                 .font(BramFont.label(size: 14))
                                 .monospacedDigit()
                                 .foregroundStyle(BramColor.textPrimary)
-                            Text("\(session.caloriesText) cal")
+                            Text(session.paceText)
                                 .font(BramFont.label(size: 13))
                                 .monospacedDigit()
                                 .foregroundStyle(BramColor.textSecondary)

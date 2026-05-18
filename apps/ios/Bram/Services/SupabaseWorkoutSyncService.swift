@@ -395,6 +395,7 @@ private struct RemoteStrengthEntry: Encodable {
     var reps: Int
     var loadValue: Double
     var loadUnit: String
+    var effort: String?
     var muscleGroup: String?
 
     init(set: StrengthSetRecord, noteId: UUID, userId: UUID) {
@@ -408,6 +409,7 @@ private struct RemoteStrengthEntry: Encodable {
         reps = set.reps
         loadValue = set.load
         loadUnit = set.unit
+        effort = set.effort
         muscleGroup = nil
     }
 
@@ -422,6 +424,7 @@ private struct RemoteStrengthEntry: Encodable {
         case reps
         case loadValue = "load_value"
         case loadUnit = "load_unit"
+        case effort
         case muscleGroup = "muscle_group"
     }
 }
@@ -434,6 +437,7 @@ private struct RemoteStrengthEntryRow: Decodable {
     var reps: Int?
     var loadValue: Double?
     var loadUnit: String
+    var effort: String?
 
     var localSet: StrengthSetRecord {
         StrengthSetRecord(
@@ -443,7 +447,8 @@ private struct RemoteStrengthEntryRow: Decodable {
             reps: reps ?? 0,
             load: loadValue ?? 0,
             unit: loadUnit,
-            performedAt: .now
+            performedAt: .now,
+            effort: effort
         )
     }
 
@@ -455,6 +460,7 @@ private struct RemoteStrengthEntryRow: Decodable {
         case reps
         case loadValue = "load_value"
         case loadUnit = "load_unit"
+        case effort
     }
 }
 

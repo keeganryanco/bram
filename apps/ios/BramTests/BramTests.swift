@@ -1250,6 +1250,53 @@ struct BramTests {
         #expect(Int((history.estimatedOneRepMax ?? 0).rounded()) == 239)
     }
 
+    @Test func heuristicInterpreterParsesEffortIntoStrengthSets() async {
+        let note = DailyWorkoutNote(
+            date: Date(timeIntervalSince1970: 1_800_000_000),
+            body: """
+            Bench
+            1 - 185 for 8 RPE 8
+            2 - 185 for 6 RIR 1
+            3 - 185 for 5 to failure
+            """
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+
+        #expect(result.strengthSets.map(\.effort) == ["RPE 8", "RIR 1", "Failure"])
+        #expect(result.metrics.hardSets == 3)
+        #expect(result.lines.first?.detailText.contains("Effort:") == true)
+    }
+
+    @Test func sqliteWorkoutStoreSurfacesEffortInExerciseHistory() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramExerciseEffortHistoryTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+
+        var note = try await store.note(for: date)
+        note.body = """
+        Bench
+        1 - 185 for 8 RPE 8
+        2 - 185 for 6
+        """
+        try await store.save(note)
+
+        let exercise = DefaultExerciseMatchingService().normalize("Bench")
+        let anchor = ExerciseAnchor(
+            id: UUID(),
+            displayName: exercise.displayName,
+            normalizedName: exercise.canonicalName,
+            exerciseKey: exercise.exerciseKey,
+            history: .placeholder(for: exercise)
+        )
+        let history = try await store.exerciseHistory(for: anchor)
+
+        #expect(history.recentEffortText == "RPE 8")
+        #expect(history.recentSessions.first?.effortText == "RPE 8")
+    }
+
     @Test func sqliteWorkoutStoreBuildsCardioHistoryFromSavedEntries() async throws {
         let path = FileManager.default.temporaryDirectory
             .appendingPathComponent("BramCardioHistoryTests-\(UUID().uuidString).sqlite")
@@ -1273,6 +1320,8 @@ struct BramTests {
         #expect(history.recentSessions.first?.distance == 2)
         #expect(history.recentSessions.first?.durationMinutes == 22)
         #expect(history.bestDistanceText == "2 mi")
+        #expect(history.averagePaceText == "10:30/mi")
+        #expect(history.recentSessions.first?.paceText == "11:00/mi")
         #expect(history.estimatedCaloriesText != "--")
     }
 
@@ -1533,7 +1582,34 @@ struct BramTests {
         let cards = WorkoutCoachCardEngine.cards(context: context, interpretedLines: [], phase: .typing)
 
         #expect(cards.first?.title == "Bench Press")
-        #expect(cards.first?.text.contains("210 x 4-5") == true)
+        #expect(cards.first?.text.contains("Last time: 205 x 5.") == true)
+        #expect(cards.first?.text.contains("Next target: 210 x 4-5.") == true)
+    }
+
+    @Test func coachProgressionCardUsesEffortToTemperNextTarget() {
+        let summary = coachExerciseSummary(
+            exerciseKey: "bench_press",
+            displayName: "Bench Press",
+            sessions: [
+                coachSession(date: .now, bestSetText: "205 x 5", estimatedOneRepMax: 239, volume: 3_075, effortText: "Failure"),
+                coachSession(date: .now.addingTimeInterval(-86_400 * 7), bestSetText: "185 x 5", estimatedOneRepMax: 216, volume: 2_775)
+            ],
+            suggestion: ExerciseSuggestion(
+                exerciseKey: "bench_press",
+                title: "Progress",
+                text: "If the top set moves well, make a small load jump or add one rep.",
+                target: "210 x 4-5",
+                evidence: ["upward_trend"]
+            )
+        )
+        let context = coachCardContext(
+            metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 0, streakDays: 0, parseState: .parsed),
+            exerciseSummaries: [summary]
+        )
+
+        let cards = WorkoutCoachCardEngine.cards(context: context, interpretedLines: [], phase: .typing)
+
+        #expect(cards.first?.text.contains("repeat before adding load") == true)
     }
 
     @Test func coachPRCardIsSpecificAndNotGeneric() {
@@ -2183,14 +2259,16 @@ struct BramTests {
         date: Date,
         bestSetText: String,
         estimatedOneRepMax: Double,
-        volume: Int
+        volume: Int,
+        effortText: String? = nil
     ) -> ExerciseHistorySession {
         ExerciseHistorySession(
             id: UUID(),
             date: date,
             bestSetText: bestSetText,
             estimatedOneRepMax: estimatedOneRepMax,
-            volume: volume
+            volume: volume,
+            effortText: effortText
         )
     }
 

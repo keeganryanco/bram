@@ -186,7 +186,8 @@ private struct BackendParsedExercise: Decodable {
                 reps: reps,
                 load: set.load ?? 0,
                 unit: set.unit == "kg" ? "kg" : "lb",
-                performedAt: note.date
+                performedAt: note.date,
+                effort: set.effort
             )
         }
     }
@@ -196,6 +197,7 @@ private struct BackendWorkoutSet: Decodable {
     var reps: Int?
     var load: Double?
     var unit: String
+    var effort: String?
 }
 
 private struct BackendParsedCardioEntry: Decodable {

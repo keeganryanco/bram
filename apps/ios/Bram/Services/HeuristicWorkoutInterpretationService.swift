@@ -86,7 +86,8 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
                         setNumber: setNumber,
                         reps: strength.reps,
                         load: Double(strength.load),
-                        performedAt: note.date
+                        performedAt: note.date,
+                        effort: strength.effort
                     )
                 }
                 let pr = prDetector.detectPR(for: exercise, sets: setRecords)
@@ -116,7 +117,9 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
                         badges: badges,
                         chipText: pr.isPR ? "PR" : "\(strength.sets) sets",
                         detailTitle: exercise.canonicalName,
-                        detailText: strength.detail,
+                        detailText: [strength.detail, strength.effort.map { "Effort: \($0)." }]
+                            .compactMap { $0 }
+                            .joined(separator: " "),
                         confidence: strength.confidence
                     )
                 )
@@ -181,9 +184,10 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         }
 
         let state: WorkoutParseState = note.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .empty : .parsed
+        let hardSets = strengthSets.filter { Self.isHardEffort($0.effort) }.count
         let metrics = WorkoutMetricSnapshot(
             totalSets: totalSets,
-            hardSets: 0,
+            hardSets: hardSets,
             estimatedVolume: estimatedVolume,
             prCount: prCount,
             streakDays: note.metrics.streakDays,
@@ -220,11 +224,12 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
 
         var setRows: [(lineIndex: Int, rawText: String, record: StrengthSetRecord)] = []
         var cursor = index + 1
+        let headerEffort = effortSignal(in: header)
         while cursor < rawLines.count {
             let line = rawLines[cursor].trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty else { break }
             guard !isWorkoutSectionLabel(line) else { break }
-            guard var set = setLineSignal(in: line, exerciseName: header) else { break }
+            guard var set = setLineSignal(in: line, exerciseName: header, fallbackEffort: headerEffort) else { break }
             set.lineIndex = cursor
             set.setNumber = setRows.count + 1
             set.performedAt = note.date
@@ -260,7 +265,9 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
             badges: [],
             chipText: "\(setRecords.count) sets",
             detailTitle: exercise.canonicalName,
-            detailText: "Bram grouped \(setRecords.count) sets under \(exercise.displayName).",
+            detailText: [ "Bram grouped \(setRecords.count) sets under \(exercise.displayName).", effortSummaryText(for: setRecords).map { "Effort: \($0)." } ]
+                .compactMap { $0 }
+                .joined(separator: " "),
             confidence: 0.8
             )
         ]
@@ -280,7 +287,12 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
                     badges: [badge],
                     chipText: "PR",
                     detailTitle: exercise.canonicalName,
-                    detailText: "\(Int(row.record.load)) x \(row.record.reps) is the best estimated strength set Bram found in this block.",
+                    detailText: [
+                        "\(Int(row.record.load)) x \(row.record.reps) is the best estimated strength set Bram found in this block.",
+                        row.record.effort.map { "Effort: \($0)." }
+                    ]
+                        .compactMap { $0 }
+                        .joined(separator: " "),
                     confidence: 0.8
                 )
             })
@@ -348,7 +360,7 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         )
     }
 
-    private func strengthSignal(in line: String) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, metricText: String, detail: String, confidence: Double)? {
+    private func strengthSignal(in line: String) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, metricText: String, detail: String, confidence: Double)? {
         let lower = line.lowercased()
         let isPR = lower.contains("pr") || lower.contains("personal record")
         guard let match = firstMatch(#"(\d+)\s*[xX]\s*(\d+)"#, in: line) else {
@@ -360,15 +372,17 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         let load = firstNumber(before: match[0], in: line) ?? 0
         let volume = sets * reps * load
         let exerciseName = exerciseName(before: load, in: line)
+        let effort = effortSignal(in: line)
         let metricText = load > 0 ? "\(sets) x \(reps) @ \(load)" : "\(sets) x \(reps)"
         let detail = load > 0
             ? "Bram read this as \(sets) sets of \(reps) at about \(load) lb."
             : "Bram read this as \(sets) sets of \(reps). Load can be added naturally in the note."
-        return (exerciseName, max(sets, 1), reps, load, volume, isPR, metricText, detail, load > 0 ? 0.82 : 0.68)
+        return (exerciseName, max(sets, 1), reps, load, volume, isPR, effort, metricText, detail, load > 0 ? 0.82 : 0.68)
     }
 
-    private func setLineSignal(in line: String, exerciseName: String) -> StrengthSetRecord? {
+    private func setLineSignal(in line: String, exerciseName: String, fallbackEffort: String? = nil) -> StrengthSetRecord? {
         let lower = line.lowercased()
+        let effort = effortSignal(in: line) ?? fallbackEffort
         if let match = firstMatch(#"^\s*\d+\s*[-:]\s*((?:\d+(?:\.\d+)?)(?:s)?|bw|bodyweight)(?:\s*(?:lb|lbs|pounds?))?(?:\s*(?:each|ea|per side|descending))*\s*(?:for|x)\s*(\d+)"#, in: lower) {
             guard let reps = Int(match[2]) else { return nil }
             let loadToken = match[1].replacingOccurrences(of: #"s$"#, with: "", options: .regularExpression)
@@ -378,11 +392,12 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
                 exerciseKey: exercise.exerciseKey,
                 exerciseName: exercise.displayName,
                 reps: reps,
-                load: load
+                load: load,
+                effort: effort
             )
         }
 
-        guard let repOnlyMatch = firstMatch(#"^\s*\d+\s*[-:]\s*(\d+)\s*$"#, in: lower),
+        guard let repOnlyMatch = firstMatch(#"^\s*\d+\s*[-:]\s*(\d+)(?:\s+.*)?$"#, in: lower),
               let reps = Int(repOnlyMatch[1])
         else {
             return nil
@@ -392,8 +407,63 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
             exerciseKey: exercise.exerciseKey,
             exerciseName: exercise.displayName,
             reps: reps,
-            load: 0
+            load: 0,
+            effort: effort
         )
+    }
+
+    private func effortSignal(in line: String) -> String? {
+        let lower = line.lowercased()
+        if let match = firstMatch(#"\brpe\s*([0-9](?:\.[05])?|10)\b"#, in: lower),
+           let value = Double(match[1]) {
+            return value.rounded() == value ? "RPE \(Int(value))" : "RPE \(String(format: "%.1f", value))"
+        }
+        if let match = firstMatch(#"\brir\s*([0-9])\b"#, in: lower),
+           let value = Int(match[1]) {
+            return "RIR \(value)"
+        }
+        if let match = firstMatch(#"\b([0-9])\s*rir\b"#, in: lower),
+           let value = Int(match[1]) {
+            return "RIR \(value)"
+        }
+        if lower.contains("to failure") || lower.contains("till failure") || lower.contains("until failure") || lower.contains("failed rep") || lower.contains("failure") {
+            return "Failure"
+        }
+        if lower.contains("grinder") || lower.contains("grinded") || lower.contains("grindy") {
+            return "Grinder"
+        }
+        if lower.contains("hard set") || lower.contains("hard sets") || lower.contains(" felt hard") || lower.hasSuffix(" hard") {
+            return "Hard"
+        }
+        if lower.contains("easy set") || lower.contains("easy sets") || lower.contains(" felt easy") || lower.hasSuffix(" easy") {
+            return "Easy"
+        }
+        return nil
+    }
+
+    private static func isHardEffort(_ effort: String?) -> Bool {
+        guard let effort else { return false }
+        let lower = effort.lowercased()
+        if lower.contains("failure") || lower.contains("grinder") || lower == "hard" { return true }
+        if lower.hasPrefix("rpe "),
+           let value = Double(lower.replacingOccurrences(of: "rpe ", with: "")) {
+            return value >= 8
+        }
+        if lower.hasPrefix("rir "),
+           let value = Int(lower.replacingOccurrences(of: "rir ", with: "")) {
+            return value <= 2
+        }
+        return false
+    }
+
+    private func effortSummaryText(for sets: [StrengthSetRecord]) -> String? {
+        let efforts = sets.compactMap(\.effort)
+        guard !efforts.isEmpty else { return nil }
+        let counts = Dictionary(grouping: efforts, by: { $0 }).mapValues(\.count)
+        return counts.sorted {
+            if $0.value == $1.value { return $0.key < $1.key }
+            return $0.value > $1.value
+        }.first?.key
     }
 
     private var bodyweightTokens: Set<String> {

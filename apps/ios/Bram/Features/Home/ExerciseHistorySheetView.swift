@@ -22,6 +22,7 @@ private struct ExerciseHistoryContent: View {
             HStack(spacing: 12) {
                 ExerciseMetricCard(title: primaryMetricTitle, value: primaryMetricText)
                 ExerciseMetricCard(title: "Best Set", value: exercise.history.bestSetText ?? "--")
+                ExerciseMetricCard(title: "Effort", value: exercise.history.recentEffortText ?? "--")
             }
 
             ExerciseStrengthTrendCard(sessions: exercise.history.recentSessions, title: trendTitle)
@@ -147,6 +148,12 @@ private struct RecentSessionsCard: View {
                                 .font(BramFont.label(size: 13))
                                 .foregroundStyle(BramColor.textSecondary)
                             Spacer()
+                            if let effortText = session.effortText {
+                                Text(effortText)
+                                    .font(BramFont.label(size: 12))
+                                    .foregroundStyle(BramColor.energy)
+                                    .lineLimit(1)
+                            }
                             Text(session.bestSetText)
                                 .font(BramFont.label(size: 15))
                                 .monospacedDigit()
