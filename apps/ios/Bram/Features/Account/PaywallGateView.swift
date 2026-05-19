@@ -304,7 +304,7 @@ private struct PromoCodeSheet: View {
             Text("Redeem code")
                 .font(BramFont.headline(size: 24))
                 .foregroundStyle(BramColor.textPrimary)
-            TextField("TESTFLIGHT1MONTH", text: $code)
+            TextField("Promo code", text: $code)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .font(BramFont.body(size: 16))
