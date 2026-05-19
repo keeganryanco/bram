@@ -174,11 +174,31 @@ private struct RecommendationCard: View {
         history.primarySuggestion
     }
 
+    private var title: String {
+        guard let suggestion else {
+            return history.recentSessions.isEmpty ? "Baseline" : "Recommendation"
+        }
+
+        if suggestion.title != "Next time" {
+            return suggestion.title
+        }
+
+        if suggestion.evidence.contains("thin_history") || history.recentSessions.isEmpty {
+            return "Baseline"
+        }
+
+        if suggestion.target != nil {
+            return "Progression"
+        }
+
+        return "Recommendation"
+    }
+
     var body: some View {
         BramCard {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("Coach", systemImage: "arrow.up.right")
+                    Label(title, systemImage: "arrow.up.right")
                         .font(BramFont.label())
                         .foregroundStyle(BramColor.violet)
                     Spacer()
