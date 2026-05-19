@@ -177,12 +177,12 @@ struct HomeView: View {
         }
         .sheet(item: $selectedExercise) { exercise in
             ExerciseHistorySheetView(exercise: exercise)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationCornerRadius(30)
         }
         .sheet(item: $selectedCardioHistory) { history in
             CardioHistorySheetView(history: history)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationCornerRadius(30)
         }
         .sheet(isPresented: $showingReviewPrompt) {
