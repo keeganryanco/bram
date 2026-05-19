@@ -94,78 +94,80 @@ struct HomeView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            BramColor.appBackground.ignoresSafeArea()
+        GeometryReader { geometry in
+            let horizontalPadding = homeHorizontalPadding(for: geometry.size.width)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    HomeHeader(
-                        date: note.date,
-                        streakDays: progressStats.currentStreak,
-                        openCalendar: {
-                            track(AnalyticsEvent(name: "calendar_opened", properties: ["source": "home_header"]))
-                            activePanel = .calendar
-                        },
-                        openProgress: {
-                            track(AnalyticsEvent(name: "stats_opened", properties: ["source": "home_header"]))
-                            activePanel = .progress
-                        },
-                        openSettings: {
-                            track(AnalyticsEvent(name: "settings_opened", properties: ["source": "home_header"]))
-                            activePanel = .settings
-                        }
-                    )
+            ZStack(alignment: .bottom) {
+                BramColor.appBackground.ignoresSafeArea()
 
-                    WorkoutNoteEditor(
-                        noteBody: $note.body,
-                        interpretedLines: featureAccess.canUseInterpretation ? note.interpretedLines : [],
-                        interpretationEnabled: featureAccess.canUseInterpretation,
-                        onSelectExercise: { exercise in
-                            Task {
-                                await selectExercise(exercise)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        HomeHeader(
+                            date: note.date,
+                            streakDays: progressStats.currentStreak,
+                            openCalendar: {
+                                track(AnalyticsEvent(name: "calendar_opened", properties: ["source": "home_header"]))
+                                activePanel = .calendar
+                            },
+                            openProgress: {
+                                track(AnalyticsEvent(name: "stats_opened", properties: ["source": "home_header"]))
+                                activePanel = .progress
+                            },
+                            openSettings: {
+                                track(AnalyticsEvent(name: "settings_opened", properties: ["source": "home_header"]))
+                                activePanel = .settings
                             }
-                        },
-                        onSelectCardio: { entry in
-                            Task {
-                                await selectCardio(entry)
-                            }
-                        },
-                        isEditing: $isEditingNote,
-                        activeLineIndex: $activeNoteLineIndex
-                    )
-
-                    if featureAccess.canUseSuggestions, !coachCards.isEmpty {
-                        WorkoutCoachCardStack(cards: coachCards, onFeedback: handleCoachCardFeedback)
-                    }
-
-                    if featureAccess.canUseSuggestions,
-                       let activeSuggestionDraft,
-                       note.body.contains(activeSuggestionDraft.text) {
-                        SuggestionDraftControls(
-                            draft: activeSuggestionDraft,
-                            onDelete: { handleSuggestionDraft(.deleted) },
-                            onThumbsUp: { handleSuggestionDraft(.thumbsUp) },
-                            onThumbsDown: { handleSuggestionDraft(.thumbsDown) }
                         )
-                    }
 
-                    Spacer(minLength: 120)
+                        WorkoutNoteEditor(
+                            noteBody: $note.body,
+                            interpretedLines: featureAccess.canUseInterpretation ? note.interpretedLines : [],
+                            interpretationEnabled: featureAccess.canUseInterpretation,
+                            onSelectExercise: { exercise in
+                                Task {
+                                    await selectExercise(exercise)
+                                }
+                            },
+                            onSelectCardio: { entry in
+                                Task {
+                                    await selectCardio(entry)
+                                }
+                            },
+                            isEditing: $isEditingNote,
+                            activeLineIndex: $activeNoteLineIndex
+                        )
+
+                        if featureAccess.canUseSuggestions, !coachCards.isEmpty {
+                            WorkoutCoachCardStack(cards: coachCards, onFeedback: handleCoachCardFeedback)
+                        }
+
+                        if featureAccess.canUseSuggestions,
+                           let activeSuggestionDraft,
+                           note.body.contains(activeSuggestionDraft.text) {
+                            SuggestionDraftControls(
+                                draft: activeSuggestionDraft,
+                                onDelete: { handleSuggestionDraft(.deleted) },
+                                onThumbsUp: { handleSuggestionDraft(.thumbsUp) },
+                                onThumbsDown: { handleSuggestionDraft(.thumbsDown) }
+                            )
+                        }
+
+                        Spacer(minLength: 120)
+                    }
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.top, 18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
-                .frame(maxWidth: 620, alignment: .leading)
+                .scrollDismissesKeyboard(.interactively)
+                .simultaneousGesture(daySwipeGesture)
+
+                WorkoutLoadBar(metrics: note.metrics) {
+                    activePanel = featureAccess.canUseStats ? .dayStats : .premiumPrompt
+                }
+                .padding(.horizontal, horizontalPadding)
+                .padding(.bottom, 12)
                 .frame(maxWidth: .infinity)
             }
-            .scrollDismissesKeyboard(.interactively)
-            .simultaneousGesture(daySwipeGesture)
-
-            WorkoutLoadBar(metrics: note.metrics) {
-                activePanel = featureAccess.canUseStats ? .dayStats : .premiumPrompt
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
-            .frame(maxWidth: 620)
-            .frame(maxWidth: .infinity)
         }
         .font(BramFont.body())
         .sheet(item: $activePanel) { panel in
@@ -389,6 +391,17 @@ struct HomeView: View {
             await MainActor.run {
                 selectedExercise = exercise
             }
+        }
+    }
+
+    private func homeHorizontalPadding(for width: CGFloat) -> CGFloat {
+        switch width {
+        case 700...:
+            56
+        case 430..<700:
+            24
+        default:
+            20
         }
     }
 
