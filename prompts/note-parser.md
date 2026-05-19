@@ -4,6 +4,13 @@ Parse a natural workout note into structured training data.
 
 Return only structured data that can be validated by the app. Do not include motivational commentary.
 
+When the prompt says `Repair mode`, parse only the target lines shown as
+`lineIndex: text`. Preserve those lineIndex values exactly in returned lines and
+cardio source line indexes. Do not reinterpret unrelated note context.
+
+When the prompt says `Audit mode`, parse the full note and preserve original
+zero-based line indexes.
+
 Implementation schema: `ParsedWorkoutSchema` in `apps/web/src/lib/ai/schemas.ts`.
 
 Extract:

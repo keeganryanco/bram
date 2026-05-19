@@ -36,7 +36,12 @@ struct BramBackendWorkoutInterpretationClient: WorkoutInterpretationBackendClien
         )
     }
 
-    func interpret(note: DailyWorkoutNote) async throws -> WorkoutInterpretationResult {
+    func interpret(
+        note: DailyWorkoutNote,
+        mode: WorkoutInterpretationBackendMode,
+        targetLines: [WorkoutInterpretationTargetLine],
+        localSummary: WorkoutInterpretationLocalSummary?
+    ) async throws -> WorkoutInterpretationResult {
         var request = URLRequest(url: baseURL.appending(path: "/api/ai/interpret-workout"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -49,7 +54,10 @@ struct BramBackendWorkoutInterpretationClient: WorkoutInterpretationBackendClien
                 noteText: note.body,
                 userId: note.userId?.uuidString,
                 workoutDate: Self.workoutDateString(note.date),
-                timezone: note.timezoneIdentifier
+                timezone: note.timezoneIdentifier,
+                mode: mode.rawValue,
+                targetLines: targetLines,
+                localSummary: localSummary
             )
         )
 
@@ -83,6 +91,9 @@ private struct BackendInterpretationRequest: Encodable {
     var userId: String?
     var workoutDate: String
     var timezone: String
+    var mode: String
+    var targetLines: [WorkoutInterpretationTargetLine]
+    var localSummary: WorkoutInterpretationLocalSummary?
 }
 
 private struct BackendInterpretationResponse: Decodable {
@@ -104,8 +115,18 @@ private struct BackendParsedWorkout: Decodable {
             result[key] = exercise
         }
 
+        let exerciseLineIndexes = lines.reduce(into: [String: Int]()) { result, line in
+            for segment in line.segments where segment.type == "exercise_anchor" {
+                guard let key = segment.exerciseKey?.nilIfBlank else { continue }
+                result[key] = min(result[key] ?? line.lineIndex, line.lineIndex)
+            }
+        }
         let strengthSets = exercises.flatMap { exercise in
-            exercise.strengthSets(note: note, exerciseMatcher: exerciseMatcher)
+            exercise.strengthSets(
+                note: note,
+                exerciseMatcher: exerciseMatcher,
+                sourceLineIndex: exercise.resolvedExerciseKey(using: exerciseMatcher).flatMap { exerciseLineIndexes[$0] }
+            )
         }
         let cardioEntries = (cardioEntries ?? []).map { entry in
             entry.cardioEntry(note: note)
@@ -114,9 +135,11 @@ private struct BackendParsedWorkout: Decodable {
             guard let lineIndex = entry.lineIndex else { return }
             result[lineIndex] = entry
         }
+        let rawLines = note.body.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         let interpretedLines = lines.compactMap { line -> InterpretedWorkoutLine? in
             line.toInterpretedLine(
                 note: note,
+                rawText: rawLines.indices.contains(line.lineIndex) ? rawLines[line.lineIndex] : "",
                 exerciseByKey: exerciseByKey,
                 cardioEntry: cardioByLine[line.lineIndex],
                 exerciseMatcher: exerciseMatcher
@@ -174,7 +197,8 @@ private struct BackendParsedExercise: Decodable {
 
     func strengthSets(
         note: DailyWorkoutNote,
-        exerciseMatcher: any ExerciseMatchingService
+        exerciseMatcher: any ExerciseMatchingService,
+        sourceLineIndex: Int?
     ) -> [StrengthSetRecord] {
         let exercise = normalizedExercise(using: exerciseMatcher)
         return sets.enumerated().compactMap { index, set in
@@ -182,6 +206,7 @@ private struct BackendParsedExercise: Decodable {
             return StrengthSetRecord(
                 exerciseKey: exercise.exerciseKey,
                 exerciseName: exercise.displayName,
+                lineIndex: sourceLineIndex,
                 setNumber: index + 1,
                 reps: reps,
                 load: set.load ?? 0,
@@ -228,6 +253,7 @@ private struct BackendParsedLine: Decodable {
 
     func toInterpretedLine(
         note: DailyWorkoutNote,
+        rawText: String,
         exerciseByKey: [String: BackendParsedExercise],
         cardioEntry: CardioEntry?,
         exerciseMatcher: any ExerciseMatchingService
@@ -252,7 +278,7 @@ private struct BackendParsedLine: Decodable {
         return InterpretedWorkoutLine(
             noteId: note.id,
             lineIndex: lineIndex,
-            rawText: "",
+            rawText: rawText,
             kind: InterpretedWorkoutLineKind(rawValue: kind) ?? .note,
             segments: mappedSegments,
             exerciseAnchor: anchor,

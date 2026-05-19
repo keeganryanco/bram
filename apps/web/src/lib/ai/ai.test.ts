@@ -14,6 +14,7 @@ import {
   sanitizeAIInputText,
   selectModelForTask,
   verifyAIRouteToken,
+  WorkoutInterpretationInputSchema,
   WorkoutSuggestionInputSchema,
   WorkoutSuggestionResponseSchema,
 } from ".";
@@ -292,6 +293,37 @@ describe("AI workout interpretation", () => {
     expect(parsed.cardioEntries[0]?.distanceValue).toBe(1);
   });
 
+  it("accepts repair mode with bounded target lines", () => {
+    const parsed = WorkoutInterpretationInputSchema.parse({
+      noteText: "Weighed 192.5 lbs\nLeg curls 70 for 8",
+      mode: "repair",
+      targetLines: [{ lineIndex: 1, text: "Leg curls 70 for 8" }],
+      localSummary: {
+        interpretedLineIndexes: [0],
+        lowConfidenceLineIndexes: [],
+        totalSets: 0,
+        cardioMinutes: 0,
+        unresolvedLineCount: 1,
+      },
+    });
+
+    expect(parsed.mode).toBe("repair");
+    expect(parsed.targetLines[0]?.lineIndex).toBe(1);
+  });
+
+  it("rejects oversized repair target batches", () => {
+    const input = {
+      noteText: "Leg curls 70 for 8",
+      mode: "repair",
+      targetLines: Array.from({ length: 13 }, (_, index) => ({
+        lineIndex: index,
+        text: "Leg curls 70 for 8",
+      })),
+    };
+
+    expect(() => WorkoutInterpretationInputSchema.parse(input)).toThrow();
+  });
+
   it("sanitizes note text before sending to OpenAI", async () => {
     const calls: unknown[] = [];
     const result = await interpretWorkoutNoteWithAI(
@@ -318,5 +350,34 @@ describe("AI workout interpretation", () => {
     expect(JSON.stringify(calls[0])).toContain("[redacted-email]");
     expect(JSON.stringify(calls[0])).not.toContain("lifter@example.com");
     expect(JSON.stringify(calls[0])).not.toContain("user_123");
+  });
+
+  it("sends only repair target text during live repair", async () => {
+    const calls: unknown[] = [];
+    await interpretWorkoutNoteWithAI(
+      {
+        noteText: "Email lifter@example.com\nBench 185 3x8\nLeg curls 70 for 8",
+        mode: "repair",
+        targetLines: [{ lineIndex: 2, text: "Leg curls 70 for 8" }],
+        userId: "user_123",
+      },
+      {
+        config: getBramAIConfig({
+          BRAM_AI_ENABLED: "true",
+          OPENAI_API_KEY: "test-key",
+          BRAM_AI_PSEUDONYM_SALT: "test-salt",
+        }),
+        createResponse: async (request) => {
+          calls.push(request);
+          return { id: "resp_1", model: request.model, output_text: JSON.stringify(parsedWorkoutJson) };
+        },
+      },
+    );
+
+    const payload = JSON.stringify(calls[0]);
+    expect(payload).toContain("Repair mode");
+    expect(payload).toContain("2: Leg curls 70 for 8");
+    expect(payload).not.toContain("Bench 185");
+    expect(payload).not.toContain("lifter@example.com");
   });
 });

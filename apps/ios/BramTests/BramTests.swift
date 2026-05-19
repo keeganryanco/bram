@@ -1287,6 +1287,40 @@ struct BramTests {
         #expect(line.segments.contains { $0.kind == .metric && $0.text == "70 x 10" })
     }
 
+    @Test func heuristicInterpreterParsesNaturalSingleSetStrengthLine() async throws {
+        let note = DailyWorkoutNote(
+            date: Date(timeIntervalSince1970: 1_800_000_000),
+            body: "Leg curls 70 for 8"
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let set = try #require(result.strengthSets.first)
+        let line = try #require(result.lines.first)
+
+        #expect(set.exerciseKey == "leg_curl")
+        #expect(set.load == 70)
+        #expect(set.reps == 8)
+        #expect(result.metrics.totalSets == 1)
+        #expect(line.segments.first?.kind == .exerciseAnchor)
+        #expect(line.segments.first?.text == "leg curls")
+    }
+
+    @Test func heuristicInterpreterDisplaysExplicitBodyweightLine() async throws {
+        let note = DailyWorkoutNote(
+            date: Date(timeIntervalSince1970: 1_800_000_000),
+            body: "Weighed 192.5 lbs"
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let line = try #require(result.lines.first)
+
+        #expect(line.kind == .health)
+        #expect(line.detailTitle == "Bodyweight")
+        #expect(line.chipText == "Weight")
+        #expect(line.segments.contains { $0.kind == .metric && $0.text == "192.5 lb" })
+        #expect(result.metrics.totalSets == 0)
+    }
+
     @Test func heuristicInterpreterParsesJogWithDurationAndDistance() async throws {
         let note = DailyWorkoutNote(
             date: Date(timeIntervalSince1970: 1_800_000_000),
@@ -2023,6 +2057,28 @@ struct BramTests {
 
         #expect(profile.currentWeightValue == 190)
         #expect(profile.currentWeightSource == .manual)
+    }
+
+    @Test func mixedBodyweightAndNaturalSetStoresBothSignals() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramMixedBodyweightNaturalSetTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var note = try await store.note(for: date)
+        note.body = """
+        Weighed 192.5 lbs
+        Leg curls 70 for 8
+        """
+
+        try await store.save(note)
+        let loaded = try await store.note(for: date)
+        let profile = try await store.trainingGoalsProfile()
+
+        #expect(profile.currentWeightValue == 192.5)
+        #expect(loaded.metrics.totalSets == 1)
+        #expect(loaded.interpretedLines.contains { $0.kind == .health && $0.detailTitle == "Bodyweight" })
+        #expect(loaded.interpretedLines.contains { $0.exerciseAnchor?.exerciseKey == "leg_curl" })
     }
 
     @Test func healthBodyweightDoesNotOverwriteNewerManualSameDayWeight() async throws {

@@ -20,6 +20,25 @@ export const WorkoutInterpretationInputSchema = z.object({
   userId: z.string().min(1).max(160).optional(),
   workoutDate: z.string().max(80).optional(),
   timezone: z.string().max(80).optional(),
+  mode: z.enum(["repair", "audit"]).default("audit"),
+  targetLines: z
+    .array(
+      z.object({
+        lineIndex: z.number().int().nonnegative(),
+        text: z.string().min(1).max(500),
+      }),
+    )
+    .max(12)
+    .default([]),
+  localSummary: z
+    .object({
+      interpretedLineIndexes: z.array(z.number().int().nonnegative()).max(120),
+      lowConfidenceLineIndexes: z.array(z.number().int().nonnegative()).max(120),
+      totalSets: z.number().int().nonnegative(),
+      cardioMinutes: z.number().int().nonnegative(),
+      unresolvedLineCount: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 export type WorkoutInterpretationInput = z.infer<
@@ -129,16 +148,26 @@ export async function interpretWorkoutNoteWithAI(
     config,
     supabase: clients.supabase,
   });
-  const sanitized = sanitizeAIInputText(
-    parsedInput.noteText,
-    policy.config.maxNoteChars,
-  );
+  const parseText =
+    parsedInput.mode === "repair" && parsedInput.targetLines.length > 0
+      ? parsedInput.targetLines
+          .map((line) => `${line.lineIndex}: ${line.text}`)
+          .join("\n")
+      : parsedInput.noteText;
+  const sanitized = sanitizeAIInputText(parseText, policy.config.maxNoteChars);
   const pseudonymousUserId = parsedInput.userId
     ? createPseudonymousUserId(parsedInput.userId, policy.config.pseudonymSalt!)
     : undefined;
   const context = [
+    `Mode: ${parsedInput.mode}`,
     parsedInput.workoutDate ? `Workout date: ${parsedInput.workoutDate}` : null,
     parsedInput.timezone ? `Timezone: ${parsedInput.timezone}` : null,
+    parsedInput.mode === "repair"
+      ? "Repair mode: parse only the target lines. Preserve the provided lineIndex values exactly."
+      : "Audit mode: parse the full workout note and preserve original lineIndex values.",
+    parsedInput.localSummary
+      ? `Local summary: ${JSON.stringify(parsedInput.localSummary)}`
+      : null,
   ]
     .filter(Boolean)
     .join("\n");

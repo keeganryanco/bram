@@ -53,6 +53,11 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
                 index += 1
                 continue
             }
+            if let bodyweight = BodyweightNoteExtractor.extract(from: trimmed, date: note.date) {
+                lines.append(bodyweightLine(rawLine: rawLine, trimmed: trimmed, lineIndex: index, note: note, observation: bodyweight))
+                index += 1
+                continue
+            }
             if isSupersetLabel(trimmed), let supersetLine = supersetGroupLine(startingAt: index, lines: rawLines, note: note) {
                 lines.append(supersetLine)
                 index += 1
@@ -366,6 +371,9 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         if let shorthand = dumbbellShorthandSignal(in: line, lower: lower, isPR: isPR) {
             return shorthand
         }
+        if let naturalSet = naturalOneSetSignal(in: line, lower: lower, isPR: isPR) {
+            return naturalSet
+        }
 
         guard let match = firstMatch(#"(\d+)\s*[xX]\s*(\d+)"#, in: line) else {
             return nil
@@ -404,6 +412,29 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         let metricText = "\(load) x \(reps)"
         let detail = "Bram read this as one set of \(reps) with \(load) lb dumbbells."
         return (exerciseName, 1, reps, load, load * reps, isPR, effort, metricText, detail, 0.78)
+    }
+
+    private func naturalOneSetSignal(
+        in line: String,
+        lower: String,
+        isPR: Bool
+    ) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, metricText: String, detail: String, confidence: Double)? {
+        guard BodyweightNoteExtractor.extract(from: line, date: .now) == nil,
+              let match = firstMatch(#"^([a-z][a-z0-9\s'/-]{1,80}?)\s+(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds?|kg)?\s+(?:for|x)\s*(\d+)\b"#, in: lower),
+              let loadValue = Double(match[2]),
+              let reps = Int(match[3])
+        else {
+            return nil
+        }
+
+        let exerciseName = match[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isLikelyExerciseName(exerciseName) else { return nil }
+
+        let load = Int(loadValue.rounded())
+        let effort = effortSignal(in: line)
+        let metricText = "\(load) x \(reps)"
+        let detail = "Bram read this as one set of \(reps) at about \(load) lb."
+        return (exerciseName, 1, reps, load, load * reps, isPR, effort, metricText, detail, 0.76)
     }
 
     private func setLineSignal(in line: String, exerciseName: String, fallbackEffort: String? = nil) -> StrengthSetRecord? {
@@ -648,6 +679,36 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
     private func distanceText(value: Double, unit: String) -> String {
         let amount = value.rounded() == value ? "\(Int(value))" : String(format: "%.1f", value)
         return "\(amount) \(unit)"
+    }
+
+    private func bodyweightLine(
+        rawLine: String,
+        trimmed: String,
+        lineIndex: Int,
+        note: DailyWorkoutNote,
+        observation: BodyweightObservation
+    ) -> InterpretedWorkoutLine {
+        let value = observation.value.rounded() == observation.value
+            ? "\(Int(observation.value))"
+            : String(format: "%.1f", observation.value)
+        let unit = observation.unit
+        return InterpretedWorkoutLine(
+            noteId: note.id,
+            lineIndex: lineIndex,
+            rawText: rawLine,
+            kind: .health,
+            segments: [
+                InterpretedLineSegment(kind: .text, text: trimmed),
+                InterpretedLineSegment(kind: .metric, text: "\(value) \(unit)")
+            ],
+            badges: [
+                WorkoutLineBadge(kind: .health, label: "Weight", colorRole: .cool)
+            ],
+            chipText: "Weight",
+            detailTitle: "Bodyweight",
+            detailText: "Bram recognized this as a bodyweight check-in.",
+            confidence: 0.84
+        )
     }
 
     private func heartRateSignal(in line: String) -> Int? {

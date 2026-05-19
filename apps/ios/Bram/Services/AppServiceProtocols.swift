@@ -59,7 +59,36 @@ protocol PRDetectionService: Sendable {
 }
 
 protocol WorkoutInterpretationBackendClient: Sendable {
-    func interpret(note: DailyWorkoutNote) async throws -> WorkoutInterpretationResult
+    func interpret(
+        note: DailyWorkoutNote,
+        mode: WorkoutInterpretationBackendMode,
+        targetLines: [WorkoutInterpretationTargetLine],
+        localSummary: WorkoutInterpretationLocalSummary?
+    ) async throws -> WorkoutInterpretationResult
+}
+
+extension WorkoutInterpretationBackendClient {
+    func interpret(note: DailyWorkoutNote) async throws -> WorkoutInterpretationResult {
+        try await interpret(note: note, mode: .audit, targetLines: [], localSummary: nil)
+    }
+}
+
+enum WorkoutInterpretationBackendMode: String, Codable, Hashable, Sendable {
+    case repair
+    case audit
+}
+
+struct WorkoutInterpretationTargetLine: Codable, Hashable, Sendable {
+    var lineIndex: Int
+    var text: String
+}
+
+struct WorkoutInterpretationLocalSummary: Codable, Hashable, Sendable {
+    var interpretedLineIndexes: [Int]
+    var lowConfidenceLineIndexes: [Int]
+    var totalSets: Int
+    var cardioMinutes: Int
+    var unresolvedLineCount: Int
 }
 
 protocol WorkoutSuggestionBackendClient: Sendable {

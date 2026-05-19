@@ -431,33 +431,54 @@ struct HomeView: View {
                 note.suggestion = suggestion ?? note.suggestion
                 note.parsedSummary = nil
                 applyCoachCards(cards, phase: .typing)
-                if shouldRunBackendInterpretation(for: draft, localResult: result) {
-                    scheduleBackendInterpretation()
+                let targets = backendRepairTargets(for: draft, localResult: result)
+                if !targets.isEmpty {
+                    scheduleBackendInterpretation(mode: .repair, targetLines: targets, localResult: result)
                 }
                 scheduleBackendCoachCards(context: context, interpretedLines: result.lines, phase: .typing)
             }
         }
     }
 
-    private func scheduleBackendInterpretation() {
-        guard !isLoadingNote,
-              featureAccess.canUseInterpretation,
+    private func scheduleBackendInterpretation(
+        mode: WorkoutInterpretationBackendMode,
+        targetLines: [WorkoutInterpretationTargetLine] = [],
+        localResult: WorkoutInterpretationResult? = nil
+    ) {
+        guard featureAccess.canUseInterpretation,
               let backendInterpreter
         else { return }
 
         backendInterpretationTask?.cancel()
         let draft = note
+        let localSummary = localResult.map { backendLocalSummary(for: draft, result: $0, targetLines: targetLines) }
         backendInterpretationTask = Task {
-            try? await Task.sleep(for: .milliseconds(1_200))
+            try? await Task.sleep(for: .milliseconds(mode == .repair ? 900 : 1_400))
             guard !Task.isCancelled else { return }
             let backendResult: WorkoutInterpretationResult
             do {
-                backendResult = try await backendInterpreter.interpret(note: draft)
+                backendResult = try await backendInterpreter.interpret(
+                    note: draft,
+                    mode: mode,
+                    targetLines: targetLines,
+                    localSummary: localSummary
+                )
             } catch {
-                reportError("home", "backend_interpretation_failed", nil, error, ["note_length_bucket": Self.noteLengthBucket(draft.body)])
+                reportError("home", "backend_interpretation_failed", nil, error, [
+                    "mode": mode.rawValue,
+                    "note_length_bucket": Self.noteLengthBucket(draft.body)
+                ])
                 return
             }
-            let result = displaySafeInterpretation(backendResult)
+            let result = displaySafeInterpretation(
+                mergeBackendInterpretation(
+                    backendResult,
+                    into: localResult,
+                    mode: mode,
+                    targetLineIndexes: Set(targetLines.map(\.lineIndex)),
+                    note: draft
+                )
+            )
             guard !Task.isCancelled else { return }
             let context = await SuggestionContextBuilder.build(
                 note: draft,
@@ -760,6 +781,7 @@ struct HomeView: View {
             await MainActor.run {
                 note = loaded
                 applyCoachCards(cards, phase: .saved)
+                scheduleBackendInterpretation(mode: .audit, localResult: coachResult)
                 scheduleBackendCoachCards(context: context, interpretedLines: loaded.interpretedLines, phase: .saved)
             }
         } catch {
@@ -817,6 +839,7 @@ struct HomeView: View {
                     note.suggestion = refreshed.suggestion
                     note.parsedSummary = nil
                     applyCoachCards(cards, phase: .saved)
+                    scheduleBackendInterpretation(mode: .audit, localResult: coachResult)
                     scheduleBackendCoachCards(context: context, interpretedLines: refreshed.interpretedLines, phase: .saved)
                     upsertCalendarDay(for: refreshed)
                     Task { await refreshProgressStats() }
@@ -861,6 +884,7 @@ struct HomeView: View {
                     note.suggestion = refreshed.suggestion
                     note.parsedSummary = nil
                     applyCoachCards(cards, phase: .saved)
+                    scheduleBackendInterpretation(mode: .audit, localResult: coachResult)
                     scheduleBackendCoachCards(context: context, interpretedLines: refreshed.interpretedLines, phase: .saved)
                     upsertCalendarDay(for: refreshed)
                     Task { await refreshProgressStats() }
@@ -1041,21 +1065,132 @@ struct HomeView: View {
         ]
     }
 
-    private func shouldRunBackendInterpretation(
+    private func backendRepairTargets(
         for note: DailyWorkoutNote,
         localResult: WorkoutInterpretationResult
-    ) -> Bool {
-        guard backendInterpreter != nil else { return false }
+    ) -> [WorkoutInterpretationTargetLine] {
+        guard backendInterpreter != nil else { return [] }
         let interpretedLineIndexes = Set(localResult.lines.map(\.lineIndex))
+        let lowConfidenceLineIndexes = Set(
+            localResult.lines
+                .filter { $0.confidence < 0.72 && ($0.kind == .strength || $0.kind == .cardio) }
+                .map(\.lineIndex)
+        )
         let rawLines = note.body
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map(String.init)
 
-        return rawLines.enumerated().contains { index, rawLine in
+        return rawLines.enumerated().compactMap { index, rawLine in
             let trimmed = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, interpretedLineIndexes.contains(index) == false else { return false }
-            return Self.looksLikeUnresolvedWorkoutLine(trimmed)
+            guard !trimmed.isEmpty else { return nil }
+            if interpretedLineIndexes.contains(index), lowConfidenceLineIndexes.contains(index) == false {
+                return nil
+            }
+            guard Self.looksLikeUnresolvedWorkoutLine(trimmed) else { return nil }
+            return WorkoutInterpretationTargetLine(lineIndex: index, text: trimmed)
         }
+    }
+
+    private func backendLocalSummary(
+        for note: DailyWorkoutNote,
+        result: WorkoutInterpretationResult,
+        targetLines: [WorkoutInterpretationTargetLine]
+    ) -> WorkoutInterpretationLocalSummary {
+        WorkoutInterpretationLocalSummary(
+            interpretedLineIndexes: result.lines.map(\.lineIndex).sorted(),
+            lowConfidenceLineIndexes: result.lines
+                .filter { $0.confidence < 0.72 && ($0.kind == .strength || $0.kind == .cardio) }
+                .map(\.lineIndex)
+                .sorted(),
+            totalSets: result.metrics.totalSets,
+            cardioMinutes: result.metrics.cardioMinutes,
+            unresolvedLineCount: targetLines.count
+        )
+    }
+
+    private func mergeBackendInterpretation(
+        _ backend: WorkoutInterpretationResult,
+        into local: WorkoutInterpretationResult?,
+        mode: WorkoutInterpretationBackendMode,
+        targetLineIndexes: Set<Int>,
+        note: DailyWorkoutNote
+    ) -> WorkoutInterpretationResult {
+        guard let local, mode == .repair else {
+            return backend.lines.isEmpty ? (local ?? backend) : recomputedMetrics(for: backend, note: note)
+        }
+
+        guard !backend.lines.isEmpty else { return local }
+        let backendLinesByIndex = backend.lines.reduce(into: [Int: InterpretedWorkoutLine]()) { result, line in
+            result[line.lineIndex] = line
+        }
+        let localNonTargetLines = local.lines.filter { targetLineIndexes.contains($0.lineIndex) == false }
+        let mergedLines = (localNonTargetLines + backendLinesByIndex.values)
+            .sorted { $0.lineIndex < $1.lineIndex }
+        let mergedStrengthSets = local.strengthSets.filter { set in
+            guard let lineIndex = set.lineIndex else { return true }
+            return targetLineIndexes.contains(lineIndex) == false
+        } + backend.strengthSets.filter { set in
+            guard let lineIndex = set.lineIndex else { return true }
+            return targetLineIndexes.contains(lineIndex)
+        }
+        let mergedCardioEntries = local.cardioEntries.filter { entry in
+            guard let lineIndex = entry.lineIndex else { return true }
+            return targetLineIndexes.contains(lineIndex) == false
+        } + backend.cardioEntries.filter { entry in
+            guard let lineIndex = entry.lineIndex else { return true }
+            return targetLineIndexes.contains(lineIndex)
+        }
+
+        return recomputedMetrics(
+            for: WorkoutInterpretationResult(
+                lines: mergedLines,
+                metrics: local.metrics,
+                suggestion: backend.suggestion ?? local.suggestion,
+                strengthSets: mergedStrengthSets,
+                cardioEntries: mergedCardioEntries,
+                prEvents: []
+            ),
+            note: note
+        )
+    }
+
+    private func recomputedMetrics(
+        for result: WorkoutInterpretationResult,
+        note: DailyWorkoutNote
+    ) -> WorkoutInterpretationResult {
+        var output = result
+        let cardioMinutes = result.cardioEntries.reduce(0) { total, entry in
+            total + (entry.durationMinutes ?? 0)
+        }
+        output.metrics = WorkoutMetricSnapshot(
+            totalSets: result.strengthSets.count,
+            hardSets: result.strengthSets.filter { Self.isHardEffort($0.effort) }.count,
+            estimatedVolume: result.strengthSets.reduce(0) { $0 + Int($1.load) * $1.reps },
+            prCount: result.metrics.prCount,
+            streakDays: note.metrics.streakDays,
+            cardioMinutes: cardioMinutes,
+            activeEnergyCalories: result.metrics.activeEnergyCalories,
+            energyIsEstimated: result.metrics.energyIsEstimated,
+            averageHeartRate: result.metrics.averageHeartRate,
+            workoutDurationMinutes: cardioMinutes > 0 ? cardioMinutes : result.metrics.workoutDurationMinutes,
+            parseState: note.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .empty : .parsed
+        )
+        return output
+    }
+
+    private static func isHardEffort(_ effort: String?) -> Bool {
+        guard let effort else { return false }
+        let lower = effort.lowercased()
+        if lower.contains("failure") || lower.contains("grinder") || lower == "hard" { return true }
+        if lower.hasPrefix("rpe "),
+           let value = Double(lower.replacingOccurrences(of: "rpe ", with: "")) {
+            return value >= 8
+        }
+        if lower.hasPrefix("rir "),
+           let value = Int(lower.replacingOccurrences(of: "rir ", with: "")) {
+            return value <= 2
+        }
+        return false
     }
 
     private static func looksLikeUnresolvedWorkoutLine(_ line: String) -> Bool {

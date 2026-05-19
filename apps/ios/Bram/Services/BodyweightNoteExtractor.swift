@@ -8,6 +8,10 @@ struct BodyweightObservation: Hashable {
 }
 
 enum BodyweightNoteExtractor {
+    static func extract(from line: String, date: Date) -> BodyweightObservation? {
+        explicitBodyweight(in: line, date: date)
+    }
+
     static func extract(from note: DailyWorkoutNote, existingWeight: Double?) -> BodyweightObservation? {
         let lines = note.body
             .split(separator: "\n", omittingEmptySubsequences: false)
