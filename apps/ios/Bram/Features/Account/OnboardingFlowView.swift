@@ -98,18 +98,27 @@ struct OnboardingFlowView: View {
             Button {
                 Task { await backTapped() }
             } label: {
-                Label("Back", systemImage: "chevron.left")
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.left")
+                        .font(BramFont.label(size: 14))
+                    Text("Back")
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
                     .font(BramFont.label(size: 15))
                     .foregroundStyle(draft.step == .name ? OnboardingStyle.textTertiary : OnboardingStyle.textPrimary)
                     .padding(.horizontal, 13)
-                    .frame(height: 44)
+                    .frame(minWidth: 88, minHeight: 44)
                     .background(OnboardingStyle.cardSurfaceStrong, in: Capsule())
             }
             .buttonStyle(.plain)
             .disabled(draft.step == .name)
             .opacity(draft.step == .name ? 0.42 : 1)
+            .layoutPriority(2)
+            .accessibilityLabel("Back")
 
             OnboardingProgressDots(step: draft.step)
+                .layoutPriority(1)
 
             Spacer()
 
