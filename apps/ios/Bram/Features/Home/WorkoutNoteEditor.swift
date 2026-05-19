@@ -10,6 +10,7 @@ struct WorkoutNoteEditor: View {
     @Binding var isEditing: Bool
     @Binding var activeLineIndex: Int?
     @State private var editorHeight: CGFloat = 250
+    @State private var lineFrames: [Int: CGRect] = [:]
 
     init(
         noteBody: Binding<String>,
@@ -31,18 +32,7 @@ struct WorkoutNoteEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ZStack(alignment: .topTrailing) {
-                editableField
-
-                if interpretationEnabled {
-                    InlineWorkoutBadgeOverlay(
-                        noteBody: noteBody,
-                        interpretedLines: interpretedLines
-                    )
-                    .padding(.top, 20)
-                    .allowsHitTesting(false)
-                }
-            }
+            editableField
         }
     }
 
@@ -52,7 +42,6 @@ struct WorkoutNoteEditor: View {
                 Text("Write what you did.")
                     .font(BramFont.body(size: 20))
                     .foregroundStyle(BramColor.textTertiary.opacity(0.72))
-                    .padding(.top, 8)
                     .allowsHitTesting(false)
             }
 
@@ -60,6 +49,7 @@ struct WorkoutNoteEditor: View {
                 text: $noteBody,
                 interpretedLines: interpretationEnabled ? interpretedLines : [],
                 dynamicHeight: $editorHeight,
+                lineFrames: $lineFrames,
                 isEditing: $isEditing,
                 activeLineIndex: $activeLineIndex,
                 onSelectExercise: onSelectExercise,
@@ -69,50 +59,51 @@ struct WorkoutNoteEditor: View {
             .frame(height: max(250, editorHeight))
             .padding(.trailing, 76)
             .accessibilityLabel("Workout note")
+
+            if interpretationEnabled {
+                InlineWorkoutBadgeOverlay(
+                    interpretedLines: interpretedLines,
+                    lineFrames: lineFrames
+                )
+                .allowsHitTesting(false)
+            }
         }
         .padding(.top, 20)
     }
 }
 
 private struct InlineWorkoutBadgeOverlay: View {
-    let noteBody: String
     let interpretedLines: [InterpretedWorkoutLine]
+    let lineFrames: [Int: CGRect]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(noteLines.enumerated()), id: \.offset) { index, line in
-                InlineWorkoutBadgeLine(
-                    rawLine: line,
-                    interpretedLine: interpretedLine(for: index)
-                )
+        GeometryReader { proxy in
+            ForEach(interpretedLinesWithBadges) { line in
+                if let frame = lineFrames[line.lineIndex] {
+                    InlineWorkoutBadgeLine(interpretedLine: line)
+                        .frame(width: proxy.size.width, height: 28)
+                        .position(x: proxy.size.width / 2, y: frame.midY)
+                }
             }
         }
         .frame(maxWidth: .infinity, minHeight: 250, alignment: .topLeading)
     }
 
-    private var noteLines: [String] {
-        noteBody.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-    }
-
-    private func interpretedLine(for index: Int) -> InterpretedWorkoutLine? {
-        interpretedLines.first { $0.lineIndex == index }
+    private var interpretedLinesWithBadges: [InterpretedWorkoutLine] {
+        interpretedLines.filter { !$0.badges.isEmpty }
     }
 }
 
 private struct InlineWorkoutBadgeLine: View {
-    let rawLine: String
-    let interpretedLine: InterpretedWorkoutLine?
+    let interpretedLine: InterpretedWorkoutLine
 
     var body: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 8)
-            if let badges = interpretedLine?.badges, !badges.isEmpty {
-                ForEach(badges) { badge in
-                    WorkoutLineBadgeView(badge: badge)
-                }
+            ForEach(interpretedLine.badges) { badge in
+                WorkoutLineBadgeView(badge: badge)
             }
         }
-        .frame(height: rawLine.isEmpty ? 28 : 28)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -121,6 +112,7 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
     @Binding var text: String
     let interpretedLines: [InterpretedWorkoutLine]
     @Binding var dynamicHeight: CGFloat
+    @Binding var lineFrames: [Int: CGRect]
     @Binding var isEditing: Bool
     @Binding var activeLineIndex: Int?
     let onSelectExercise: (ExerciseAnchor) -> Void
@@ -180,6 +172,7 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         }
 
         recalculateHeight(textView)
+        updateLineFrames(from: textView)
         updateActiveLineIndex(from: textView)
     }
 
@@ -367,6 +360,37 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         }
     }
 
+    private func updateLineFrames(from textView: UITextView) {
+        textView.layoutManager.ensureLayout(for: textView.textContainer)
+
+        var nextFrames: [Int: CGRect] = [:]
+        for interpretedLine in interpretedLines where !interpretedLine.badges.isEmpty {
+            guard let characterRange = nsRangeForLine(index: interpretedLine.lineIndex, in: textView.text),
+                  characterRange.length > 0
+            else { continue }
+
+            let glyphRange = textView.layoutManager.glyphRange(
+                forCharacterRange: characterRange,
+                actualCharacterRange: nil
+            )
+            guard glyphRange.length > 0 else { continue }
+
+            let lineRect = textView.layoutManager.lineFragmentUsedRect(
+                forGlyphAt: glyphRange.location,
+                effectiveRange: nil
+            )
+            nextFrames[interpretedLine.lineIndex] = lineRect.offsetBy(
+                dx: textView.textContainerInset.left,
+                dy: textView.textContainerInset.top
+            )
+        }
+
+        guard lineFrames != nextFrames else { return }
+        DispatchQueue.main.async {
+            lineFrames = nextFrames
+        }
+    }
+
     private func updateActiveLineIndex(from textView: UITextView) {
         let nextLineIndex = Self.lineIndex(forUTF16Location: textView.selectedRange.location, in: textView.text)
         guard activeLineIndex != nextLineIndex else { return }
@@ -407,6 +431,7 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
             parent.text = textView.text
             parent.updateActiveLineIndex(from: textView)
             parent.recalculateHeight(textView)
+            parent.updateLineFrames(from: textView)
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
