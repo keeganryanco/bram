@@ -85,6 +85,26 @@ struct DailyLoadMetric: Identifiable, Hashable {
     var averageHeartRate: Int?
     var muscleBreakdown: [MuscleSetMetric] = []
 
+    var hasHealthBackedEnergy: Bool {
+        energyCalories > 0 && !energyIsEstimated
+    }
+
+    var hasHealthDuration: Bool {
+        (durationMinutes ?? 0) > 0
+    }
+
+    var hasHealthHeartRate: Bool {
+        (averageHeartRate ?? 0) > 0
+    }
+
+    var energyUnitLabel: String {
+        energyIsEstimated ? "est. cal" : "Health cal"
+    }
+
+    var energyAccessibilityLabel: String {
+        energyIsEstimated ? "\(energyCalories) estimated calories" : "\(energyCalories) calories from Apple Health"
+    }
+
     init(
         weekday: String,
         energyCalories: Int? = nil,
@@ -101,6 +121,66 @@ struct DailyLoadMetric: Identifiable, Hashable {
         self.durationMinutes = durationMinutes
         self.averageHeartRate = averageHeartRate
         self.muscleBreakdown = muscleBreakdown
+    }
+}
+
+struct AppleHealthProgressPresentation: Hashable {
+    var title: String
+    var subtitle: String
+    var systemImage: String
+    var isConnectedLike: Bool
+    var showsCharts: Bool
+
+    static func make(state: HealthAuthorizationState, stats: StatsWeekSnapshot) -> AppleHealthProgressPresentation {
+        let hasHealthData = stats.hasHealthChartData || stats.hasAppleHealthBodyweight
+        if state.isConnectedLike {
+            return AppleHealthProgressPresentation(
+                title: "Apple Health",
+                subtitle: hasHealthData ? "Health-backed context is improving progress." : "Connected. No Health data found for this range yet.",
+                systemImage: "heart.fill",
+                isConnectedLike: true,
+                showsCharts: hasHealthData
+            )
+        }
+
+        switch state {
+        case .accessNeedsReview, .error:
+            return AppleHealthProgressPresentation(
+                title: "Apple Health",
+                subtitle: "Check Bram in iOS Health data access, then refresh.",
+                systemImage: "heart",
+                isConnectedLike: false,
+                showsCharts: false
+            )
+        case .unavailable:
+            return AppleHealthProgressPresentation(
+                title: "Apple Health",
+                subtitle: "HealthKit needs a supported iPhone.",
+                systemImage: "heart",
+                isConnectedLike: false,
+                showsCharts: false
+            )
+        case .notRequested:
+            fallthrough
+        case .requested, .connected, .connectedNoRecentData:
+            return AppleHealthProgressPresentation(
+                title: "Connect Apple Health",
+                subtitle: "Energy, heart rate, duration, and bodyweight can improve progress.",
+                systemImage: "heart",
+                isConnectedLike: false,
+                showsCharts: false
+            )
+        }
+    }
+}
+
+extension StatsWeekSnapshot {
+    var hasAppleHealthBodyweight: Bool {
+        bodyweightTrend.contains { $0.source == .appleHealth }
+    }
+
+    var hasHealthChartData: Bool {
+        loadByDay.contains { $0.hasHealthDuration || $0.hasHealthHeartRate }
     }
 }
 

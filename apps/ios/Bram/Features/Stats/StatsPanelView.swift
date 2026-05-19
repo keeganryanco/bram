@@ -4,6 +4,7 @@ struct StatsPanelView: View {
     let stats: StatsWeekSnapshot
     let selectedDate: Date
     let noteStore: any WorkoutLocalStore
+    let healthAuthorizationState: HealthAuthorizationState
     @State private var selectedMode: StatsMode
     @State private var selectedPeriod: StatsPeriod = .week
     @State private var anchorDate: Date
@@ -13,11 +14,13 @@ struct StatsPanelView: View {
         stats: StatsWeekSnapshot,
         selectedDate: Date = .now,
         noteStore: any WorkoutLocalStore = SQLiteWorkoutLocalStore.shared,
+        healthAuthorizationState: HealthAuthorizationState = .notRequested,
         initialMode: StatsMode = .stats
     ) {
         self.stats = stats
         self.selectedDate = selectedDate
         self.noteStore = noteStore
+        self.healthAuthorizationState = healthAuthorizationState
         _selectedMode = State(initialValue: initialMode)
         _anchorDate = State(initialValue: selectedDate)
         _visibleStats = State(initialValue: stats)
@@ -34,6 +37,7 @@ struct StatsPanelView: View {
             if selectedMode == .stats {
                 StatsOverview(
                     stats: visibleStats,
+                    healthAuthorizationState: healthAuthorizationState,
                     selectedPeriod: $selectedPeriod,
                     previousPeriod: { shiftPeriod(by: -1) },
                     nextPeriod: { shiftPeriod(by: 1) }
@@ -72,9 +76,14 @@ enum StatsMode {
 
 private struct StatsOverview: View {
     let stats: StatsWeekSnapshot
+    let healthAuthorizationState: HealthAuthorizationState
     @Binding var selectedPeriod: StatsPeriod
     let previousPeriod: () -> Void
     let nextPeriod: () -> Void
+
+    private var healthPresentation: AppleHealthProgressPresentation {
+        .make(state: healthAuthorizationState, stats: stats)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -123,10 +132,7 @@ private struct StatsOverview: View {
             ProgressSummaryCard(stats: stats)
             MuscleSetCard(stats: stats)
             BodyweightProgressCard(stats: stats)
-            HealthPlaceholderCard(
-                title: "Apple Health",
-                subtitle: stats.healthMetricsConnected ? "Health-backed energy, duration, and heart rate are connected." : "Connect Health for energy, duration, heart rate, and bodyweight."
-            )
+            AppleHealthProgressCard(stats: stats, presentation: healthPresentation)
         }
     }
 }
@@ -317,9 +323,10 @@ private struct LoadMetricPopover: View {
             Text(metric.weekday)
                 .font(BramFont.label(size: 12))
                 .foregroundStyle(BramColor.textPrimary)
-            Text("\(metric.energyCalories) \(metric.energyIsEstimated ? "est. cal" : "cal")")
+            Text("\(metric.energyCalories) \(metric.energyUnitLabel)")
                 .font(BramFont.label(size: 11))
                 .foregroundStyle(BramColor.textSecondary)
+                .accessibilityLabel(metric.energyAccessibilityLabel)
             if let duration = metric.durationMinutes {
                 Text("\(duration) min")
                     .font(BramFont.label(size: 11))
@@ -498,6 +505,18 @@ private struct BodyweightProgressCard: View {
                                 .font(BramFont.label(size: 12))
                                 .foregroundStyle(BramColor.textSecondary)
                         }
+                    }
+
+                    if stats.hasAppleHealthBodyweight {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(BramColor.cool)
+                                .frame(width: 7, height: 7)
+                            Text("Apple Health")
+                                .font(BramFont.label(size: 11))
+                                .foregroundStyle(BramColor.textTertiary)
+                        }
+                        .accessibilityLabel("Bodyweight includes Apple Health data")
                     }
                 }
             }
@@ -816,30 +835,165 @@ private struct StreakAwardTile: View {
     }
 }
 
-private struct HealthPlaceholderCard: View {
-    let title: String
-    let subtitle: String
+private struct AppleHealthProgressCard: View {
+    let stats: StatsWeekSnapshot
+    let presentation: AppleHealthProgressPresentation
+
+    private var hasMiniCharts: Bool {
+        stats.loadByDay.contains { $0.hasHealthDuration || $0.hasHealthHeartRate }
+    }
 
     var body: some View {
         BramCard {
-            HStack(spacing: 12) {
-                Image(systemName: "heart.slash")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(BramColor.textTertiary)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(BramFont.headline())
-                        .foregroundStyle(BramColor.textPrimary)
-                    Text(subtitle)
-                        .font(BramFont.callout())
-                        .foregroundStyle(BramColor.textSecondary)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: presentation.systemImage)
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(presentation.isConnectedLike ? BramColor.recovery : BramColor.textTertiary)
+                        .frame(width: 32)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(presentation.title)
+                            .font(BramFont.headline())
+                            .foregroundStyle(BramColor.textPrimary)
+                        Text(presentation.subtitle)
+                            .font(BramFont.callout())
+                            .foregroundStyle(BramColor.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                if presentation.showsCharts, hasMiniCharts {
+                    HStack(spacing: 10) {
+                        if stats.loadByDay.contains(where: { $0.hasHealthDuration }) {
+                            HealthMiniChart(
+                                title: "Duration",
+                                values: stats.loadByDay.map { $0.durationMinutes ?? 0 },
+                                unit: "min",
+                                color: BramColor.cool,
+                                style: .bars
+                            )
+                        }
+
+                        if stats.loadByDay.contains(where: { $0.hasHealthHeartRate }) {
+                            HealthMiniChart(
+                                title: "Heart rate",
+                                values: stats.loadByDay.map { $0.averageHeartRate ?? 0 },
+                                unit: "bpm",
+                                color: BramColor.recovery,
+                                style: .line
+                            )
+                        }
+                    }
                 }
             }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(presentation.title). \(presentation.subtitle)")
+    }
+}
+
+private struct HealthMiniChart: View {
+    enum Style {
+        case bars
+        case line
+    }
+
+    let title: String
+    let values: [Int]
+    let unit: String
+    let color: Color
+    let style: Style
+
+    private var nonZeroValues: [Int] {
+        values.filter { $0 > 0 }
+    }
+
+    private var latestText: String {
+        guard let latest = nonZeroValues.last else { return "--" }
+        return "\(latest) \(unit)"
+    }
+
+    private var maxValue: Int {
+        max(nonZeroValues.max() ?? 1, 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(BramFont.label(size: 11))
+                    .foregroundStyle(BramColor.textTertiary)
+                Spacer()
+                Text(latestText)
+                    .font(BramFont.label(size: 12))
+                    .foregroundStyle(BramColor.textPrimary)
+                    .monospacedDigit()
+            }
+
+            chart
+                .frame(height: 58)
+        }
+        .padding(12)
+        .background(BramColor.cardSurface.opacity(0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), latest \(latestText), from Apple Health")
+    }
+
+    @ViewBuilder
+    private var chart: some View {
+        switch style {
+        case .bars:
+            HStack(alignment: .bottom, spacing: 5) {
+                ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(value > 0 ? color.opacity(0.85) : BramColor.hairline.opacity(0.45))
+                        .frame(height: value > 0 ? max(7, CGFloat(value) / CGFloat(maxValue) * 54) : 5)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        case .line:
+            GeometryReader { proxy in
+                let points = mappedPoints(in: proxy.size)
+                ZStack {
+                    if points.count >= 2 {
+                        Path { path in
+                            path.move(to: points[0])
+                            for point in points.dropFirst() {
+                                path.addLine(to: point)
+                            }
+                        }
+                        .stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                    }
+
+                    ForEach(Array(points.enumerated()), id: \.offset) { _, point in
+                        Circle()
+                            .fill(color)
+                            .frame(width: 6, height: 6)
+                            .position(point)
+                    }
+                }
+            }
+        }
+    }
+
+    private func mappedPoints(in size: CGSize) -> [CGPoint] {
+        let indexed = values.enumerated().filter { $0.element > 0 }
+        guard !indexed.isEmpty else { return [] }
+        let xPadding: CGFloat = 4
+        let yPadding: CGFloat = 5
+        let usableWidth = max(size.width - xPadding * 2, 1)
+        let usableHeight = max(size.height - yPadding * 2, 1)
+        let denominator = max(values.count - 1, 1)
+        return indexed.map { index, value in
+            CGPoint(
+                x: xPadding + CGFloat(index) / CGFloat(denominator) * usableWidth,
+                y: yPadding + usableHeight - CGFloat(value) / CGFloat(maxValue) * usableHeight
+            )
         }
     }
 }
 
 #Preview {
-    StatsPanelView(stats: BramPreviewData.stats)
+    StatsPanelView(stats: BramPreviewData.stats, healthAuthorizationState: .connected)
         .preferredColorScheme(.dark)
 }

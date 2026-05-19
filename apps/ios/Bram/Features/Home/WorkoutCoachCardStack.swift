@@ -19,6 +19,7 @@ private struct WorkoutCoachCardView: View {
     let card: WorkoutCoachCard
     let onFeedback: (SuggestionFeedbackAction) -> Void
     @State private var showsFeedback = false
+    @State private var selectedFeedback: SuggestionFeedbackAction?
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -53,12 +54,8 @@ private struct WorkoutCoachCardView: View {
 
                 if card.feedbackEligible, showsFeedback {
                     HStack(spacing: 8) {
-                        feedbackButton("hand.thumbsup", label: "Suggestion was helpful") {
-                            onFeedback(.thumbsUp)
-                        }
-                        feedbackButton("hand.thumbsdown", label: "Suggestion was not helpful") {
-                            onFeedback(.thumbsDown)
-                        }
+                        feedbackButton(.thumbsUp, label: "Suggestion was helpful")
+                        feedbackButton(.thumbsDown, label: "Suggestion was not helpful")
                     }
                 }
             }
@@ -74,6 +71,7 @@ private struct WorkoutCoachCardView: View {
         .accessibilityLabel("\(card.title). \(card.metadata ?? ""). \(card.text)")
         .task(id: card.stableDisplayKey) {
             showsFeedback = false
+            selectedFeedback = nil
             guard card.feedbackEligible else { return }
             let delay = Int((max(4, card.minimumVisibleSeconds * 0.75) * 1_000).rounded())
             try? await Task.sleep(for: .milliseconds(delay))
@@ -83,18 +81,26 @@ private struct WorkoutCoachCardView: View {
     }
 
     private func feedbackButton(
-        _ systemName: String,
-        label: String,
-        action: @escaping () -> Void
+        _ feedback: SuggestionFeedbackAction,
+        label: String
     ) -> some View {
-        Button(action: action) {
+        let isSelected = selectedFeedback == feedback
+        let systemName = feedback.coachFeedbackSystemImage(isSelected: isSelected)
+
+        return Button {
+            guard selectedFeedback == nil else { return }
+            selectedFeedback = feedback
+            onFeedback(feedback)
+        } label: {
             Image(systemName: systemName)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(BramColor.textSecondary)
+                .foregroundStyle(isSelected ? accentColor : BramColor.textSecondary)
                 .frame(width: 30, height: 28)
-                .background(BramColor.cardSurface.opacity(0.78), in: Capsule())
+                .background((isSelected ? accentColor.opacity(0.14) : BramColor.cardSurface.opacity(0.78)), in: Capsule())
         }
         .accessibilityLabel(label)
+        .accessibilityValue(isSelected ? "Selected" : "")
+        .disabled(selectedFeedback != nil)
     }
 
     private var accentColor: Color {

@@ -1628,6 +1628,13 @@ struct BramTests {
         #expect(feedback.coarseContext["readiness"] == "low")
     }
 
+    @Test func coachFeedbackIconsFillOnlySelectedThumb() {
+        #expect(SuggestionFeedbackAction.thumbsUp.coachFeedbackSystemImage(isSelected: false) == "hand.thumbsup")
+        #expect(SuggestionFeedbackAction.thumbsUp.coachFeedbackSystemImage(isSelected: true) == "hand.thumbsup.fill")
+        #expect(SuggestionFeedbackAction.thumbsDown.coachFeedbackSystemImage(isSelected: false) == "hand.thumbsdown")
+        #expect(SuggestionFeedbackAction.thumbsDown.coachFeedbackSystemImage(isSelected: true) == "hand.thumbsdown.fill")
+    }
+
     @Test func coachCardsIgnoreIncompleteSetInput() {
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 0, estimatedVolume: 0, prCount: 0, streakDays: 0, parseState: .interpreting),
@@ -2375,8 +2382,50 @@ struct BramTests {
     @Test func healthAuthorizationStateSeparatesConnectedEmptyFromAccessReview() {
         #expect(HealthAuthorizationState.afterSuccessfulRefresh(hasImportedHealthData: true) == .connected)
         #expect(HealthAuthorizationState.afterSuccessfulRefresh(hasImportedHealthData: false) == .connectedNoRecentData)
+        #expect(HealthAuthorizationState.requested.isConnectedLike)
+        #expect(HealthAuthorizationState.connected.isConnectedLike)
         #expect(HealthAuthorizationState.connectedNoRecentData.isConnectedLike)
         #expect(!HealthAuthorizationState.accessNeedsReview.isConnectedLike)
+    }
+
+    @Test func appleHealthProgressPresentationDoesNotUseSlashWhenConnectedLike() {
+        var stats = BramPreviewData.stats
+        stats.loadByDay = []
+        stats.bodyweightTrend = []
+        stats.healthMetricsConnected = false
+
+        for state in [HealthAuthorizationState.requested, .connected, .connectedNoRecentData] {
+            let presentation = AppleHealthProgressPresentation.make(state: state, stats: stats)
+            #expect(presentation.systemImage == "heart.fill")
+            #expect(presentation.title == "Apple Health")
+            #expect(presentation.subtitle.contains("Connected"))
+            #expect(presentation.showsCharts == false)
+        }
+    }
+
+    @Test func appleHealthProgressPresentationShowsChartsForHealthData() {
+        var stats = BramPreviewData.stats
+        stats.loadByDay = [
+            DailyLoadMetric(
+                weekday: "Mon",
+                energyCalories: 410,
+                energyIsEstimated: false,
+                volume: 1200,
+                durationMinutes: 50,
+                averageHeartRate: 136
+            )
+        ]
+        stats.bodyweightTrend = [
+            BodyweightTrendPoint(date: .now, value: 192, source: .appleHealth)
+        ]
+
+        let presentation = AppleHealthProgressPresentation.make(state: .connected, stats: stats)
+
+        #expect(presentation.showsCharts)
+        #expect(stats.hasHealthChartData)
+        #expect(stats.hasAppleHealthBodyweight)
+        #expect(stats.loadByDay[0].energyUnitLabel == "Health cal")
+        #expect(stats.loadByDay[0].energyAccessibilityLabel == "410 calories from Apple Health")
     }
 
     @Test func localHealthDataPromotesRequestedStateToConnected() {

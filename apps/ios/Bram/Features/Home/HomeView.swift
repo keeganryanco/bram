@@ -252,6 +252,7 @@ struct HomeView: View {
                     stats: progressStats,
                     selectedDate: note.date,
                     noteStore: noteStore,
+                    healthAuthorizationState: healthService.authorizationState(),
                     initialMode: .stats
                 )
             } else {
@@ -791,10 +792,6 @@ struct HomeView: View {
             )
         )
 
-        if action == .thumbsDown {
-            coachCards.removeAll { $0.id == card.id }
-        }
-
         guard let suggestionBackend else { return }
         let feedback = SuggestionFeedback(
             installId: stableInstallId(),
@@ -1000,7 +997,7 @@ struct HomeView: View {
     private func startForegroundHealthRefreshIfNeeded() {
         guard scenePhase == .active,
               featureAccess.canUseHealth,
-              healthService.authorizationState() == .requested,
+              healthService.authorizationState().isConnectedLike,
               foregroundHealthRefreshTask == nil
         else { return }
 

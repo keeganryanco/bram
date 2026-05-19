@@ -12,6 +12,17 @@ enum SuggestionFeedbackAction: String, Codable, Hashable {
     case thumbsDown
     case modified
     case deleted
+
+    func coachFeedbackSystemImage(isSelected: Bool) -> String {
+        switch self {
+        case .thumbsUp:
+            isSelected ? "hand.thumbsup.fill" : "hand.thumbsup"
+        case .thumbsDown:
+            isSelected ? "hand.thumbsdown.fill" : "hand.thumbsdown"
+        case .accepted, .dismissed, .modified, .deleted:
+            "hand.thumbsup"
+        }
+    }
 }
 
 enum SuggestionDraftState: String, Codable, Hashable {
