@@ -113,7 +113,15 @@ struct SettingsView: View {
                     isOn: reminderBinding,
                     isUpdating: isUpdatingWorkoutReminders
                 )
-                SettingsToggleRow(title: "Developer mode", subtitle: "Visible when account entitlement allows it", systemImage: "hammer.fill", tint: BramColor.cool, isOn: account.isDeveloper)
+                if account.isDeveloper {
+                    SettingsToggleRow(
+                        title: "Developer mode",
+                        subtitle: "Enabled by account entitlement",
+                        systemImage: "hammer.fill",
+                        tint: BramColor.cool,
+                        isOn: true
+                    )
+                }
             }
 
             SettingsSection(title: "Support") {
