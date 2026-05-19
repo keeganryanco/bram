@@ -9,6 +9,7 @@ struct HomeView: View {
     @AppStorage("bram.review.last_prompt_at") private var reviewLastPromptAt = 0.0
     @AppStorage("bram.review.first_workout_prompted") private var reviewFirstWorkoutPrompted = false
     @AppStorage("bramWorkoutRemindersEnabled") private var workoutRemindersEnabled = false
+    @AppStorage("bram.install.id") private var installId = ""
     @State private var note: DailyWorkoutNote
     @State private var selectedExercise: ExerciseAnchor?
     @State private var selectedCardioHistory: CardioHistorySummary?
@@ -28,6 +29,9 @@ struct HomeView: View {
     @State private var coachCards: [WorkoutCoachCard] = []
     @State private var coachCardsShownAt = Date.distantPast
     @State private var pendingCoachCards: [WorkoutCoachCard]?
+    @State private var viewedCoachCardKeys = Set<String>()
+    @State private var feedbackSubmittedCoachCardKeys = Set<String>()
+    @State private var localFeedbackSummary: [String: Int] = [:]
     @State private var coachCardReplacementTask: Task<Void, Never>?
     @State private var backendSuggestionTask: Task<Void, Never>?
     @State private var foregroundHealthRefreshTask: Task<Void, Never>?
@@ -44,6 +48,7 @@ struct HomeView: View {
     private let onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)?
     private let onWorkoutDataSaved: (() async -> Void)?
     private let reminderService: (any WorkoutReminderScheduling)?
+    private let accessTokenProvider: () async -> String?
     private let track: (AnalyticsEvent) -> Void
     private let reportError: (String, String, String?, Error?, [String: String]) -> Void
     private let submitSupportRequest: (SupportRequestDraft) async throws -> Void
@@ -63,6 +68,7 @@ struct HomeView: View {
         onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)? = nil,
         onWorkoutDataSaved: (() async -> Void)? = nil,
         reminderService: (any WorkoutReminderScheduling)? = BramNotificationService(),
+        accessTokenProvider: @escaping () async -> String? = { nil },
         track: @escaping (AnalyticsEvent) -> Void = { _ in },
         reportError: @escaping (String, String, String?, Error?, [String: String]) -> Void = { _, _, _, _, _ in },
         submitSupportRequest: @escaping (SupportRequestDraft) async throws -> Void = { _ in }
@@ -81,6 +87,7 @@ struct HomeView: View {
         self.onGoalsProfileSave = onGoalsProfileSave
         self.onWorkoutDataSaved = onWorkoutDataSaved
         self.reminderService = reminderService
+        self.accessTokenProvider = accessTokenProvider
         self.track = track
         self.reportError = reportError
         self.submitSupportRequest = submitSupportRequest
@@ -410,10 +417,13 @@ struct HomeView: View {
             let result = displaySafeInterpretation(await interpreter.interpret(note: draft))
             guard !Task.isCancelled else { return }
             let context = await SuggestionContextBuilder.build(
+                installId: stableInstallId(),
                 note: draft,
                 result: result,
                 goals: goalsProfile,
-                store: noteStore
+                store: noteStore,
+                activeLineIndex: activeNoteLineIndex,
+                recentFeedbackSummary: localFeedbackSummary
             )
             let suggestion = LocalSuggestionEngine.dailySuggestion(context: context) ?? result.suggestion
             let cards = WorkoutCoachCardEngine.cards(
@@ -481,10 +491,13 @@ struct HomeView: View {
             )
             guard !Task.isCancelled else { return }
             let context = await SuggestionContextBuilder.build(
+                installId: stableInstallId(),
                 note: draft,
                 result: result,
                 goals: goalsProfile,
-                store: noteStore
+                store: noteStore,
+                activeLineIndex: activeNoteLineIndex,
+                recentFeedbackSummary: localFeedbackSummary
             )
             let suggestion = LocalSuggestionEngine.dailySuggestion(context: context) ?? result.suggestion
             let cards = WorkoutCoachCardEngine.cards(
@@ -614,7 +627,13 @@ struct HomeView: View {
             return
         }
 
-        let nextCards = Array(cards.prefix(phase.maximumVisibleCards))
+        let nextCards = Array(cards.prefix(phase.maximumVisibleCards)).map { card in
+            var next = card
+            if feedbackSubmittedCoachCardKeys.contains(card.stableDisplayKey) {
+                next.feedbackEligible = false
+            }
+            return next
+        }
         guard !nextCards.isEmpty else {
             if phase == .typing,
                let current = coachCards.first,
@@ -672,8 +691,31 @@ struct HomeView: View {
 
     @MainActor
     private func setVisibleCoachCards(_ cards: [WorkoutCoachCard]) {
+        let previousKeys = Set(coachCards.map(\.stableDisplayKey))
         coachCards = cards
         coachCardsShownAt = Date()
+        for card in cards where !viewedCoachCardKeys.contains(card.stableDisplayKey) {
+            viewedCoachCardKeys.insert(card.stableDisplayKey)
+            track(
+                AnalyticsEvent(
+                    name: "suggestion_viewed",
+                    properties: coachCardAnalyticsProperties(card)
+                )
+            )
+        }
+        if !previousKeys.isEmpty,
+           previousKeys != Set(cards.map(\.stableDisplayKey)) {
+            track(
+                AnalyticsEvent(
+                    name: "suggestion_replaced",
+                    properties: [
+                        "count": "\(cards.count)",
+                        "next_kind": cards.first?.kind.rawValue ?? "none",
+                        "next_source": cards.first?.source.rawValue ?? "none"
+                    ]
+                )
+            )
+        }
     }
 
     private func sameCoachCardStack(_ lhs: [WorkoutCoachCard], _ rhs: [WorkoutCoachCard]) -> Bool {
@@ -682,6 +724,20 @@ struct HomeView: View {
 
     private func coachCardSignature(_ card: WorkoutCoachCard) -> String {
         "\(card.kind.rawValue)|\(card.title)|\(card.metadata ?? "")|\(card.text)|\(card.affectedExerciseKey ?? "")"
+    }
+
+    private func coachCardAnalyticsProperties(_ card: WorkoutCoachCard) -> [String: String] {
+        [
+            "kind": card.kind.rawValue,
+            "source": card.source.rawValue,
+            "goal": card.coarseContext["goal"] ?? "unknown",
+            "set_bucket": card.coarseContext["setBucket"] ?? "unknown",
+            "active_set_bucket": card.coarseContext["activeSetBucket"] ?? "unknown",
+            "pr_bucket": card.coarseContext["prBucket"] ?? "none",
+            "pattern": card.coarseContext["pattern"] ?? "none",
+            "feedback_eligible": card.feedbackEligible ? "true" : "false",
+            "evidence": card.coarseContext["evidence"] ?? "none"
+        ]
     }
 
     private func scheduleBackendCoachCards(
@@ -699,7 +755,10 @@ struct HomeView: View {
         backendSuggestionTask?.cancel()
         backendSuggestionTask = Task {
             do {
-                let response = try await suggestionBackend.suggestions(for: context)
+                let response = try await suggestionBackend.suggestions(
+                    for: context,
+                    accessToken: await accessTokenProvider()
+                )
                 let cards = WorkoutCoachCardEngine.cards(
                     from: response,
                     context: context,
@@ -720,26 +779,25 @@ struct HomeView: View {
     }
 
     private func handleCoachCardFeedback(_ card: WorkoutCoachCard, action: SuggestionFeedbackAction) {
+        feedbackSubmittedCoachCardKeys.insert(card.stableDisplayKey)
+        for tag in card.coarseContext["evidence"]?.split(separator: ",").map(String.init) ?? [] {
+            let key = "\(tag).\(action.rawValue)"
+            localFeedbackSummary[key, default: 0] += 1
+        }
         track(
             AnalyticsEvent(
                 name: "suggestion_feedback_submitted",
-                properties: [
-                    "action": action.rawValue,
-                    "kind": card.kind.rawValue,
-                    "source": card.source.rawValue
-                ]
+                properties: coachCardAnalyticsProperties(card).merging(["action": action.rawValue]) { current, _ in current }
             )
         )
 
         if action == .thumbsDown {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                coachCards.removeAll { $0.id == card.id }
-            }
+            coachCards.removeAll { $0.id == card.id }
         }
 
         guard let suggestionBackend else { return }
         let feedback = SuggestionFeedback(
-            installId: "local-install",
+            installId: stableInstallId(),
             suggestionId: card.id,
             suggestionType: "daily",
             action: action,
@@ -748,7 +806,10 @@ struct HomeView: View {
         )
         Task {
             do {
-                try await suggestionBackend.sendFeedback(feedback)
+                try await suggestionBackend.sendFeedback(
+                    feedback,
+                    accessToken: await accessTokenProvider()
+                )
             } catch {
                 reportError("home", "suggestion_feedback_failed", nil, error, ["kind": card.kind.rawValue])
             }
@@ -757,6 +818,15 @@ struct HomeView: View {
 
     private var selectedDayKey: String {
         SQLiteWorkoutLocalStore.dayKey(for: note.date)
+    }
+
+    private func stableInstallId() -> String {
+        if installId.count >= 8 {
+            return installId
+        }
+        let next = UUID().uuidString.lowercased()
+        installId = next
+        return next
     }
 
     private func loadNote(for date: Date) async {
@@ -768,10 +838,12 @@ struct HomeView: View {
             let loaded = try await store.note(for: date)
             let coachResult = await coachCardInterpretation(for: loaded)
             let context = await SuggestionContextBuilder.build(
+                installId: stableInstallId(),
                 note: loaded,
                 result: coachResult,
                 goals: goalsProfile,
-                store: store
+                store: store,
+                recentFeedbackSummary: localFeedbackSummary
             )
             let cards = WorkoutCoachCardEngine.cards(
                 context: context,
@@ -823,10 +895,12 @@ struct HomeView: View {
             if let refreshed = try? await store.note(for: draft.date), !Task.isCancelled {
                 let coachResult = await coachCardInterpretation(for: refreshed)
                 let context = await SuggestionContextBuilder.build(
+                    installId: stableInstallId(),
                     note: refreshed,
                     result: coachResult,
                     goals: goalsProfile,
-                    store: store
+                    store: store,
+                    recentFeedbackSummary: localFeedbackSummary
                 )
                 let cards = WorkoutCoachCardEngine.cards(
                     context: context,
@@ -868,10 +942,12 @@ struct HomeView: View {
             if let refreshed = try? await store.note(for: draft.date) {
                 let coachResult = await coachCardInterpretation(for: refreshed)
                 let context = await SuggestionContextBuilder.build(
+                    installId: stableInstallId(),
                     note: refreshed,
                     result: coachResult,
                     goals: goalsProfile,
-                    store: store
+                    store: store,
+                    recentFeedbackSummary: localFeedbackSummary
                 )
                 let cards = WorkoutCoachCardEngine.cards(
                     context: context,

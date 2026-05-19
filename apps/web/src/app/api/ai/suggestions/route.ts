@@ -3,6 +3,8 @@ import {
   BramAIConfigError,
   AIUsagePolicyError,
   generateWorkoutSuggestionsWithAI,
+  supabaseAccessTokenFromRequest,
+  userIdFromSuggestionAccessToken,
   verifyAIRouteToken,
   WorkoutInterpretationError,
   WorkoutSuggestionError,
@@ -46,7 +48,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await generateWorkoutSuggestionsWithAI(input.data);
+    const userId = await userIdFromSuggestionAccessToken(
+      supabaseAccessTokenFromRequest(request),
+    );
+    const result = await generateWorkoutSuggestionsWithAI({
+      ...input.data,
+      userId: userId ?? undefined,
+    });
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof BramAIConfigError) {

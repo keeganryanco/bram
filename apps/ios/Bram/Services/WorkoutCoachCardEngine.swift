@@ -12,14 +12,29 @@ enum WorkoutCoachCardEngine {
             cards.append(recovery)
         }
 
-        if phase != .typing {
-            if let balance = balanceCard(context: context) {
-                cards.append(balance)
-            }
+        if let pr = prCard(context: context, interpretedLines: interpretedLines) {
+            cards.append(pr)
+        }
 
-            if let cardio = cardioCard(context: context) {
-                cards.append(cardio)
-            }
+        if let activeExercise = liveExerciseCard(
+            context: context,
+            interpretedLines: interpretedLines,
+            activeLineIndex: activeLineIndex,
+            phase: phase
+        ) {
+            cards.append(activeExercise)
+        }
+
+        if let balance = balanceCard(context: context, phase: phase) {
+            cards.append(balance)
+        }
+
+        if let cardio = cardioCard(context: context, phase: phase) {
+            cards.append(cardio)
+        }
+
+        if let pattern = patternCard(context: context, phase: phase) {
+            cards.append(pattern)
         }
 
         return deduplicated(cards)
@@ -43,8 +58,7 @@ enum WorkoutCoachCardEngine {
         var cards: [WorkoutCoachCard] = []
 
         if let daily = response.dailySuggestion,
-           daily.kind != .progression,
-           phase != .typing || daily.kind == .recovery {
+           shouldUseBackendDailySuggestion(daily, activeExerciseKey: activeExerciseKey, phase: phase) {
             cards.append(
                 WorkoutCoachCard(
                     kind: WorkoutCoachCardKind(suggestionKind: daily.kind),
@@ -124,10 +138,10 @@ enum WorkoutCoachCardEngine {
         let hasSavedHistory = (summary?.recentSessions.count ?? 0) >= 2
         if !hasSavedHistory {
             return WorkoutCoachCard(
-                kind: .baseline,
-                title: "Baseline",
-                text: "\(exerciseName) is saved as a starting point. Bram will compare the next sessions against this.",
-                priority: 88,
+            kind: .baseline,
+            title: "Baseline",
+            text: "\(exerciseName) is saved as a starting point. Bram will compare the next sessions against this.",
+            priority: 88,
                 feedbackEligible: false,
                 affectedExerciseKey: exerciseKey,
                 coarseContext: coarseContext(context: context, evidence: ["first_recorded_exercise"])
@@ -147,26 +161,57 @@ enum WorkoutCoachCardEngine {
         )
     }
 
-    private static func workoutTargetCard(
+    private static func liveExerciseCard(
         context: WorkoutSuggestionRequestContext,
+        interpretedLines: [InterpretedWorkoutLine],
+        activeLineIndex: Int?,
         phase: WorkoutCoachCardPhase
     ) -> WorkoutCoachCard? {
-        guard phase != .typing else { return nil }
-        guard context.metrics.totalSets >= 4 else { return nil }
-
-        guard let summary = context.exerciseSummaries.first,
-              let latest = summary.recentSessions.first
+        let activeExercise = activeExerciseContext(
+            activeLineIndex: activeLineIndex,
+            interpretedLines: interpretedLines,
+            currentExerciseSetCounts: context.currentExerciseSetCounts
+        )
+        guard let activeExercise,
+              let summary = context.exerciseSummaries.first(where: { summary in
+            summary.exerciseKey == activeExercise.exerciseKey
+        }),
+              summary.recentSessions.count >= 1
         else { return nil }
 
+        let suggestion = summary.primarySuggestion ?? LocalSuggestionEngine.exerciseSuggestion(
+            exerciseKey: summary.exerciseKey,
+            sessions: summary.recentSessions,
+            goals: context.goals,
+            currentMuscleSets: context.currentExerciseSetCounts[summary.exerciseKey] ?? 0
+        )
+        let latest = summary.recentSessions.first
+        let evidence = suggestion.evidence + ["active_exercise"]
+        let metadata = latest.map { "Last \($0.bestSetText)" }
+        let text: String
+        let title: String
+
+        if activeExercise.completedSetCount == 0 {
+            title = "Before you lift"
+            let target = suggestion.target.map { "Start near \($0)" } ?? "Start with a clean working set"
+            text = "\(target), then adjust only if it moves well."
+        } else if activeExercise.completedSetCount >= 3 {
+            title = "Move on?"
+            text = moveOnText(context: context, summary: summary)
+        } else {
+            title = "Next set"
+            text = nextSetText(context: context, suggestion: suggestion)
+        }
+
         return WorkoutCoachCard(
-            kind: .balance,
-            title: "Today's target",
-            metadata: "\(summary.displayName) last \(relativeDay(latest.date))",
-            text: "Go a little harder than last time only if the first working set moves cleanly.",
-            priority: 89,
-            feedbackEligible: true,
-            affectedExerciseKey: summary.exerciseKey,
-            coarseContext: coarseContext(context: context, evidence: ["workout_target", "saved_history"])
+            kind: .progression,
+            title: title,
+            metadata: metadata,
+            text: text,
+            priority: activeExercise.completedSetCount >= 3 ? 84 : 88,
+            feedbackEligible: sampledFeedbackEligible(source: .local, evidence: evidence, stableKey: summary.exerciseKey + title),
+            affectedExerciseKey: suggestion.exerciseKey,
+            coarseContext: coarseContext(context: context, evidence: evidence)
         )
     }
 
@@ -186,7 +231,6 @@ enum WorkoutCoachCardEngine {
             if phase == .typing {
                 guard let activeExercise,
                       activeExercise.exerciseKey == summary.exerciseKey,
-                      activeExercise.completedSetCount < 3,
                       summary.recentSessions.count >= 2
                 else { return false }
             }
@@ -216,7 +260,7 @@ enum WorkoutCoachCardEngine {
         )
     }
 
-    private static func balanceCard(context: WorkoutSuggestionRequestContext) -> WorkoutCoachCard? {
+    private static func balanceCard(context: WorkoutSuggestionRequestContext, phase: WorkoutCoachCardPhase) -> WorkoutCoachCard? {
         if context.constraintHint == "time", context.metrics.totalSets > 0 {
             return WorkoutCoachCard(
                 kind: .balance,
@@ -231,12 +275,12 @@ enum WorkoutCoachCardEngine {
             kind: .balance,
             text: "\(muscle.muscleGroup) is already at \(muscle.sets) sets today. Cap it with 2-3 clean sets if you add more.",
             priority: 76,
-            feedbackEligible: true,
+            feedbackEligible: phase != .typing || sampledFeedbackEligible(source: .local, evidence: ["high_volume"], stableKey: muscle.muscleGroup),
             coarseContext: coarseContext(context: context, evidence: ["high_volume"])
         )
     }
 
-    private static func cardioCard(context: WorkoutSuggestionRequestContext) -> WorkoutCoachCard? {
+    private static func cardioCard(context: WorkoutSuggestionRequestContext, phase: WorkoutCoachCardPhase) -> WorkoutCoachCard? {
         if let cardio = context.cardioSummaries.first,
            context.goals.primaryGoal == .betterCardio || context.metrics.cardioMinutes > 0 {
             return WorkoutCoachCard(
@@ -244,6 +288,7 @@ enum WorkoutCoachCardEngine {
                 title: cardio.activityType,
                 text: cardio.recommendation,
                 priority: 72,
+                feedbackEligible: phase != .typing || sampledFeedbackEligible(source: .local, evidence: ["cardio_history"], stableKey: cardio.activityType),
                 coarseContext: coarseContext(context: context, evidence: ["cardio_history"])
             )
         }
@@ -258,6 +303,30 @@ enum WorkoutCoachCardEngine {
         }
 
         return nil
+    }
+
+    private static func patternCard(context: WorkoutSuggestionRequestContext, phase: WorkoutCoachCardPhase) -> WorkoutCoachCard? {
+        guard phase == .typing,
+              context.metrics.totalSets == 0,
+              let pattern = context.workoutPattern,
+              pattern.isHighConfidence,
+              let muscle = pattern.matchedMuscleGroup
+        else { return nil }
+
+        let text: String
+        if context.readinessHint == "high" {
+            text = "Your recent pattern points to \(muscle.lowercased()). Push the first main lift only if warmups move cleanly."
+        } else {
+            text = "Your recent pattern points to \(muscle.lowercased()). Start with the main lift and keep the first set honest."
+        }
+        return WorkoutCoachCard(
+            kind: .reminder,
+            title: pattern.label,
+            text: text,
+            priority: 64,
+            feedbackEligible: sampledFeedbackEligible(source: .local, evidence: pattern.evidence, stableKey: pattern.label),
+            coarseContext: coarseContext(context: context, evidence: pattern.evidence)
+        )
     }
 
     private static func goalAdjustedPRAdvice(for goal: TrainingPrimaryGoal) -> String {
@@ -288,6 +357,59 @@ enum WorkoutCoachCardEngine {
             return "You have room to progress if it feels the same today."
         }
         return nil
+    }
+
+    private static func nextSetText(
+        context: WorkoutSuggestionRequestContext,
+        suggestion: ExerciseSuggestion
+    ) -> String {
+        let target = suggestion.target.map { "Aim for \($0)." }
+        switch context.activeExerciseLatestEffort {
+        case "max":
+            return "That effort was near max. Repeat cleanly or stop this lift."
+        case "hard":
+            return [target, "Keep one rep in reserve before adding load."].compactMap { $0 }.joined(separator: " ")
+        case "easy":
+            return [target, "You can add a rep or a small jump if the next set feels the same."].compactMap { $0 }.joined(separator: " ")
+        default:
+            return [target, suggestion.text].compactMap { $0 }.joined(separator: " ")
+        }
+    }
+
+    private static func moveOnText(
+        context: WorkoutSuggestionRequestContext,
+        summary: ExerciseHistorySummary
+    ) -> String {
+        if context.activeExerciseLatestEffort == "max" || context.activeExerciseLatestEffort == "hard" {
+            return "You have enough hard work here. Move on unless another clean set is clearly there."
+        }
+        if context.goals.primaryGoal == .buildMuscle {
+            return "If form still feels crisp, one more controlled set is enough before moving on."
+        }
+        return "This lift has enough work for today. Move on if the next set would be a grind."
+    }
+
+    private static func shouldUseBackendDailySuggestion(
+        _ suggestion: WorkoutSuggestion,
+        activeExerciseKey: String?,
+        phase: WorkoutCoachCardPhase
+    ) -> Bool {
+        if phase != .typing { return true }
+        if suggestion.kind == .recovery || suggestion.kind == .balance || suggestion.kind == .reminder {
+            return true
+        }
+        if suggestion.kind == .progression {
+            return suggestion.affectedExerciseKey == nil || suggestion.affectedExerciseKey == activeExerciseKey
+        }
+        return false
+    }
+
+    private static func sampledFeedbackEligible(source: SuggestionSource, evidence: [String], stableKey: String) -> Bool {
+        if source == .ai { return true }
+        let seed = (stableKey + evidence.joined(separator: "|")).unicodeScalars.reduce(0) { partial, scalar in
+            partial + Int(scalar.value)
+        }
+        return seed % 4 == 0
     }
 
     private static func relativeDay(_ date: Date) -> String {
@@ -337,6 +459,8 @@ enum WorkoutCoachCardEngine {
             "constraint": context.constraintHint ?? "none",
             "setBucket": setBucket(context.metrics.totalSets),
             "prBucket": context.metrics.prCount > 0 ? "has_pr" : "none",
+            "activeSetBucket": setBucket(context.activeExerciseSetCount),
+            "pattern": context.workoutPattern?.confidence.rawValue ?? "none",
             "evidence": evidence.prefix(3).joined(separator: ",")
         ]
     }

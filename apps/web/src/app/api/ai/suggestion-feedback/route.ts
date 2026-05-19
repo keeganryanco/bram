@@ -3,6 +3,8 @@ import {
   BramAIConfigError,
   recordSuggestionFeedback,
   SuggestionFeedbackInputSchema,
+  supabaseAccessTokenFromRequest,
+  userIdFromSuggestionAccessToken,
   verifyAIRouteToken,
   WorkoutInterpretationError,
   WorkoutSuggestionError,
@@ -45,7 +47,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await recordSuggestionFeedback(input.data);
+    const accessToken = supabaseAccessTokenFromRequest(request);
+    if (!accessToken) {
+      throw new WorkoutSuggestionError("Unauthorized.", 401);
+    }
+    const userId = await userIdFromSuggestionAccessToken(accessToken);
+    const result = await recordSuggestionFeedback(input.data, { userId });
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof BramAIConfigError) {

@@ -175,7 +175,8 @@ export async function generateWorkoutSuggestionsWithAI(
 }
 
 type SuggestionFeedbackClients = {
-  supabase?: Pick<SupabaseClient, "from">;
+  supabase?: Pick<SupabaseClient, "from" | "auth">;
+  userId?: string | null;
 };
 
 let supabaseAdmin: SupabaseClient | null = null;
@@ -214,6 +215,7 @@ export async function recordSuggestionFeedback(
 
   const { error } = await supabase.from("suggestion_feedback").insert({
     install_id: parsed.installId,
+    user_id: clients.userId ?? null,
     suggestion_id: parsed.suggestionId,
     suggestion_type: parsed.suggestionType,
     action: parsed.action,
@@ -226,4 +228,26 @@ export async function recordSuggestionFeedback(
   }
 
   return { status: "recorded" as const };
+}
+
+export async function userIdFromSuggestionAccessToken(
+  accessToken: string | null,
+  clients: { supabase?: Pick<SupabaseClient, "auth"> } = {},
+) {
+  if (!accessToken) {
+    return null;
+  }
+
+  const supabase = clients.supabase ?? getSupabaseAdmin();
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  if (error || !data.user) {
+    throw new WorkoutSuggestionError("Unauthorized.", 401);
+  }
+  return data.user.id;
+}
+
+export function supabaseAccessTokenFromRequest(request: Request) {
+  const header = request.headers.get("x-supabase-access-token");
+  const token = header?.match(/^Bearer\s+(.+)$/i)?.[1] ?? header;
+  return token?.trim() || null;
 }

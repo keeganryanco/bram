@@ -419,6 +419,10 @@ final class AccountSessionState: ObservableObject {
         analytics.track(event)
     }
 
+    func currentAccessToken() async -> String? {
+        try? await authService?.currentAccessToken()
+    }
+
     func reportNonFatal(
         source: String,
         eventName: String,

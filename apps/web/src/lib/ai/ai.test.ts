@@ -11,8 +11,10 @@ import {
   interpretWorkoutNoteWithAI,
   ParsedWorkoutSchema,
   parseWorkoutInterpretationResponse,
+  recordSuggestionFeedback,
   sanitizeAIInputText,
   selectModelForTask,
+  userIdFromSuggestionAccessToken,
   verifyAIRouteToken,
   WorkoutInterpretationInputSchema,
   WorkoutSuggestionInputSchema,
@@ -115,6 +117,9 @@ describe("AI request builders", () => {
         cardioMinutes: 10,
         energyBucket: "moderate",
         sessionKind: "mixed",
+        activeExerciseKey: "barbell_bench_press",
+        activeExerciseSetCount: 2,
+        activeExerciseEffort: "hard",
       },
       exerciseHistorySummaries: [
         {
@@ -153,6 +158,14 @@ describe("AI request builders", () => {
         cardioIntent: "cardio_logged",
         sessionKind: "mixed",
       },
+      workoutPattern: {
+        label: "Chest pattern",
+        confidence: "high",
+        workoutCount: 5,
+        matchedMuscleGroup: "Chest",
+        matchedExerciseKeys: ["barbell_bench_press"],
+        evidence: ["pattern_high"],
+      },
       feedbackSummary: {},
     });
     const context = buildPrivacySafeSuggestionContext(input);
@@ -160,7 +173,50 @@ describe("AI request builders", () => {
 
     expect(request.text?.format.type).toBe("json_schema");
     expect(context).toContain("barbell_bench_press");
+    expect(context).toContain("activeExerciseEffort");
+    expect(context).toContain("Chest pattern");
     expect(context).not.toContain("rawNote");
+  });
+
+  it("strips unsafe health/body fields from suggestion context", () => {
+    const input = WorkoutSuggestionInputSchema.parse({
+      installId: "install-test-123",
+      currentWorkout: {
+        sets: 0,
+        prs: 0,
+        cardioMinutes: 0,
+        energyBucket: "unknown",
+        sessionKind: "unknown",
+      },
+      exerciseHistorySummaries: [],
+      cardioHistorySummaries: [],
+      dailyMetrics: { duration: "unknown", heartRate: "unknown" },
+      muscleVolume: [],
+      goals: {
+        primaryGoal: "stronger",
+        weeklyTrainingDays: 4,
+        sessionLengthMinutes: 60,
+        trainingStyles: [],
+        equipment: [],
+      },
+      noteHints: {
+        readiness: "unknown",
+        equipment: "unknown",
+        constraint: "none",
+        cardioIntent: "none",
+        sessionKind: "unknown",
+      },
+      feedbackSummary: {},
+    });
+
+    const context = buildPrivacySafeSuggestionContext({
+      ...input,
+      bodyweight: 192,
+      rawNote: "Bench 225 x 5",
+    } as never);
+
+    expect(context).not.toContain("192");
+    expect(context).not.toContain("Bench 225");
   });
 
   it("accepts richer suggestion responses while keeping visible text short", () => {
@@ -192,7 +248,61 @@ describe("AI request builders", () => {
   it("tells workout suggestions to avoid generic high-volume advice", () => {
     expect(WORKOUT_SUGGESTION_PROMPT).toContain("actual training history");
     expect(WORKOUT_SUGGESTION_PROMPT).toContain("Do not say volume is high unless");
+    expect(WORKOUT_SUGGESTION_PROMPT).toContain("activeExerciseKey");
+    expect(WORKOUT_SUGGESTION_PROMPT).toContain("workoutPattern");
     expect(WORKOUT_SUGGESTION_PROMPT).toContain("default draft should be null");
+  });
+
+  it("records suggestion feedback with verified user attribution", async () => {
+    const inserts: unknown[] = [];
+    await recordSuggestionFeedback(
+      {
+        installId: "install-test-123",
+        suggestionId: "00000000-0000-4000-8000-000000000001",
+        suggestionType: "daily",
+        action: "thumbsDown",
+        source: "ai",
+        coarseContext: {
+          evidence: "active_exercise",
+          rawNote: "Bench 225 x 5",
+        },
+      },
+      {
+        userId: "00000000-0000-4000-8000-000000000002",
+        supabase: {
+          from: () => ({
+            insert: (row: unknown) => {
+              inserts.push(row);
+              return { error: null };
+            },
+          }),
+          auth: {
+            getUser: async () => ({ data: { user: null }, error: null }),
+          },
+        } as never,
+      },
+    );
+
+    expect(inserts[0]).toMatchObject({
+      user_id: "00000000-0000-4000-8000-000000000002",
+      suggestion_type: "daily",
+    });
+    expect(JSON.stringify(inserts[0])).not.toContain("Bench 225");
+  });
+
+  it("resolves suggestion user id from Supabase access token", async () => {
+    const userId = await userIdFromSuggestionAccessToken("access-token", {
+      supabase: {
+        auth: {
+          getUser: async (token: string) => ({
+            data: { user: { id: token === "access-token" ? "user-123" : null } },
+            error: null,
+          }),
+        },
+      } as never,
+    });
+
+    expect(userId).toBe("user-123");
   });
 });
 
@@ -330,6 +440,8 @@ describe("AI workout interpretation", () => {
       {
         noteText:
           "Email lifter@example.com\nReverse Nordic\n1 - 4\n2 - 5",
+        mode: "audit",
+        targetLines: [],
         userId: "user_123",
       },
       {

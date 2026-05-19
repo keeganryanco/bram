@@ -11,6 +11,7 @@ protocol WorkoutLocalStore: Sendable {
     func stats(for period: StatsPeriod, containing date: Date) async throws -> StatsWeekSnapshot
     func exerciseHistory(for exercise: ExerciseAnchor) async throws -> ExerciseHistorySummary
     func cardioHistory(for activityType: String) async throws -> CardioHistorySummary
+    func workoutPatternSummary(through date: Date) async throws -> WorkoutPatternSummary?
     func save(_ note: DailyWorkoutNote) async throws
     func save(_ profile: TrainingGoalsProfile) async throws
     func onboardingDraft() async throws -> OnboardingDraft
@@ -92,8 +93,18 @@ struct WorkoutInterpretationLocalSummary: Codable, Hashable, Sendable {
 }
 
 protocol WorkoutSuggestionBackendClient: Sendable {
-    func suggestions(for context: WorkoutSuggestionRequestContext) async throws -> WorkoutSuggestionResponse
-    func sendFeedback(_ feedback: SuggestionFeedback) async throws
+    func suggestions(for context: WorkoutSuggestionRequestContext, accessToken: String?) async throws -> WorkoutSuggestionResponse
+    func sendFeedback(_ feedback: SuggestionFeedback, accessToken: String?) async throws
+}
+
+extension WorkoutSuggestionBackendClient {
+    func suggestions(for context: WorkoutSuggestionRequestContext) async throws -> WorkoutSuggestionResponse {
+        try await suggestions(for: context, accessToken: nil)
+    }
+
+    func sendFeedback(_ feedback: SuggestionFeedback) async throws {
+        try await sendFeedback(feedback, accessToken: nil)
+    }
 }
 
 protocol AppleHealthWorkoutMatchingService: Sendable {
@@ -239,8 +250,13 @@ struct WorkoutSuggestionRequestContext: Hashable {
     var goals: TrainingGoalsProfile
     var currentMuscleSets: [MuscleSetMetric]
     var currentExerciseSetCounts: [String: Int]
+    var currentExerciseEffortBuckets: [String: String]
     var exerciseSummaries: [ExerciseHistorySummary]
     var cardioSummaries: [CardioHistorySummary]
+    var workoutPattern: WorkoutPatternSummary?
+    var activeExerciseKey: String?
+    var activeExerciseSetCount: Int
+    var activeExerciseLatestEffort: String?
     var readinessHint: String?
     var equipmentHint: String?
     var constraintHint: String?

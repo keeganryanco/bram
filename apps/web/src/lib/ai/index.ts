@@ -36,6 +36,8 @@ export {
   generateWorkoutSuggestionsWithAI,
   parseWorkoutSuggestionResponse,
   recordSuggestionFeedback,
+  supabaseAccessTokenFromRequest,
+  userIdFromSuggestionAccessToken,
   WorkoutSuggestionError,
 } from "./suggestions";
 export {

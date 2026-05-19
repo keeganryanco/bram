@@ -1550,6 +1550,7 @@ struct BramTests {
             goals: TrainingGoalsProfile(primaryGoal: .stronger),
             currentMuscleSets: [MuscleSetMetric(muscleGroup: "Chest", sets: 14, colorRole: .chest)],
             currentExerciseSetCounts: ["barbell_bench_press": 3],
+            currentExerciseEffortBuckets: [:],
             exerciseSummaries: [
                 ExerciseHistorySummary(
                     id: UUID(),
@@ -1564,6 +1565,10 @@ struct BramTests {
                 )
             ],
             cardioSummaries: [],
+            workoutPattern: nil,
+            activeExerciseKey: nil,
+            activeExerciseSetCount: 0,
+            activeExerciseLatestEffort: nil,
             readinessHint: nil,
             equipmentHint: nil,
             constraintHint: nil,
@@ -1587,8 +1592,13 @@ struct BramTests {
             goals: TrainingGoalsProfile(primaryGoal: .buildMuscle),
             currentMuscleSets: [MuscleSetMetric(muscleGroup: "Chest", sets: 10, colorRole: .chest)],
             currentExerciseSetCounts: [:],
+            currentExerciseEffortBuckets: [:],
             exerciseSummaries: [],
             cardioSummaries: [],
+            workoutPattern: nil,
+            activeExerciseKey: nil,
+            activeExerciseSetCount: 0,
+            activeExerciseLatestEffort: nil,
             readinessHint: nil,
             equipmentHint: nil,
             constraintHint: nil,
@@ -1629,7 +1639,7 @@ struct BramTests {
         #expect(cards.isEmpty)
     }
 
-    @Test func coachCardsDoNotShowExerciseProgressionInMainNotes() {
+    @Test func coachCardsShowActiveExerciseProgressionInMainNotes() {
         let summary = coachExerciseSummary(
             exerciseKey: "bench_press",
             displayName: "Bench Press",
@@ -1647,7 +1657,9 @@ struct BramTests {
         )
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 0, streakDays: 0, parseState: .parsed),
-            exerciseSummaries: [summary]
+            exerciseSummaries: [summary],
+            activeExerciseKey: "bench_press",
+            activeExerciseSetCount: 2
         )
 
         let cards = WorkoutCoachCardEngine.cards(
@@ -1657,8 +1669,9 @@ struct BramTests {
             phase: .typing
         )
 
-        #expect(cards.isEmpty)
-        #expect(cards.contains { $0.affectedExerciseKey == "bench_press" } == false)
+        #expect(cards.count == 1)
+        #expect(cards.first?.affectedExerciseKey == "bench_press")
+        #expect(cards.first?.title == "Next set")
     }
 
     @Test func coachCardsDoNotShowWorkoutTargetFromSameSessionMuscleCount() {
@@ -1686,6 +1699,39 @@ struct BramTests {
 
         #expect(cards.isEmpty)
         #expect(cards.contains { $0.text.contains("Most work is chest") } == false)
+    }
+
+    @Test func coachSplitPatternRequiresHighConfidenceHistory() {
+        let metrics = WorkoutMetricSnapshot(totalSets: 0, estimatedVolume: 0, prCount: 0, streakDays: 0, parseState: .parsed)
+        let weakContext = coachCardContext(
+            metrics: metrics,
+            workoutPattern: WorkoutPatternSummary(
+                label: "Biceps pattern",
+                confidence: .low,
+                workoutCount: 2,
+                matchedMuscleGroup: "Biceps",
+                matchedExerciseKeys: ["dumbbell_curls"],
+                evidence: ["pattern_low"]
+            )
+        )
+        let highContext = coachCardContext(
+            metrics: metrics,
+            workoutPattern: WorkoutPatternSummary(
+                label: "Back pattern",
+                confidence: .high,
+                workoutCount: 5,
+                matchedMuscleGroup: "Back",
+                matchedExerciseKeys: ["lat_pulldown", "row"],
+                evidence: ["pattern_high"]
+            )
+        )
+
+        let weakCards = WorkoutCoachCardEngine.cards(context: weakContext, interpretedLines: [], phase: .typing)
+        let highCards = WorkoutCoachCardEngine.cards(context: highContext, interpretedLines: [], phase: .typing)
+
+        #expect(weakCards.isEmpty)
+        #expect(highCards.first?.title == "Back pattern")
+        #expect(highCards.first?.text.localizedCaseInsensitiveContains("back") == true)
     }
 
     @Test func coachExerciseProgressionDisappearsAfterMovingToNextExercise() {
@@ -1719,7 +1765,9 @@ struct BramTests {
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 5, estimatedVolume: 900, prCount: 0, streakDays: 0, parseState: .parsed),
             exerciseSummaries: [dumbbellSummary, hammerSummary],
-            currentExerciseSetCounts: ["dumbbell_curls": 4, "hammer_curls": 1]
+            currentExerciseSetCounts: ["dumbbell_curls": 4, "hammer_curls": 1],
+            activeExerciseKey: "hammer_curls",
+            activeExerciseSetCount: 1
         )
         let lines = [
             coachAnchorLine(lineIndex: 0, exerciseKey: "dumbbell_curls", displayName: "Dumbbell curls"),
@@ -1734,10 +1782,10 @@ struct BramTests {
         )
 
         #expect(cards.contains { $0.affectedExerciseKey == "dumbbell_curls" } == false)
-        #expect(cards.isEmpty)
+        #expect(cards.first?.affectedExerciseKey == "hammer_curls")
     }
 
-    @Test func coachExerciseProgressionHidesAfterThreeCompletedSets() {
+    @Test func coachExerciseProgressionCanSuggestMovingOnAfterThreeCompletedSets() {
         let summary = coachExerciseSummary(
             exerciseKey: "dumbbell_curls",
             displayName: "Dumbbell curls",
@@ -1755,7 +1803,9 @@ struct BramTests {
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 700, prCount: 0, streakDays: 0, parseState: .parsed),
             exerciseSummaries: [summary],
-            currentExerciseSetCounts: ["dumbbell_curls": 3]
+            currentExerciseSetCounts: ["dumbbell_curls": 3],
+            activeExerciseKey: "dumbbell_curls",
+            activeExerciseSetCount: 3
         )
 
         let cards = WorkoutCoachCardEngine.cards(
@@ -1765,10 +1815,11 @@ struct BramTests {
             phase: .typing
         )
 
-        #expect(cards.isEmpty)
+        #expect(cards.first?.title == "Move on?")
+        #expect(cards.first?.affectedExerciseKey == "dumbbell_curls")
     }
 
-    @Test func coachExerciseSpecificEffortAdviceStaysOutOfMainNotes() {
+    @Test func coachExerciseSpecificEffortAdviceUsesCurrentContextInMainNotes() {
         let summary = coachExerciseSummary(
             exerciseKey: "bench_press",
             displayName: "Bench Press",
@@ -1786,7 +1837,10 @@ struct BramTests {
         )
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 0, streakDays: 0, parseState: .parsed),
-            exerciseSummaries: [summary]
+            exerciseSummaries: [summary],
+            activeExerciseKey: "bench_press",
+            activeExerciseSetCount: 1,
+            activeExerciseLatestEffort: "max"
         )
 
         let cards = WorkoutCoachCardEngine.cards(
@@ -1796,10 +1850,10 @@ struct BramTests {
             phase: .typing
         )
 
-        #expect(cards.isEmpty)
+        #expect(cards.first?.text.localizedCaseInsensitiveContains("near max") == true)
     }
 
-    @Test func coachPRCardsStayOutOfMainNotes() {
+    @Test func coachPRCardsAppearInMainNotesWhenMeaningful() {
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 1, streakDays: 0, parseState: .parsed),
             goal: .stronger,
@@ -1821,10 +1875,11 @@ struct BramTests {
             phase: .saved
         )
 
-        #expect(cards.isEmpty)
+        #expect(cards.first?.kind == .progression)
+        #expect(cards.first?.title == "Record")
     }
 
-    @Test func coachFirstRecordedExerciseBaselineStaysOutOfMainNotes() {
+    @Test func coachFirstRecordedExerciseBaselineAppearsInMainNotes() {
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 2_000, prCount: 1, streakDays: 0, parseState: .parsed),
             exerciseSummaries: [
@@ -1844,10 +1899,10 @@ struct BramTests {
             phase: .saved
         )
 
-        #expect(cards.isEmpty)
+        #expect(cards.first?.kind == .baseline)
     }
 
-    @Test func coachGoalSpecificPRAdviceStaysOutOfMainNotes() {
+    @Test func coachGoalSpecificPRAdviceAppearsInMainNotes() {
         let context = coachCardContext(
             metrics: WorkoutMetricSnapshot(totalSets: 3, estimatedVolume: 3_075, prCount: 1, streakDays: 0, parseState: .parsed),
             goal: .leaner,
@@ -1869,7 +1924,7 @@ struct BramTests {
             phase: .saved
         )
 
-        #expect(cards.isEmpty)
+        #expect(cards.first?.text.contains("match it cleanly") == true)
     }
 
     @Test func coachLowReadinessPrioritizesRecovery() {
@@ -2424,7 +2479,12 @@ struct BramTests {
         currentMuscleSets: [MuscleSetMetric] = [],
         exerciseSummaries: [ExerciseHistorySummary] = [],
         currentExerciseSetCounts: [String: Int]? = nil,
-        cardioSummaries: [CardioHistorySummary] = []
+        currentExerciseEffortBuckets: [String: String] = [:],
+        cardioSummaries: [CardioHistorySummary] = [],
+        workoutPattern: WorkoutPatternSummary? = nil,
+        activeExerciseKey: String? = nil,
+        activeExerciseSetCount: Int = 0,
+        activeExerciseLatestEffort: String? = nil
     ) -> WorkoutSuggestionRequestContext {
         WorkoutSuggestionRequestContext(
             installId: "install-test-123",
@@ -2432,8 +2492,13 @@ struct BramTests {
             goals: TrainingGoalsProfile(primaryGoal: goal),
             currentMuscleSets: currentMuscleSets,
             currentExerciseSetCounts: currentExerciseSetCounts ?? Dictionary(uniqueKeysWithValues: exerciseSummaries.map { ($0.exerciseKey, 2) }),
+            currentExerciseEffortBuckets: currentExerciseEffortBuckets,
             exerciseSummaries: exerciseSummaries,
             cardioSummaries: cardioSummaries,
+            workoutPattern: workoutPattern,
+            activeExerciseKey: activeExerciseKey,
+            activeExerciseSetCount: activeExerciseSetCount,
+            activeExerciseLatestEffort: activeExerciseLatestEffort,
             readinessHint: readiness,
             equipmentHint: nil,
             constraintHint: nil,
@@ -2625,6 +2690,7 @@ private actor MockLocalStore: WorkoutLocalStore {
     func stats(for period: StatsPeriod, containing date: Date) async throws -> StatsWeekSnapshot { BramPreviewData.stats }
     func exerciseHistory(for exercise: ExerciseAnchor) async throws -> ExerciseHistorySummary { exercise.history }
     func cardioHistory(for activityType: String) async throws -> CardioHistorySummary { CardioHistorySummary(activityType: activityType) }
+    func workoutPatternSummary(through date: Date) async throws -> WorkoutPatternSummary? { nil }
     func save(_ note: DailyWorkoutNote) async throws {}
     func save(_ profile: TrainingGoalsProfile) async throws { self.profile = profile }
     func onboardingDraft() async throws -> OnboardingDraft { draft }

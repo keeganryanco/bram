@@ -2,19 +2,26 @@ import Foundation
 
 enum SuggestionContextBuilder {
     static func build(
-        installId: String = "local-install",
+        installId: String,
         note: DailyWorkoutNote,
         result: WorkoutInterpretationResult,
         goals: TrainingGoalsProfile,
         store: any WorkoutLocalStore,
+        activeLineIndex: Int? = nil,
         recentFeedbackSummary: [String: Int] = [:]
     ) async -> WorkoutSuggestionRequestContext {
         let hints = NoteSuggestionHints(body: note.body)
         let currentMuscleSets = muscleSetMetrics(from: result.strengthSets)
         let currentExerciseSetCounts = Dictionary(grouping: result.strengthSets, by: \.exerciseKey)
             .mapValues(\.count)
+        let currentExerciseEffortBuckets = effortBuckets(from: result.strengthSets)
+        let activeExerciseKey = activeExerciseKey(
+            interpretedLines: result.lines,
+            activeLineIndex: activeLineIndex
+        )
         let exerciseSummaries = await exerciseSummaries(from: result.strengthSets, store: store, currentMuscleSets: currentMuscleSets)
         let cardioSummaries = await cardioSummaries(from: result.cardioEntries, store: store)
+        let workoutPattern = try? await store.workoutPatternSummary(through: note.date)
 
         return WorkoutSuggestionRequestContext(
             installId: installId,
@@ -22,8 +29,13 @@ enum SuggestionContextBuilder {
             goals: goals,
             currentMuscleSets: currentMuscleSets,
             currentExerciseSetCounts: currentExerciseSetCounts,
+            currentExerciseEffortBuckets: currentExerciseEffortBuckets,
             exerciseSummaries: exerciseSummaries,
             cardioSummaries: cardioSummaries,
+            workoutPattern: workoutPattern,
+            activeExerciseKey: activeExerciseKey,
+            activeExerciseSetCount: activeExerciseKey.flatMap { currentExerciseSetCounts[$0] } ?? 0,
+            activeExerciseLatestEffort: activeExerciseKey.flatMap { currentExerciseEffortBuckets[$0] },
             readinessHint: hints.readiness,
             equipmentHint: hints.equipment,
             constraintHint: hints.constraint,
@@ -87,6 +99,52 @@ enum SuggestionContextBuilder {
             summaries.append((try? await store.cardioHistory(for: entry.activityType)) ?? .placeholder(for: entry))
         }
         return summaries
+    }
+
+    private static func activeExerciseKey(
+        interpretedLines: [InterpretedWorkoutLine],
+        activeLineIndex: Int?
+    ) -> String? {
+        guard let activeLineIndex else { return nil }
+        let sortedAnchors = interpretedLines
+            .compactMap { line -> (lineIndex: Int, exerciseKey: String)? in
+                guard let key = line.exerciseAnchor?.exerciseKey else { return nil }
+                return (line.lineIndex, key)
+            }
+            .sorted { $0.lineIndex < $1.lineIndex }
+
+        guard let direct = sortedAnchors.last(where: { $0.lineIndex <= activeLineIndex }) else {
+            return nil
+        }
+        let nextAnchor = sortedAnchors.first { $0.lineIndex > direct.lineIndex }
+        guard nextAnchor == nil || activeLineIndex < nextAnchor!.lineIndex else {
+            return nil
+        }
+        return direct.exerciseKey
+    }
+
+    private static func effortBuckets(from sets: [StrengthSetRecord]) -> [String: String] {
+        Dictionary(grouping: sets.compactMap { set -> (String, String)? in
+            guard let effort = set.effort?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !effort.isEmpty
+            else { return nil }
+            return (set.exerciseKey, effortBucket(effort))
+        }, by: \.0)
+        .compactMapValues { $0.last?.1 }
+    }
+
+    private static func effortBucket(_ effort: String) -> String {
+        let lower = effort.lowercased()
+        if lower.contains("failure") || lower.contains("grinder") || lower.hasPrefix("rpe 10") || lower.hasPrefix("rir 0") {
+            return "max"
+        }
+        if lower.hasPrefix("rpe 8") || lower.hasPrefix("rpe 9") || lower.hasPrefix("rir 1") || lower.hasPrefix("rir 2") || lower == "hard" {
+            return "hard"
+        }
+        if lower == "easy" || lower.hasPrefix("rpe 6") || lower.hasPrefix("rir 3") {
+            return "easy"
+        }
+        return "moderate"
     }
 
     private static func muscleSetMetrics(from sets: [StrengthSetRecord]) -> [MuscleSetMetric] {

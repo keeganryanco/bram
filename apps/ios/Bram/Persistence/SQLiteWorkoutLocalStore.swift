@@ -449,6 +449,83 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         )
     }
 
+    func workoutPatternSummary(through date: Date) async throws -> WorkoutPatternSummary? {
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: -90, to: date) ?? date.addingTimeInterval(-90 * 86_400)
+        let startKey = Self.dayKey(for: start)
+        let endKey = Self.dayKey(for: calendar.date(byAdding: .day, value: -1, to: date) ?? date)
+        let sql = """
+        select n.workout_date, coalesce(s.muscle_group, 'Other'), s.exercise_key, count(*)
+        from workout_strength_sets s
+        join workout_notes n on n.id = s.note_id
+        where n.deleted_at is null
+          and n.workout_date between ? and ?
+        group by n.workout_date, coalesce(s.muscle_group, 'Other'), s.exercise_key
+        order by n.workout_date desc;
+        """
+
+        var dayMuscles: [String: [String: Int]] = [:]
+        var exerciseCounts: [String: Int] = [:]
+        try database.withStatement(sql) { statement in
+            try database.bind(startKey, to: 1, in: statement)
+            try database.bind(endKey, to: 2, in: statement)
+            while try database.step(statement) {
+                guard let dayKey = database.string(at: 0, in: statement),
+                      let muscle = database.string(at: 1, in: statement),
+                      let exerciseKey = database.string(at: 2, in: statement)
+                else { continue }
+                let sets = database.int(at: 3, in: statement) ?? 0
+                dayMuscles[dayKey, default: [:]][Self.macroMuscleGroup(for: muscle), default: 0] += sets
+                exerciseCounts[exerciseKey, default: 0] += sets
+            }
+        }
+
+        let workoutCount = dayMuscles.count
+        guard workoutCount >= 3 else { return nil }
+
+        let primaryMusclesByDay = dayMuscles.compactMapValues { muscles in
+            muscles.max {
+                if $0.value == $1.value { return $0.key > $1.key }
+                return $0.value < $1.value
+            }?.key
+        }
+        let muscleCounts = Dictionary(grouping: primaryMusclesByDay.values, by: { $0 }).mapValues(\.count)
+        guard let top = muscleCounts.max(by: { lhs, rhs in
+            if lhs.value == rhs.value { return lhs.key > rhs.key }
+            return lhs.value < rhs.value
+        }) else { return nil }
+
+        let ratio = Double(top.value) / Double(workoutCount)
+        let confidence: WorkoutPatternConfidence = top.value >= 3 && ratio >= 0.5 ? .high : .low
+        guard confidence == .high else {
+            return WorkoutPatternSummary(
+                label: "Building pattern",
+                confidence: confidence,
+                workoutCount: workoutCount,
+                matchedMuscleGroup: top.key,
+                matchedExerciseKeys: [],
+                evidence: ["workouts_\(workoutCount)", "pattern_low"]
+            )
+        }
+
+        let matchedExercises = exerciseCounts
+            .sorted {
+                if $0.value == $1.value { return $0.key < $1.key }
+                return $0.value > $1.value
+            }
+            .prefix(4)
+            .map(\.key)
+
+        return WorkoutPatternSummary(
+            label: "\(top.key) pattern",
+            confidence: confidence,
+            workoutCount: workoutCount,
+            matchedMuscleGroup: top.key,
+            matchedExerciseKeys: matchedExercises,
+            evidence: ["workouts_\(workoutCount)", "primary_\(top.key.lowercased())", "pattern_high"]
+        )
+    }
+
     func save(_ note: DailyWorkoutNote) async throws {
         try saveSync(note)
         var result = await interpreter.interpret(note: note)

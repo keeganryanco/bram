@@ -107,6 +107,9 @@ export const CurrentWorkoutSuggestionContextSchema = z.object({
   cardioMinutes: z.number().int().nonnegative(),
   energyBucket: z.enum(["low", "moderate", "high", "unknown"]),
   sessionKind: z.enum(["strength", "cardio", "mixed", "unknown"]).default("unknown"),
+  activeExerciseKey: z.string().min(1).max(120).nullable().optional(),
+  activeExerciseSetCount: z.number().int().nonnegative().default(0),
+  activeExerciseEffort: z.enum(["easy", "moderate", "hard", "max", "unknown"]).default("unknown"),
 });
 
 export const MuscleVolumeSuggestionContextSchema = z.object({
@@ -154,6 +157,15 @@ export const NoteHintsSuggestionContextSchema = z.object({
   sessionKind: z.enum(["strength", "cardio", "mixed", "unknown"]).default("unknown"),
 });
 
+export const WorkoutPatternSuggestionContextSchema = z.object({
+  label: z.string().min(1).max(80),
+  confidence: z.enum(["none", "low", "high"]),
+  workoutCount: z.number().int().nonnegative(),
+  matchedMuscleGroup: z.string().max(80).nullable().optional(),
+  matchedExerciseKeys: z.array(z.string().max(120)).max(8).default([]),
+  evidence: z.array(z.string().max(120)).max(6).default([]),
+});
+
 export const WorkoutSuggestionInputSchema = z.object({
   installId: z.string().min(8).max(160),
   userId: z.string().uuid().optional(),
@@ -164,6 +176,7 @@ export const WorkoutSuggestionInputSchema = z.object({
   muscleVolume: z.array(MuscleVolumeSuggestionContextSchema).max(16).default([]),
   goals: GoalsSuggestionContextSchema,
   noteHints: NoteHintsSuggestionContextSchema,
+  workoutPattern: WorkoutPatternSuggestionContextSchema.nullable().optional(),
   feedbackSummary: z.record(z.string(), z.number().int()).default({}),
 });
 

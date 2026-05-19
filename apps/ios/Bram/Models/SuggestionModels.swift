@@ -81,3 +81,22 @@ struct SuggestionFeedback: Codable, Hashable {
     var source: SuggestionSource
     var coarseContext: [String: String]
 }
+
+enum WorkoutPatternConfidence: String, Codable, Hashable {
+    case none
+    case low
+    case high
+}
+
+struct WorkoutPatternSummary: Codable, Hashable {
+    var label: String
+    var confidence: WorkoutPatternConfidence
+    var workoutCount: Int
+    var matchedMuscleGroup: String?
+    var matchedExerciseKeys: [String]
+    var evidence: [String]
+
+    var isHighConfidence: Bool {
+        confidence == .high && workoutCount >= 3
+    }
+}

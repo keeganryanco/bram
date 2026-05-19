@@ -28,11 +28,12 @@ struct BramBackendWorkoutSuggestionClient: WorkoutSuggestionBackendClient {
         )
     }
 
-    func suggestions(for context: WorkoutSuggestionRequestContext) async throws -> WorkoutSuggestionResponse {
+    func suggestions(for context: WorkoutSuggestionRequestContext, accessToken: String? = nil) async throws -> WorkoutSuggestionResponse {
         var request = URLRequest(url: baseURL.appending(path: "/api/ai/suggestions"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         applyRouteToken(to: &request)
+        applySupabaseAccessToken(accessToken, to: &request)
         request.httpBody = try JSONEncoder().encode(BackendSuggestionRequest(context: context))
 
         let (data, response) = try await session.data(for: request)
@@ -45,11 +46,12 @@ struct BramBackendWorkoutSuggestionClient: WorkoutSuggestionBackendClient {
         return decoded.workoutSuggestionResponse
     }
 
-    func sendFeedback(_ feedback: SuggestionFeedback) async throws {
+    func sendFeedback(_ feedback: SuggestionFeedback, accessToken: String? = nil) async throws {
         var request = URLRequest(url: baseURL.appending(path: "/api/ai/suggestion-feedback"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         applyRouteToken(to: &request)
+        applySupabaseAccessToken(accessToken, to: &request)
         request.httpBody = try JSONEncoder().encode(BackendSuggestionFeedback(feedback: feedback))
 
         let (_, response) = try await session.data(for: request)
@@ -64,6 +66,12 @@ struct BramBackendWorkoutSuggestionClient: WorkoutSuggestionBackendClient {
             request.setValue("Bearer \(routeToken)", forHTTPHeaderField: "Authorization")
         }
     }
+
+    private func applySupabaseAccessToken(_ accessToken: String?, to request: inout URLRequest) {
+        if let accessToken = accessToken?.nilIfBlank {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "X-Supabase-Access-Token")
+        }
+    }
 }
 
 private struct BackendSuggestionRequest: Encodable {
@@ -75,6 +83,7 @@ private struct BackendSuggestionRequest: Encodable {
     var muscleVolume: [BackendMuscleVolume]
     var goals: BackendGoalsContext
     var noteHints: BackendNoteHints
+    var workoutPattern: BackendWorkoutPattern?
     var feedbackSummary: [String: Int]
 
     init(context: WorkoutSuggestionRequestContext) {
@@ -86,6 +95,7 @@ private struct BackendSuggestionRequest: Encodable {
         muscleVolume = context.currentMuscleSets.map(BackendMuscleVolume.init)
         goals = BackendGoalsContext(context: context)
         noteHints = BackendNoteHints(context: context)
+        workoutPattern = context.workoutPattern.map(BackendWorkoutPattern.init)
         feedbackSummary = context.recentFeedbackSummary
     }
 }
@@ -96,6 +106,9 @@ private struct BackendCurrentWorkoutContext: Encodable {
     var cardioMinutes: Int
     var energyBucket: String
     var sessionKind: String
+    var activeExerciseKey: String?
+    var activeExerciseSetCount: Int
+    var activeExerciseEffort: String
 
     init(context: WorkoutSuggestionRequestContext) {
         sets = context.metrics.totalSets
@@ -109,6 +122,9 @@ private struct BackendCurrentWorkoutContext: Encodable {
             }
         } ?? "unknown"
         sessionKind = context.sessionKind
+        activeExerciseKey = context.activeExerciseKey
+        activeExerciseSetCount = context.activeExerciseSetCount
+        activeExerciseEffort = context.activeExerciseLatestEffort ?? "unknown"
     }
 }
 
@@ -151,6 +167,24 @@ private struct BackendNoteHints: Encodable {
         constraint = context.constraintHint ?? "none"
         cardioIntent = context.cardioIntent ?? "none"
         sessionKind = context.sessionKind
+    }
+}
+
+private struct BackendWorkoutPattern: Encodable {
+    var label: String
+    var confidence: String
+    var workoutCount: Int
+    var matchedMuscleGroup: String?
+    var matchedExerciseKeys: [String]
+    var evidence: [String]
+
+    init(summary: WorkoutPatternSummary) {
+        label = summary.label
+        confidence = summary.confidence.rawValue
+        workoutCount = summary.workoutCount
+        matchedMuscleGroup = summary.matchedMuscleGroup
+        matchedExerciseKeys = summary.matchedExerciseKeys
+        evidence = summary.evidence
     }
 }
 
@@ -223,11 +257,15 @@ private struct BackendSuggestionPayload: Decodable {
 private struct BackendDailySuggestion: Decodable {
     var type: String
     var text: String
+    var affectedExerciseKey: String?
+    var affectedCardioKey: String?
 
     var workoutSuggestion: WorkoutSuggestion {
         WorkoutSuggestion(
             kind: WorkoutSuggestionKind(rawValue: type.capitalized) ?? .reminder,
-            text: text
+            text: text,
+            affectedExerciseKey: affectedExerciseKey,
+            affectedCardioKey: affectedCardioKey
         )
     }
 }

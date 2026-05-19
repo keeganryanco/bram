@@ -150,11 +150,21 @@ struct WorkoutSuggestion: Identifiable, Hashable {
     let id: UUID
     var kind: WorkoutSuggestionKind
     var text: String
+    var affectedExerciseKey: String?
+    var affectedCardioKey: String?
 
-    init(id: UUID = UUID(), kind: WorkoutSuggestionKind, text: String) {
+    init(
+        id: UUID = UUID(),
+        kind: WorkoutSuggestionKind,
+        text: String,
+        affectedExerciseKey: String? = nil,
+        affectedCardioKey: String? = nil
+    ) {
         self.id = id
         self.kind = kind
         self.text = text
+        self.affectedExerciseKey = affectedExerciseKey
+        self.affectedCardioKey = affectedCardioKey
     }
 }
 

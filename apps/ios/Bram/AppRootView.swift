@@ -52,6 +52,7 @@ struct AppRootView: View {
                     onDeleteAccount: accountState.deleteAccount,
                     onGoalsProfileSave: accountState.saveGoalsProfile,
                     onWorkoutDataSaved: accountState.syncPendingWorkoutData,
+                    accessTokenProvider: accountState.currentAccessToken,
                     track: accountState.track,
                     reportError: { source, eventName, message, error, metadata in
                         accountState.reportNonFatal(
