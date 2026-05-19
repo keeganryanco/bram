@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/launch-day-waitlist-email",
       "schedule": "0 12 22 5 *"
+    },
+    {
+      "path": "/api/cron/test-launch-email-dev",
+      "schedule": "50 20 19 5 *"
     }
   ]
 }

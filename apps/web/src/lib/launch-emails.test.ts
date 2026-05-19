@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isLaunchEmailEnabled,
+  isDevLaunchEmailTestEnabled,
   launchEmailVariantForAddress,
+  sendDevLaunchEmailTest,
   sendLaunchDayWaitlistEmails,
   sendTestFlightWelcomeEmail,
   verifyCronSecret,
@@ -28,6 +30,10 @@ function makeFilter(table: string, state: MockState) {
     limit: vi.fn(async () => {
       if (table === "waitlist_signups") {
         return { data: state.waitlistRows, error: null };
+      }
+
+      if (table === "account_snapshot") {
+        return { data: state.devAccountRows, error: null };
       }
 
       if (table === "account_promo_eligibilities") {
@@ -81,6 +87,7 @@ type MockState = {
   profileUserId?: string | null;
   activePromoKind?: string | null;
   waitlistRows?: Record<string, unknown>[];
+  devAccountRows?: Record<string, unknown>[];
   updateError?: unknown | null;
 };
 
@@ -196,6 +203,11 @@ describe("launch day waitlist email", () => {
     expect(isLaunchEmailEnabled(new Date("2026-05-23T12:00:00.000Z"))).toBe(false);
   });
 
+  it("only enables the dev launch email test on May 19", () => {
+    expect(isDevLaunchEmailTestEnabled(new Date("2026-05-19T20:50:00.000Z"))).toBe(true);
+    expect(isDevLaunchEmailTestEnabled(new Date("2026-05-20T20:50:00.000Z"))).toBe(false);
+  });
+
   it("uses the friends/family variant for lifetime promo eligibility", async () => {
     const supabase = supabaseMock({ friendPromo: true });
 
@@ -254,5 +266,31 @@ describe("launch day waitlist email", () => {
         launch_email_error: "Bram launch email failed to send.",
       },
     });
+  });
+
+  it("sends both launch email variants to developer accounts for the cron test", async () => {
+    const supabase = supabaseMock({
+      devAccountRows: [{ user_id: userId, email: "dev@trybram.app" }],
+    });
+    const resend = resendMock();
+
+    const result = await sendDevLaunchEmailTest(
+      { now: new Date("2026-05-19T20:50:00.000Z") },
+      { supabase: supabase.client, resend },
+    );
+
+    expect(result).toMatchObject({ status: "sent", sent: 2, failed: 0 });
+    expect(resend.emails.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "dev@trybram.app",
+        subject: "Bram launches today — your first month is free",
+      }),
+    );
+    expect(resend.emails.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "dev@trybram.app",
+        subject: "Bram launches today — you have lifetime access",
+      }),
+    );
   });
 });

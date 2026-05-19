@@ -3,6 +3,7 @@ import { Resend } from "resend";
 
 const testFlightWelcomeEventKey = "testflight_welcome_2026_05";
 const launchTargetDate = "2026-05-22";
+const devLaunchTestTargetDate = "2026-05-19";
 
 type SendEmailValues = {
   from: string;
@@ -21,7 +22,7 @@ type ResendLike = {
 type QueryResult<T> = Promise<{ data: T; error: unknown | null }>;
 
 type SupabaseFilter = {
-  eq: (column: string, value: string) => SupabaseFilter;
+  eq: (column: string, value: string | boolean) => SupabaseFilter;
   in: (column: string, values: string[]) => SupabaseFilter;
   is: (column: string, value: null) => SupabaseFilter;
   order: (column: string, options?: { ascending?: boolean }) => SupabaseFilter;
@@ -378,6 +379,31 @@ async function sendLaunchEmail(
   }
 }
 
+async function sendIdempotentLaunchEmail(
+  values: {
+    userId: string;
+    email: string;
+    variant: LaunchEmailVariant;
+    eventKey: string;
+    metadata?: Record<string, unknown>;
+  },
+  clients: { supabase: SupabaseEmailClient; resend: ResendLike },
+) {
+  if (await existingEmailEvent(clients.supabase, values.userId, values.eventKey)) {
+    return "duplicate" as const;
+  }
+
+  await sendLaunchEmail(values.email, values.variant, clients.resend);
+  await recordEmailEvent(clients.supabase, {
+    userId: values.userId,
+    email: values.email,
+    eventKey: values.eventKey,
+    metadata: values.metadata,
+  });
+
+  return "sent" as const;
+}
+
 function parseBatchSize(value: string | undefined) {
   const parsed = value ? Number.parseInt(value, 10) : 100;
   if (!Number.isFinite(parsed)) {
@@ -397,6 +423,10 @@ export function isLaunchEmailEnabled(now = new Date()) {
     process.env.LAUNCH_DAY_EMAIL_ENABLED === "true" &&
     now.toISOString().slice(0, 10) === launchTargetDate
   );
+}
+
+export function isDevLaunchEmailTestEnabled(now = new Date()) {
+  return now.toISOString().slice(0, 10) === devLaunchTestTargetDate;
 }
 
 export async function sendLaunchDayWaitlistEmails(
@@ -463,6 +493,76 @@ export async function sendLaunchDayWaitlistEmails(
           .from("waitlist_signups")
           .update({ launch_email_error: message })
           .eq("id", id);
+      }
+    }
+  }
+
+  return {
+    status: options.dryRun ? ("dry-run" as const) : ("sent" as const),
+    sent,
+    failed,
+    skipped,
+  };
+}
+
+export async function sendDevLaunchEmailTest(
+  options: { dryRun?: boolean; now?: Date } = {},
+  clients: LaunchEmailClients = {},
+) {
+  if (!isDevLaunchEmailTestEnabled(options.now)) {
+    return { status: "disabled" as const, sent: 0, failed: 0, skipped: 0 };
+  }
+
+  const supabase = clients.supabase ?? getSupabaseAdmin();
+  const resend = clients.resend ?? getResend();
+  const batchSize = parseBatchSize(process.env.LAUNCH_EMAIL_BATCH_SIZE);
+  const { data, error } = await supabase
+    .from("account_snapshot")
+    .select("user_id,email")
+    .eq("is_developer", true)
+    .limit(batchSize);
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    const userId = typeof row.user_id === "string" ? row.user_id : null;
+    const email = typeof row.email === "string" ? row.email.toLowerCase() : null;
+    if (!userId || !email) {
+      skipped += 1;
+      continue;
+    }
+
+    for (const variant of ["WAITLIST_1MONTH", "FRIENDS_LIFETIME"] as const) {
+      try {
+        if (!options.dryRun) {
+          const eventKey = `launch_email_test_dev_2026_05_19_${variant.toLowerCase()}`;
+          const result = await sendIdempotentLaunchEmail(
+            {
+              userId,
+              email,
+              variant,
+              eventKey,
+              metadata: { route: "test-launch-email-dev" },
+            },
+            { supabase, resend },
+          );
+
+          if (result === "duplicate") {
+            skipped += 1;
+            continue;
+          }
+        }
+        sent += 1;
+      } catch (error) {
+        console.error("dev_launch_email_test_failed", { email, variant, error });
+        failed += 1;
       }
     }
   }
