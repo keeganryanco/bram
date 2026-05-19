@@ -50,6 +50,7 @@ targets:
               - app.trybram.Bram
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
+        ITSAppUsesNonExemptEncryption: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:

@@ -49,6 +49,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Bram reads workouts, active energy, heart rate, distance, and bodyweight to connect workout notes to progress.</string>
 	<key>UIAppFonts</key>
