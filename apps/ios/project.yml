@@ -50,12 +50,14 @@ targets:
               - app.trybram.Bram
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
+        UIRequiresFullScreen: true
         ITSAppUsesNonExemptEncryption: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:
           - UIInterfaceOrientationPortrait
         NSHealthShareUsageDescription: Bram reads workouts, active energy, heart rate, distance, and bodyweight to connect workout notes to progress.
+        NSHealthUpdateUsageDescription: Bram can save workout updates to Apple Health when you choose to connect Health-backed workout data.
         UIAppFonts:
           - AdobeCaslonPro-Regular.otf
           - AdobeCaslonPro-Semibold.otf

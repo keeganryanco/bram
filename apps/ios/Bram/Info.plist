@@ -53,6 +53,8 @@
 	<false/>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Bram reads workouts, active energy, heart rate, distance, and bodyweight to connect workout notes to progress.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Bram can save workout updates to Apple Health when you choose to connect Health-backed workout data.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AdobeCaslonPro-Regular.otf</string>
@@ -70,6 +72,8 @@
 	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
