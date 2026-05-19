@@ -107,6 +107,15 @@ function getSendError(result: unknown) {
   return null;
 }
 
+function isMissingSchemaCacheTableError(error: unknown) {
+  return (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "PGRST205"
+  );
+}
+
 function emailShell(preview: string, heading: string, body: string) {
   return `<!doctype html>
 <html>
@@ -209,6 +218,11 @@ async function existingEmailEvent(
     .maybeSingle();
 
   if (error) {
+    if (isMissingSchemaCacheTableError(error)) {
+      console.error("account_email_events_missing_for_idempotency", error);
+      return false;
+    }
+
     throw error;
   }
 
@@ -232,6 +246,11 @@ async function recordEmailEvent(
   });
 
   if (error) {
+    if (isMissingSchemaCacheTableError(error)) {
+      console.error("account_email_events_missing_for_recording", error);
+      return;
+    }
+
     throw error;
   }
 }

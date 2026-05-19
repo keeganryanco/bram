@@ -38,7 +38,16 @@ function makeFilter(table: string, state: MockState) {
     }),
     maybeSingle: vi.fn(async () => {
       if (table === "account_email_events") {
-        return { data: state.existingEmailEvent ? { id: "event_1" } : null, error: null };
+        return {
+          data: state.existingEmailEvent ? { id: "event_1" } : null,
+          error: state.emailEventMissing
+            ? {
+                code: "PGRST205",
+                message:
+                  "Could not find the table 'public.account_email_events' in the schema cache",
+              }
+            : null,
+        };
       }
 
       if (table === "profiles") {
@@ -67,6 +76,7 @@ function makeFilter(table: string, state: MockState) {
 
 type MockState = {
   existingEmailEvent?: boolean;
+  emailEventMissing?: boolean;
   friendPromo?: boolean;
   profileUserId?: string | null;
   activePromoKind?: string | null;
@@ -84,7 +94,16 @@ function supabaseMock(state: MockState = {}) {
         select: vi.fn(() => makeFilter(table, state)),
         insert: vi.fn(async (values: Record<string, unknown>) => {
           inserts.push({ table, values });
-          return { error: null };
+          return {
+            error:
+              state.emailEventMissing && table === "account_email_events"
+                ? {
+                    code: "PGRST205",
+                    message:
+                      "Could not find the table 'public.account_email_events' in the schema cache",
+                  }
+                : null,
+          };
         }),
         update: vi.fn((values: Record<string, unknown>) => ({
           eq: vi.fn(async (...eq: unknown[]) => {
@@ -144,6 +163,19 @@ describe("TestFlight welcome email", () => {
     expect(result.status).toBe("duplicate");
     expect(resend.emails.send).not.toHaveBeenCalled();
     expect(supabase.inserts).toHaveLength(0);
+  });
+
+  it("still sends when the email event table has not been migrated yet", async () => {
+    const supabase = supabaseMock({ emailEventMissing: true });
+    const resend = resendMock();
+
+    const result = await sendTestFlightWelcomeEmail(
+      { userId, email: "tester@trybram.app" },
+      { supabase: supabase.client, resend },
+    );
+
+    expect(result.status).toBe("sent");
+    expect(resend.emails.send).toHaveBeenCalledTimes(1);
   });
 });
 
