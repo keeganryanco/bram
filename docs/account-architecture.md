@@ -86,6 +86,7 @@ Server grants use `POST /api/admin/account-grants`, protected by `BRAM_ADMIN_GRA
 - `POST /api/account/redeem-promo` lets the iOS paywall submit a public Bram code. `TESTFLIGHT1MONTH` and `PRODUCTHUNT1MONTH` can be redeemed by any signed-in account; `FOUNDER1MONTH` requires the account or matching waitlist email to be founder eligible.
 - `account_promo_eligibilities` is for account-specific pre-grants, not required for public code redemption. On account bootstrap, the app calls `apply_best_available_promo()` so Supabase can automatically apply the best unredeemed eligibility for that account. Precedence is friends discount, founder lifetime, founder month, Product Hunt month, then TestFlight month.
 - Apple/RevenueCat offer codes remain the public App Store campaign path later; Bram-owned grants are the controllable prelaunch path.
+- `account_email_events` records service-role-only lifecycle email sends. Redeeming `TESTFLIGHT1MONTH` sends the branded TestFlight welcome email once and records `testflight_welcome_2026_05`; the app never sends Resend email directly.
 
 ### Promo/founder AI budget
 

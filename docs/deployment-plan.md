@@ -42,8 +42,11 @@ Waitlist:
 - `LINEAR_TEAM_ID`
 - `LINEAR_SUPPORT_PROJECT_ID` optional
 - `LINEAR_SUPPORT_LABEL_IDS` optional
+- `CRON_SECRET`
+- `LAUNCH_DAY_EMAIL_ENABLED`
+- `LAUNCH_EMAIL_BATCH_SIZE` optional
 
-Current status: production has `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API`, `RESEND_FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL`, `LINEAR_TEAM_ID`, and `LINEAR_SUPPORT_PROJECT_ID` configured. `NEXT_PUBLIC_SITE_URL` should be `https://www.trybram.app` so password recovery links do not lose auth fragments through the apex-domain redirect. `LINEAR_API_KEY` is still required before support requests can mirror into Linear. `WAITLIST_NOTIFY_EMAIL` is still optional.
+Current status: production has `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API`, `RESEND_FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL`, `LINEAR_TEAM_ID`, and `LINEAR_SUPPORT_PROJECT_ID` configured. `NEXT_PUBLIC_SITE_URL` should be `https://www.trybram.app` so password recovery links do not lose auth fragments through the apex-domain redirect. `LINEAR_API_KEY` is still required before support requests can mirror into Linear. `WAITLIST_NOTIFY_EMAIL` is still optional. `CRON_SECRET` and `LAUNCH_DAY_EMAIL_ENABLED=true` are required before the May 22 launch-day waitlist email can run.
 
 Linear support intake:
 

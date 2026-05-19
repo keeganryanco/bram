@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { grantAccountAccess } from "./account-grants";
+import { sendTestFlightWelcomeEmail } from "./launch-emails";
 import { fetchAccountSnapshot } from "./revenuecat";
 
 const PromoCodeSchema = z
@@ -25,6 +26,17 @@ const promoCodes = {
 
 type PromoCode = keyof typeof promoCodes;
 
+type SupabasePromoFilter = {
+  eq: (column: string, value: string | boolean) => SupabasePromoFilter;
+  in: (column: string, values: string[]) => SupabasePromoFilter;
+  is: (column: string, value: null) => SupabasePromoFilter;
+  or: (filters: string) => SupabasePromoFilter;
+  order: (column: string, options?: { ascending?: boolean }) => SupabasePromoFilter;
+  limit: (count: number) => Promise<{ data: Record<string, unknown>[] | null; error: unknown | null }>;
+  maybeSingle: () => Promise<{ data: Record<string, unknown> | null; error: unknown | null }>;
+  single: () => Promise<{ data: Record<string, unknown> | null; error: unknown | null }>;
+};
+
 type SupabasePromoClient = {
   auth: {
     getUser: (
@@ -32,18 +44,7 @@ type SupabasePromoClient = {
     ) => Promise<{ data: { user: { id: string } | null }; error: unknown | null }>;
   };
   from: (table: string) => {
-    select: (columns?: string) => {
-      eq: (column: string, value: string) => {
-        single: () => Promise<{ data: Record<string, unknown> | null; error: unknown | null }>;
-        eq: (column: string, value: string) => {
-          limit: (count: number) => Promise<{ data: Record<string, unknown>[] | null; error: unknown | null }>;
-        };
-        or: (filters: string) => {
-          limit: (count: number) => Promise<{ data: Record<string, unknown>[] | null; error: unknown | null }>;
-        };
-        limit: (count: number) => Promise<{ data: Record<string, unknown>[] | null; error: unknown | null }>;
-      };
-    };
+    select: (columns?: string) => SupabasePromoFilter;
     update: (values: Record<string, unknown>) => {
       eq: (column: string, value: string) => Promise<{ error: unknown | null }>;
     };
@@ -52,6 +53,18 @@ type SupabasePromoClient = {
       options?: { onConflict?: string; ignoreDuplicates?: boolean },
     ) => Promise<{ error: unknown | null }>;
     insert: (values: Record<string, unknown>) => Promise<{ error: unknown | null }>;
+  };
+};
+
+type ResendLike = {
+  emails: {
+    send: (values: {
+      from: string;
+      to: string;
+      subject: string;
+      text: string;
+      html?: string;
+    }) => Promise<unknown>;
   };
 };
 
@@ -135,7 +148,7 @@ async function hasFounderEligibility(
 export async function redeemPromoCodeForToken(
   accessToken: string,
   rawCode: string,
-  clients: { supabase?: SupabasePromoClient } = {},
+  clients: { supabase?: SupabasePromoClient; resend?: ResendLike } = {},
 ) {
   const code = PromoCodeSchema.parse(rawCode);
   assertKnownPromo(code);
@@ -166,6 +179,17 @@ export async function redeemPromoCodeForToken(
     },
     { supabase },
   );
+
+  if (code === "TESTFLIGHT1MONTH") {
+    try {
+      await sendTestFlightWelcomeEmail(
+        { userId, email },
+        { supabase, resend: clients.resend },
+      );
+    } catch (error) {
+      console.error("testflight_welcome_email_failed", error);
+    }
+  }
 
   return fetchAccountSnapshot(supabase, userId);
 }

@@ -18,6 +18,8 @@ Manual checks:
 - Invalid email returns a clear error.
 - Duplicate email returns a clear already-on-waitlist message.
 - New waitlist signup sends the branded Resend welcome email and records `welcome_email_sent_at`.
+- `TESTFLIGHT1MONTH` redemption sends the branded TestFlight welcome email once and records `account_email_events`.
+- Launch-day waitlist cron rejects missing/wrong `CRON_SECRET`, sends the correct waitlist or friends/family variant, and marks rows with `launch_email_sent_at`.
 - Privacy and terms pages load.
 - Contact link opens `mailto:support@trybram.app`.
 
