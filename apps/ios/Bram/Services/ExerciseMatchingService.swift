@@ -29,6 +29,8 @@ struct DefaultExerciseMatchingService: ExerciseMatchingService {
         "hanging leg raises": "hanging_leg_raise",
         "hanging leg raise": "hanging_leg_raise",
         "db press": "dumbbell_press",
+        "incline curl": "incline_dumbbell_curl",
+        "incline curls": "incline_dumbbell_curl",
         "incline hammer curl": "incline_hammer_curl",
         "cable pullover": "cable_pullover",
         "calf raise": "calf_raise",

@@ -204,13 +204,11 @@ struct HomeView: View {
         }
         .onChange(of: note.body) { _, _ in
             scheduleDraftInterpretation()
-            scheduleBackendInterpretation()
             scheduleAutosave()
         }
         .onChange(of: activeNoteLineIndex) { _, _ in
             guard isEditingNote else { return }
             scheduleDraftInterpretation()
-            scheduleBackendInterpretation()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .inactive || phase == .background {
@@ -433,6 +431,9 @@ struct HomeView: View {
                 note.suggestion = suggestion ?? note.suggestion
                 note.parsedSummary = nil
                 applyCoachCards(cards, phase: .typing)
+                if shouldRunBackendInterpretation(for: draft, localResult: result) {
+                    scheduleBackendInterpretation()
+                }
                 scheduleBackendCoachCards(context: context, interpretedLines: result.lines, phase: .typing)
             }
         }
@@ -1038,6 +1039,44 @@ struct HomeView: View {
             "cardio_minutes_bucket": countBucket(note.metrics.cardioMinutes),
             "has_pr": note.metrics.prCount > 0 ? "true" : "false"
         ]
+    }
+
+    private func shouldRunBackendInterpretation(
+        for note: DailyWorkoutNote,
+        localResult: WorkoutInterpretationResult
+    ) -> Bool {
+        guard backendInterpreter != nil else { return false }
+        let interpretedLineIndexes = Set(localResult.lines.map(\.lineIndex))
+        let rawLines = note.body
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+
+        return rawLines.enumerated().contains { index, rawLine in
+            let trimmed = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, interpretedLineIndexes.contains(index) == false else { return false }
+            return Self.looksLikeUnresolvedWorkoutLine(trimmed)
+        }
+    }
+
+    private static func looksLikeUnresolvedWorkoutLine(_ line: String) -> Bool {
+        let lower = line.lowercased()
+        if lower.count < 5 { return false }
+        if lower.contains("@") { return false }
+        if lower.range(of: #"^\s*[a-z]{3,9}\s+\d{1,2}\b"#, options: .regularExpression) != nil {
+            return false
+        }
+
+        let hasTrainingTerm = [
+            "bench", "press", "squat", "deadlift", "curl", "row", "raise",
+            "run", "ran", "jog", "walk", "bike", "cycle", "rowed", "cardio",
+            "set", "sets", "reps", "rpe", "rir", "failure"
+        ].contains { lower.contains($0) }
+        let hasTrainingNumber = lower.range(
+            of: #"\b\d+(?:\.\d+)?\s*(?:x|for|min|mins|minutes|mi|mile|miles|km|k|lb|lbs|s\b)"#,
+            options: .regularExpression
+        ) != nil
+
+        return hasTrainingTerm && hasTrainingNumber
     }
 
     private func setWorkoutRemindersEnabled(_ isEnabled: Bool) async -> Bool {

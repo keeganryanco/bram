@@ -18,7 +18,7 @@ Core line: `Write your workout. Bram tracks the rest.`
 6. Bram updates progress history.
 7. Bram provides one useful suggestion when it adds clarity.
 
-Interpretation should be layered: local heuristics provide the immediate draft while typing, and the server AI pass resolves ambiguous/freeform notes in the background. A future correction layer should let users fix an exercise match or set interpretation once and have Bram remember it.
+Interpretation should be layered: local heuristics provide the immediate draft while typing, and the server AI pass resolves workout-like lines that local parsing leaves ambiguous. Bram should understand common lifter shorthand locally, including block sets like `Bench 185 3x8`, set rows like `1 - 185 for 8`, dumbbell shorthand like `incline curls 70s for 10`, effort cues like `RPE 8` or `to failure`, and cardio like `15 min jog 1 mile`. A future correction layer should let users fix an exercise match or set interpretation once and have Bram remember it.
 
 Suggestions should stay in calm category-labeled cards rather than being auto-inserted into the user's note. The home screen should show at most one daily suggestion, while exercise and cardio detail sheets can show more specific recommendations. Suggestion quality should come primarily from structured context: exercise history, current muscle volume, cardio, goals, readiness/equipment hints, and feedback signals.
 

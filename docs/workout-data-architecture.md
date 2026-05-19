@@ -87,13 +87,13 @@ Exercise matching uses a hybrid path:
 
 - deterministic cleanup first
 - user-owned aliases next
-- backend AI suggestions only when a match is ambiguous
+- backend AI interpretation only for workout-like lines that local parsing leaves unresolved
 
 The first PR rule uses Epley estimated 1RM:
 
 `estimated1RM = load * (1 + reps / 30)`
 
-Cardio parsing uses the same layered rule. Local parsing should catch obvious text immediately, including distance-only entries like `1 mile run`. The AI background pass should handle ambiguous cases, multiple workouts logged together, and after-the-fact notes where the local duration estimate may be weak.
+Cardio parsing uses the same layered rule. Local parsing should catch obvious text immediately, including distance-only entries like `1 mile run` and combined duration/distance notes like `15 min jog 1 mile`. The AI background pass should handle ambiguous cases, multiple workouts logged together, and after-the-fact notes where the local duration estimate may be weak.
 
 ## Apple Health Local Foundation
 

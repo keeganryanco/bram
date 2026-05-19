@@ -1268,6 +1268,41 @@ struct BramTests {
         #expect(result.lines.first?.detailText.contains("Effort:") == true)
     }
 
+    @Test func heuristicInterpreterParsesDumbbellNaturalShorthand() async throws {
+        let note = DailyWorkoutNote(
+            date: Date(timeIntervalSince1970: 1_800_000_000),
+            body: "incline curls 70s for 10"
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let set = try #require(result.strengthSets.first)
+        let line = try #require(result.lines.first)
+
+        #expect(set.exerciseKey == "incline_dumbbell_curl")
+        #expect(set.load == 70)
+        #expect(set.reps == 10)
+        #expect(result.metrics.totalSets == 1)
+        #expect(line.segments.first?.kind == .exerciseAnchor)
+        #expect(line.segments.first?.text == "incline curls")
+        #expect(line.segments.contains { $0.kind == .metric && $0.text == "70 x 10" })
+    }
+
+    @Test func heuristicInterpreterParsesJogWithDurationAndDistance() async throws {
+        let note = DailyWorkoutNote(
+            date: Date(timeIntervalSince1970: 1_800_000_000),
+            body: "15 min jog 1 mile"
+        )
+
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: note)
+        let cardio = try #require(result.cardioEntries.first)
+
+        #expect(cardio.activityType == "Running")
+        #expect(cardio.durationMinutes == 15)
+        #expect(cardio.distance == 1)
+        #expect(cardio.distanceUnit == "mi")
+        #expect(result.metrics.cardioMinutes == 15)
+    }
+
     @Test func sqliteWorkoutStoreSurfacesEffortInExerciseHistory() async throws {
         let path = FileManager.default.temporaryDirectory
             .appendingPathComponent("BramExerciseEffortHistoryTests-\(UUID().uuidString).sqlite")

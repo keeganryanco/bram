@@ -363,6 +363,10 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
     private func strengthSignal(in line: String) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, metricText: String, detail: String, confidence: Double)? {
         let lower = line.lowercased()
         let isPR = lower.contains("pr") || lower.contains("personal record")
+        if let shorthand = dumbbellShorthandSignal(in: line, lower: lower, isPR: isPR) {
+            return shorthand
+        }
+
         guard let match = firstMatch(#"(\d+)\s*[xX]\s*(\d+)"#, in: line) else {
             return nil
         }
@@ -378,6 +382,28 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
             ? "Bram read this as \(sets) sets of \(reps) at about \(load) lb."
             : "Bram read this as \(sets) sets of \(reps). Load can be added naturally in the note."
         return (exerciseName, max(sets, 1), reps, load, volume, isPR, effort, metricText, detail, load > 0 ? 0.82 : 0.68)
+    }
+
+    private func dumbbellShorthandSignal(
+        in line: String,
+        lower: String,
+        isPR: Bool
+    ) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, metricText: String, detail: String, confidence: Double)? {
+        guard let match = firstMatch(#"\b(\d+(?:\.\d+)?)\s*s\b(?:\s*(?:lb|lbs|pounds?))?(?:\s*(?:each|ea|per side|dumbbells?|dbs?))?\s*(?:for|x)\s*(\d+)\b"#, in: lower),
+              let loadValue = Double(match[1]),
+              let reps = Int(match[2])
+        else {
+            return nil
+        }
+
+        let load = Int(loadValue.rounded())
+        let exerciseName = exerciseName(before: match[0], in: line)
+        guard isLikelyExerciseName(exerciseName) else { return nil }
+
+        let effort = effortSignal(in: line)
+        let metricText = "\(load) x \(reps)"
+        let detail = "Bram read this as one set of \(reps) with \(load) lb dumbbells."
+        return (exerciseName, 1, reps, load, load * reps, isPR, effort, metricText, detail, 0.78)
     }
 
     private func setLineSignal(in line: String, exerciseName: String, fallbackEffort: String? = nil) -> StrengthSetRecord? {
@@ -534,7 +560,7 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         confidence: Double
     )? {
         let lower = line.lowercased()
-        let cardioWords = ["run", "ran", "walk", "bike", "cycle", "row", "stair", "elliptical", "cardio", "treadmill"]
+        let cardioWords = ["run", "ran", "jog", "jogged", "jogging", "walk", "bike", "cycle", "row", "stair", "elliptical", "cardio", "treadmill"]
         guard cardioWords.contains(where: lower.contains) else { return nil }
         let activity = cardioActivityType(in: lower)
         let explicitMinutes = explicitCardioMinutes(in: lower)
@@ -666,6 +692,30 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
                 .nilIfEmpty ?? "Exercise"
         }
         return String(text[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Exercise"
+    }
+
+    private func exerciseName(before marker: String, in text: String) -> String {
+        guard let range = text.range(of: marker, options: [.caseInsensitive]) else {
+            return text.components(separatedBy: CharacterSet.decimalDigits).first?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .nilIfEmpty ?? "Exercise"
+        }
+        return String(text[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Exercise"
+    }
+
+    private func isLikelyExerciseName(_ name: String) -> Bool {
+        let normalized = name
+            .lowercased()
+            .replacingOccurrences(of: #"[^a-z\s]"#, with: " ", options: .regularExpression)
+            .split(separator: " ")
+        guard !normalized.isEmpty else { return false }
+        return normalized.contains { token in
+            [
+                "bench", "press", "squat", "deadlift", "curl", "curls", "row",
+                "raise", "raises", "fly", "flies", "extension", "pullover",
+                "pulldown", "lunge", "lunges", "dip", "dips", "pushup", "pullup"
+            ].contains(String(token))
+        }
     }
 }
 
