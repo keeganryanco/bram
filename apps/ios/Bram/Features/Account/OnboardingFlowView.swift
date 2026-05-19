@@ -7,15 +7,21 @@ struct OnboardingFlowView: View {
     let saveProgress: (OnboardingDraft, TrainingGoalsProfile) async -> Void
     let complete: (String, TrainingGoalsProfile) async -> Void
     let signOut: () async -> Void
-    let requestHealthAccess: () async -> Void
+    let requestHealthAccess: () async -> HealthAuthorizationState
     let requestNotificationAccess: () async -> Void
     let trackStepViewed: (OnboardingStep) -> Void
     let trackStepCompleted: (OnboardingStep, TrainingGoalsProfile) -> Void
+    private let healthService: any AppleHealthProviding
 
     @State private var draft: OnboardingDraft
     @State private var profile: TrainingGoalsProfile
     @State private var currentWeightText: String
     @State private var targetWeightText: String
+    @State private var healthAuthorizationState: HealthAuthorizationState
+    @State private var onboardingHealthMetric: HealthDailyMetric?
+    @State private var onboardingHealthWorkouts: [HealthWorkoutSample] = []
+    @State private var isLoadingOnboardingHealth = false
+    @State private var didRequestHealthThisStep = false
 
     init(
         account: SettingsAccountState,
@@ -24,8 +30,9 @@ struct OnboardingFlowView: View {
         saveProgress: @escaping (OnboardingDraft, TrainingGoalsProfile) async -> Void,
         complete: @escaping (String, TrainingGoalsProfile) async -> Void,
         signOut: @escaping () async -> Void,
-        requestHealthAccess: @escaping () async -> Void = {},
+        requestHealthAccess: @escaping () async -> HealthAuthorizationState = { .notRequested },
         requestNotificationAccess: @escaping () async -> Void = {},
+        healthService: any AppleHealthProviding = AppleHealthService(),
         trackStepViewed: @escaping (OnboardingStep) -> Void = { _ in },
         trackStepCompleted: @escaping (OnboardingStep, TrainingGoalsProfile) -> Void = { _, _ in }
     ) {
@@ -37,6 +44,7 @@ struct OnboardingFlowView: View {
         self.signOut = signOut
         self.requestHealthAccess = requestHealthAccess
         self.requestNotificationAccess = requestNotificationAccess
+        self.healthService = healthService
         self.trackStepViewed = trackStepViewed
         self.trackStepCompleted = trackStepCompleted
         var resumableDraft = initialDraft
@@ -47,6 +55,7 @@ struct OnboardingFlowView: View {
         _profile = State(initialValue: initialProfile.sanitized)
         _currentWeightText = State(initialValue: Self.text(for: initialProfile.currentWeightValue))
         _targetWeightText = State(initialValue: Self.text(for: initialProfile.targetWeightValue))
+        _healthAuthorizationState = State(initialValue: healthService.authorizationState())
     }
 
     var body: some View {
@@ -66,6 +75,12 @@ struct OnboardingFlowView: View {
         }
         .task(id: draft.step) {
             trackStepViewed(draft.step)
+            if draft.step == .appleHealth {
+                healthAuthorizationState = healthService.authorizationState()
+                if healthAuthorizationState.isConnectedLike {
+                    await loadOnboardingHealthSnapshot()
+                }
+            }
         }
     }
 
@@ -138,7 +153,7 @@ struct OnboardingFlowView: View {
             Button {
                 Task { await continueTapped() }
             } label: {
-                Text("Continue")
+                Text(footerTitle)
                     .font(BramFont.button(size: 16))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -265,12 +280,27 @@ struct OnboardingFlowView: View {
             mascotImageName: "BramBearTrainingSetup",
             mascotSize: 136
         ) {
-            OnboardingPermissionCard(
-                systemImage: "heart.fill",
-                title: "Energy, heart rate, and bodyweight",
-                detail: "Bram can connect saved workouts to progress without extra logging."
-            )
+            if healthAuthorizationState.isConnectedLike || didRequestHealthThisStep {
+                OnboardingHealthSnapshotCard(
+                    metric: onboardingHealthMetric,
+                    workouts: onboardingHealthWorkouts,
+                    isLoading: isLoadingOnboardingHealth
+                )
+            } else {
+                OnboardingPermissionCard(
+                    systemImage: "heart.fill",
+                    title: "Energy, heart rate, and bodyweight",
+                    detail: "Bram can connect saved workouts to progress without extra logging."
+                )
+            }
         }
+    }
+
+    private var footerTitle: String {
+        if draft.step == .appleHealth && !healthAuthorizationState.isConnectedLike && !didRequestHealthThisStep {
+            return "Connect Apple Health"
+        }
+        return "Continue"
     }
 
     private var notificationsStep: some View {
@@ -303,10 +333,17 @@ struct OnboardingFlowView: View {
 
     private func continueTapped() async {
         syncTextFields()
+        if draft.step == .appleHealth && !healthAuthorizationState.isConnectedLike && !didRequestHealthThisStep {
+            didRequestHealthThisStep = true
+            healthAuthorizationState = await requestHealthAccess()
+            if healthAuthorizationState.isConnectedLike {
+                await loadOnboardingHealthSnapshot()
+            }
+            return
+        }
+
         trackStepCompleted(draft.step, profile.sanitized)
-        if draft.step == .appleHealth {
-            await requestHealthAccess()
-        } else if draft.step == .notifications {
+        if draft.step == .notifications {
             await requestNotificationAccess()
         }
         if draft.step == .recap {
@@ -335,6 +372,30 @@ struct OnboardingFlowView: View {
             profile.currentWeightSource = .manual
         }
         profile.targetWeightValue = Double(targetWeightText)
+    }
+
+    private func loadOnboardingHealthSnapshot() async {
+        guard !isLoadingOnboardingHealth else { return }
+        isLoadingOnboardingHealth = true
+        defer { isLoadingOnboardingHealth = false }
+        do {
+            let refreshed = try await healthService.refreshHealthData(for: .now)
+            onboardingHealthMetric = refreshed.dailyMetric
+            onboardingHealthWorkouts = refreshed.workouts
+            healthAuthorizationState = HealthAuthorizationState.afterSuccessfulRefresh(
+                hasImportedHealthData: Self.hasHealthMetricValue(refreshed.dailyMetric) || !refreshed.workouts.isEmpty
+            )
+        } catch {
+            healthAuthorizationState = .accessNeedsReview
+        }
+    }
+
+    private static func hasHealthMetricValue(_ metric: HealthDailyMetric?) -> Bool {
+        guard let metric else { return false }
+        return metric.activeEnergyCalories != nil ||
+            metric.averageHeartRate != nil ||
+            metric.bodyweightValue != nil ||
+            metric.workoutDurationMinutes != nil
     }
 
     private static func text(for value: Double?) -> String {
@@ -431,6 +492,106 @@ private struct OnboardingProgressDots: View {
         .animation(.snappy, value: step)
         .accessibilityLabel("Onboarding progress")
         .accessibilityValue("\((visibleSteps.firstIndex(of: step) ?? 0) + 1) of \(visibleSteps.count)")
+    }
+}
+
+private struct OnboardingHealthSnapshotCard: View {
+    let metric: HealthDailyMetric?
+    let workouts: [HealthWorkoutSample]
+    let isLoading: Bool
+
+    private var durationMinutes: Int? {
+        let metricDuration = metric?.workoutDurationMinutes
+        if let metricDuration, metricDuration > 0 {
+            return metricDuration
+        }
+        let workoutDuration = workouts.reduce(0) { $0 + $1.durationMinutes }
+        return workoutDuration > 0 ? workoutDuration : nil
+    }
+
+    private var matchText: String {
+        guard !workouts.isEmpty else { return "none" }
+        if workouts.count == 1 {
+            return workouts[0].activityType
+        }
+        return "\(workouts.count) workouts"
+    }
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            OnboardingHealthMetricTile(
+                systemImage: "flame.fill",
+                tint: BramColor.energy,
+                value: metric?.activeEnergyCalories.map { "\($0)" } ?? "--",
+                label: "Energy",
+                isLoading: isLoading
+            )
+            OnboardingHealthMetricTile(
+                systemImage: "heart.fill",
+                tint: BramColor.recovery,
+                value: metric?.averageHeartRate.map { "\($0)" } ?? "--",
+                label: "Heart Rate",
+                isLoading: isLoading
+            )
+            OnboardingHealthMetricTile(
+                systemImage: "clock.fill",
+                tint: BramColor.cool,
+                value: durationMinutes.map { "\($0) min" } ?? "--",
+                label: "Duration",
+                isLoading: isLoading
+            )
+            OnboardingHealthMetricTile(
+                systemImage: "link",
+                tint: BramColor.violet,
+                value: matchText,
+                label: "Match",
+                isLoading: isLoading
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Apple Health connected. Energy \(metric?.activeEnergyCalories.map { "\($0)" } ?? "not available"). Heart rate \(metric?.averageHeartRate.map { "\($0)" } ?? "not available"). Duration \(durationMinutes.map { "\($0) minutes" } ?? "not available"). Match \(matchText).")
+    }
+}
+
+private struct OnboardingHealthMetricTile: View {
+    let systemImage: String
+    let tint: Color
+    let value: String
+    let label: String
+    let isLoading: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Image(systemName: systemImage)
+                .font(.system(size: 21, weight: .bold))
+                .foregroundStyle(tint)
+
+            VStack(alignment: .leading, spacing: 6) {
+                if isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(tint)
+                } else {
+                    Text(value)
+                        .font(BramFont.headline(size: 22))
+                        .foregroundStyle(OnboardingStyle.textPrimary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                }
+
+                Text(label)
+                    .font(BramFont.label(size: 13))
+                    .foregroundStyle(OnboardingStyle.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+        .padding(16)
+        .background(OnboardingStyle.cardSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(OnboardingStyle.hairline, lineWidth: 1)
+        }
     }
 }
 

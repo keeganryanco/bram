@@ -276,9 +276,20 @@ final class AccountSessionState: ObservableObject {
         )
     }
 
-    func requestOnboardingHealthAccess() async {
+    func requestOnboardingHealthAccess() async -> HealthAuthorizationState {
         do {
-            let state = try await AppleHealthService().requestAuthorization()
+            let healthService = AppleHealthService()
+            let requestedState = try await healthService.requestAuthorization()
+            var state = requestedState
+            if requestedState.canAttemptRefresh,
+               let refreshed = try? await healthService.refreshHealthData(for: .now) {
+                if let metric = refreshed.dailyMetric, Self.hasHealthMetricValue(metric) {
+                    try? await localStore.save(metric)
+                }
+                state = HealthAuthorizationState.afterSuccessfulRefresh(
+                    hasImportedHealthData: Self.hasHealthMetricValue(refreshed.dailyMetric) || !refreshed.workouts.isEmpty
+                )
+            }
             analytics.track(
                 AnalyticsEvent(
                     name: "onboarding_permission_set",
@@ -288,8 +299,10 @@ final class AccountSessionState: ObservableObject {
                     ]
                 )
             )
+            return state
         } catch {
             reportNonFatal(source: "onboarding", eventName: "apple_health_permission_failed", error: error)
+            return .error
         }
     }
 
@@ -707,6 +720,14 @@ final class AccountSessionState: ObservableObject {
             reportNonFatal(source: "paywall", eventName: "paywall_action_failed", error: error)
             status = .failed(error.localizedDescription)
         }
+    }
+
+    private static func hasHealthMetricValue(_ metric: HealthDailyMetric?) -> Bool {
+        guard let metric else { return false }
+        return metric.activeEnergyCalories != nil ||
+            metric.averageHeartRate != nil ||
+            metric.bodyweightValue != nil ||
+            metric.workoutDurationMinutes != nil
     }
 }
 
