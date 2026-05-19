@@ -153,6 +153,8 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)
+                .frame(maxWidth: 620, alignment: .leading)
+                .frame(maxWidth: .infinity)
             }
             .scrollDismissesKeyboard(.interactively)
             .simultaneousGesture(daySwipeGesture)
@@ -162,6 +164,8 @@ struct HomeView: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
+            .frame(maxWidth: 620)
+            .frame(maxWidth: .infinity)
         }
         .font(BramFont.body())
         .sheet(item: $activePanel) { panel in
