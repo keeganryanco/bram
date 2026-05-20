@@ -38,6 +38,7 @@ struct AppRootView: View {
                     load: accountState.loadPaywall,
                     trackImpression: accountState.trackPaywallImpression,
                     purchase: accountState.purchase,
+                    continueToTesting: accountState.continueToTesting,
                     restore: accountState.restorePurchases,
                     redeemPromo: accountState.redeemPromoCode,
                     signOut: accountState.signOut

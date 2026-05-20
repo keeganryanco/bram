@@ -401,6 +401,12 @@ final class AccountSessionState: ObservableObject {
         }
     }
 
+    func continueToTesting() async {
+        guard let account, account.usesReviewTestingPaywall else { return }
+        analytics.track(AnalyticsEvent(name: "review_testing_paywall_bypassed", properties: [:]))
+        status = .ready
+    }
+
     func restorePurchases() async {
         analytics.track(AnalyticsEvent(name: "restore_purchases_started", properties: ["source": "paywall"]))
         await runPaywallAction {
@@ -636,6 +642,8 @@ final class AccountSessionState: ObservableObject {
         }
         if result.needsOnboarding {
             status = .needsOnboarding
+        } else if result.account.usesReviewTestingPaywall {
+            status = .needsPaywall
         } else if Self.canEnterApp(account: result.account) {
             status = .ready
         } else {

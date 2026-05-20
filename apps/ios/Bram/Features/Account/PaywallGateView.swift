@@ -5,6 +5,7 @@ struct PaywallGateView: View {
     let load: () async throws -> BramPaywallSnapshot
     let trackImpression: () -> Void
     let purchase: (String) async -> Void
+    let continueToTesting: () async -> Void
     let restore: () async -> Void
     let redeemPromo: (String) async throws -> Void
     let signOut: () async -> Void
@@ -92,9 +93,17 @@ struct PaywallGateView: View {
 
                 VStack(spacing: 14) {
                     PaywallPrimaryButton(
-                        title: isSubmitting ? "Checking..." : "Try 3 days free",
-                        isDisabled: selectedPackageId == nil || isSubmitting
+                        title: primaryButtonTitle,
+                        isDisabled: isPrimaryButtonDisabled
                     ) {
+                        if account.usesReviewTestingPaywall {
+                            isSubmitting = true
+                            Task {
+                                await continueToTesting()
+                                await MainActor.run { isSubmitting = false }
+                            }
+                            return
+                        }
                         guard let selectedPackageId else { return }
                         isSubmitting = true
                         Task {
@@ -166,6 +175,20 @@ struct PaywallGateView: View {
             copy.promoPrice = "$0 first month"
             return copy
         }
+    }
+
+    private var primaryButtonTitle: String {
+        if isSubmitting {
+            return account.usesReviewTestingPaywall ? "Opening Bram..." : "Checking..."
+        }
+        return account.usesReviewTestingPaywall ? "Continue to testing" : "Try 3 days free"
+    }
+
+    private var isPrimaryButtonDisabled: Bool {
+        if account.usesReviewTestingPaywall {
+            return isSubmitting
+        }
+        return selectedPackageId == nil || isSubmitting
     }
 }
 

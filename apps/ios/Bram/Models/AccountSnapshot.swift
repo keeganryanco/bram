@@ -51,6 +51,10 @@ struct AccountSnapshot: Codable, Equatable {
         isDeveloper
     }
 
+    var usesReviewTestingPaywall: Bool {
+        isDeveloper && email.caseInsensitiveCompare("review@trybram.app") == .orderedSame
+    }
+
     init(
         userId: UUID,
         email: String,

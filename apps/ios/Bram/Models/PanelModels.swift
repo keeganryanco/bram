@@ -283,4 +283,8 @@ struct SettingsAccountState: Hashable {
     var paywallPromoLabel: String {
         activePromoLabel ?? (founderOfferEligible ? "Founder month" : "Promo")
     }
+
+    var usesReviewTestingPaywall: Bool {
+        isDeveloper && email.caseInsensitiveCompare("review@trybram.app") == .orderedSame
+    }
 }

@@ -281,6 +281,37 @@ struct BramTests {
     }
 
     @MainActor
+    @Test func reviewDeveloperAccountShowsTestingPaywallThenBypasses() async {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "review@trybram.app",
+            displayName: "Review",
+            preferredUnits: "lb",
+            onboardingCompletedAt: .now,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .dev,
+            isDeveloper: true,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: MockLocalStore()
+        )
+
+        await state.start()
+        #expect(state.status == .needsPaywall)
+
+        await state.continueToTesting()
+        #expect(state.status == .ready)
+        #expect(state.featureAccess.canUseStats)
+    }
+
+    @MainActor
     @Test func accountBootstrapUsesAccountScopedLocalStore() async throws {
         let userId = UUID()
         let account = AccountSnapshot(
