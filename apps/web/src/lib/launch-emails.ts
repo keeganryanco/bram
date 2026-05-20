@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
 const testFlightWelcomeEventKey = "testflight_welcome_2026_05";
+const accountWelcomeEventKey = "welcome_2026_05";
 const launchTargetDate = "2026-05-22";
 const devLaunchTestTargetDate = "2026-05-19";
 
@@ -168,6 +169,23 @@ function buildTestFlightWelcomeHtml() {
   );
 }
 
+function buildAccountWelcomeHtml() {
+  return emailShell(
+    "Welcome to Bram.",
+    "Welcome to Bram.",
+    [
+      paragraph(
+        "Thanks for using Bram. I built it for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.",
+      ),
+      paragraph(
+        "If you have feature requests, feedback, or anything that feels confusing, send it directly to keegan@trybram.app. I read it all.",
+      ),
+      paragraph("Write what you did. Bram tracks the rest."),
+      signature(),
+    ].join(""),
+  );
+}
+
 function buildLaunchEmailHtml(variant: LaunchEmailVariant) {
   if (variant === "FRIENDS_LIFETIME") {
     return emailShell(
@@ -287,6 +305,42 @@ export async function sendTestFlightWelcomeEmail(
     email,
     eventKey: testFlightWelcomeEventKey,
     metadata: { promo_code: "TESTFLIGHT1MONTH" },
+  });
+
+  return { status: "sent" as const };
+}
+
+export async function sendAccountWelcomeEmail(
+  values: { userId: string; email: string },
+  clients: LaunchEmailClients = {},
+) {
+  const supabase = clients.supabase ?? getSupabaseAdmin();
+  const resend = clients.resend ?? getResend();
+  const email = values.email.toLowerCase();
+
+  if (await existingEmailEvent(supabase, values.userId, accountWelcomeEventKey)) {
+    return { status: "duplicate" as const };
+  }
+
+  const result = await resend.emails.send({
+    from: fromEmail(),
+    to: email,
+    subject: "Welcome to Bram",
+    text:
+      "Welcome to Bram.\n\nThanks for using Bram. I built it for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.\n\nIf you have feature requests, feedback, or anything that feels confusing, send it directly to keegan@trybram.app. I read it all.\n\nWrite what you did. Bram tracks the rest.\n\nKeegan\nFounder of Bram",
+    html: buildAccountWelcomeHtml(),
+  });
+
+  const sendError = getSendError(result);
+  if (sendError) {
+    throw new Error("Bram welcome email failed to send.");
+  }
+
+  await recordEmailEvent(supabase, {
+    userId: values.userId,
+    email,
+    eventKey: accountWelcomeEventKey,
+    metadata: {},
   });
 
   return { status: "sent" as const };

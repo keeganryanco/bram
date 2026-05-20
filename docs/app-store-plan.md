@@ -60,6 +60,7 @@ Tuesday-Thursday, May 19-21:
 - Use TestFlight for Reddit/forum/friends feedback. TestFlight in-app purchases use Apple's sandbox and are free to testers, so use Supabase admin grants only when testers need app access without completing sandbox purchase flows.
 - Share the public `TESTFLIGHT1MONTH` code with testers who should get the one-month promo. Use `account_promo_eligibilities` only for account-specific automatic pre-grants; the app applies the best available pre-grant on bootstrap.
 - When a signed-in tester redeems `TESTFLIGHT1MONTH`, the server sends the branded "Welcome to the Bram TestFlight" Resend email once and records the send in `account_email_events`.
+- Every first successful Bram signup/session bootstrap can trigger the branded "Welcome to Bram" Resend email once through `account_email_events` event key `welcome_2026_05`.
 - Fix only launch-blocking bugs: crashes, account loss/mixing, broken onboarding, broken paywall, broken note parsing, broken data deletion/export, and metadata/privacy mismatches.
 
 Friday, May 22:
@@ -92,6 +93,10 @@ Beta review notes:
 - Waitlist: waitlist emails are founder eligible by default. Existing signup/account bootstrap auto-applies one month where possible; launch email also gives `FOUNDER1MONTH` as fallback.
 - Friends/family: use `FRIENDS_DISCOUNT` or `FOUNDER_LIFETIME` in Supabase. These recipients receive the lifetime-access launch email and can still subscribe from Settings if they want to support Bram.
 - Product Hunt: public `PRODUCTHUNT1MONTH` for launch day. Apple/RevenueCat native offer codes can follow after subscription approval and App Store offer setup.
+- Referrals: each signed-in user gets a server-generated Bram referral code from `/api/account/referral-code`. Friends redeem that code in the existing paywall promo sheet and receive one month of Bram-owned `FREE_PREMIUM` access with `REFERRAL_1MONTH`.
+- Referral rewards are Supabase entitlements, not Apple subscription extensions. If the referrer is not developer/friends-family/lifetime and does not have active App Store/RevenueCat paid access, each successful referred friend grants the referrer one Bram-owned promo month. If the referrer has active paid access, the reward is recorded as queued and should be applied after paid access expires.
+- Referral precedence: developer/friends-family/lifetime grants win, active App Store subscription wins over Bram-owned referral credits, active referral/free-month promos unlock the app until expiration, and expired referral promos fall back to the paywall.
+- App Store review note: promo and referral codes bypass payment only while valid; normal paid access remains the 3-day App Store trial and auto-renewable monthly/yearly subscription.
 
 ## In-App Event Nomination
 
@@ -101,6 +106,8 @@ Use this only if the build with the in-app challenge is submitted and visible be
 - Badge: `Challenge`
 - Publish/announcement target: `2026-05-22`
 - Date range: `2026-05-23` to `2026-05-30`
+- In-app overlay: after onboarding/paywall access, signed-in users see a one-time dismissible Home overlay from May 23 through May 30 with `Founding Lifters Week`, `Log 4 workouts by May 30 and earn a limited launch badge.`, and CTA `I'm in`.
+- Badge details: Streaks award tiles open a detail sheet. Unlocked badges can be shared through the native share sheet; the referral badge shares the user's referral code.
 - Short description: `Log 4 workouts and start your first strength history.`
 - Long description:
 

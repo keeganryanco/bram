@@ -185,6 +185,7 @@ enum BramPreviewData {
     )
 
     static let account = SettingsAccountState(
+        userId: UUID(uuidString: "11111111-1111-1111-1111-111111111111"),
         displayName: "Keegan Ryan",
         email: "keegan@trybram.app",
         accountTier: .freePremium,

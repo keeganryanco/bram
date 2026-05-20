@@ -137,6 +137,14 @@ protocol BramPromoRedeeming: Sendable {
     func redeem(code: String, accessToken: String) async throws -> AccountSnapshot
 }
 
+protocol BramReferralProgramProviding: Sendable {
+    func referralProgram(accessToken: String) async throws -> ReferralProgramStatus
+}
+
+protocol BramWelcomeEmailSending: Sendable {
+    func sendWelcomeEmail(accessToken: String) async throws
+}
+
 protocol BramAccountDeleting: Sendable {
     func deleteAccount(accessToken: String) async throws
 }

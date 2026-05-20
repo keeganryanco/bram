@@ -26,6 +26,7 @@
 		2F983B4C8EDDA61001C98635 /* SuggestionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAFFCC56C95CDEBC8224082 /* SuggestionModels.swift */; };
 		2FCE84FBD99DB6FE355F1681 /* ServicePlaceholders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20FE1B72BBFB65BDC735C020 /* ServicePlaceholders.swift */; };
 		31CDA4A6D284907CD97E9681 /* WorkoutCoachCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB642AA98AF8D28A5068521F /* WorkoutCoachCard.swift */; };
+		331C4FB5772988C494F6D08F /* BramAccountWelcomeEmailClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 720E3847E74C9D4A84A3D410 /* BramAccountWelcomeEmailClient.swift */; };
 		3473811A6998AF7C94454699 /* AppServiceProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18D369197B2C78659006927C /* AppServiceProtocols.swift */; };
 		3862B7CCBE3CE760C5B86D5A /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E6F487E7AF0279EB62D4B05 /* HealthKit.framework */; };
 		3C7A3E31D7566CFD519892C4 /* SuggestionContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49BA2201D752F2FDEE120AA /* SuggestionContextBuilder.swift */; };
@@ -55,6 +56,7 @@
 		7152824EA2555E3C97BBCEB2 /* HealthEnergyEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFABCD04C86C365D9B4B54A3 /* HealthEnergyEstimator.swift */; };
 		74A67E9EAF61CBF5486728DC /* BramPaywallModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8128529C6AB2A0A93F6CE981 /* BramPaywallModels.swift */; };
 		77E15CE6C83182BB87BDA99E /* AppleHealthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E5E05652F6ED1BC5EFC9195 /* AppleHealthService.swift */; };
+		7B66079979C8662C2DD070CC /* BramReferralProgramClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F3C9354A15392FEE43CDC4F /* BramReferralProgramClient.swift */; };
 		7C7169E708636609DE6E66D5 /* SuisseIntl-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 83563163E4752130CEFF0746 /* SuisseIntl-Regular.otf */; };
 		85A1C73230D91FF3B982825E /* HeuristicWorkoutInterpretationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3498F26DABA049C54061884 /* HeuristicWorkoutInterpretationService.swift */; };
 		884E0C8C82BD4A802B55EBDD /* WorkoutCoachCardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A6F4448AA0042C73CFE4BD /* WorkoutCoachCardEngine.swift */; };
@@ -163,7 +165,9 @@
 		6A03C607A802137E0D16CA6A /* BodyweightNoteExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyweightNoteExtractor.swift; sourceTree = "<group>"; };
 		6AF7702C5D615B37354AF652 /* CalendarPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPanelView.swift; sourceTree = "<group>"; };
 		6CFEA661336FD61AD07A6E01 /* AccountSessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSessionState.swift; sourceTree = "<group>"; };
+		6F3C9354A15392FEE43CDC4F /* BramReferralProgramClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramReferralProgramClient.swift; sourceTree = "<group>"; };
 		6FF1EEAB4695E8FAEF992A54 /* BramLogoMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramLogoMark.swift; sourceTree = "<group>"; };
+		720E3847E74C9D4A84A3D410 /* BramAccountWelcomeEmailClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramAccountWelcomeEmailClient.swift; sourceTree = "<group>"; };
 		75D8EA3B5EF9141732E59EAF /* BramCapsuleButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramCapsuleButton.swift; sourceTree = "<group>"; };
 		75DAC3226D99B3211B744A83 /* TrainingGoalsProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingGoalsProfile.swift; sourceTree = "<group>"; };
 		7A6572AC393A762450FF6DF6 /* PRDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRDetectionService.swift; sourceTree = "<group>"; };
@@ -467,12 +471,14 @@
 				18D369197B2C78659006927C /* AppServiceProtocols.swift */,
 				6A03C607A802137E0D16CA6A /* BodyweightNoteExtractor.swift */,
 				A1D077F220AC1F6AB73DBA65 /* BramAccountDeletionClient.swift */,
+				720E3847E74C9D4A84A3D410 /* BramAccountWelcomeEmailClient.swift */,
 				E9BAC6FF09C7B0DA208101F8 /* BramAuthService.swift */,
 				EA52D19FDAB0EDC9FB53137A /* BramBackendWorkoutInterpretationClient.swift */,
 				96250692678EF920FD0F60F4 /* BramBackendWorkoutSuggestionClient.swift */,
 				96D67AE9B05C7CC50DF665FD /* BramNotificationService.swift */,
 				AB7826884E0A6EDA4AF60350 /* BramPasswordResetClient.swift */,
 				5CD8AA7C56755F1E5A81DC30 /* BramPromoRedemptionClient.swift */,
+				6F3C9354A15392FEE43CDC4F /* BramReferralProgramClient.swift */,
 				92B4CAC26C537CF935CF42C4 /* BramRevenueCatEntitlementRefreshClient.swift */,
 				2246542FAF17835F1E7A7FC2 /* BramSupabaseConfiguration.swift */,
 				574132B8C13C0460E91CE547 /* BramSupportClient.swift */,
@@ -617,6 +623,7 @@
 				77E15CE6C83182BB87BDA99E /* AppleHealthService.swift in Sources */,
 				62E11AA6D0D63DFB38B05196 /* BodyweightNoteExtractor.swift in Sources */,
 				9BD5A0764C345400B676B112 /* BramAccountDeletionClient.swift in Sources */,
+				331C4FB5772988C494F6D08F /* BramAccountWelcomeEmailClient.swift in Sources */,
 				D2D5694DA803CCD9B9A32B78 /* BramApp.swift in Sources */,
 				48013401B51A61D0F1D4BD0F /* BramAuthService.swift in Sources */,
 				4E65F537B5C8B0F3450AC246 /* BramBackendWorkoutInterpretationClient.swift in Sources */,
@@ -633,6 +640,7 @@
 				74A67E9EAF61CBF5486728DC /* BramPaywallModels.swift in Sources */,
 				5A3F515D20485B4DFBB2C0F6 /* BramPreviewData.swift in Sources */,
 				A333FC15B768D439955D5105 /* BramPromoRedemptionClient.swift in Sources */,
+				7B66079979C8662C2DD070CC /* BramReferralProgramClient.swift in Sources */,
 				4E07ED7ABBFD21DEA8948168 /* BramRevenueCatEntitlementRefreshClient.swift in Sources */,
 				CC919A32D4530CCF081428B2 /* BramSupabaseConfiguration.swift in Sources */,
 				B6E799B949C4052344F65028 /* BramSupportClient.swift in Sources */,

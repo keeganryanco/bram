@@ -23,6 +23,7 @@ final class AccountSessionState: ObservableObject {
     private let paywallService: (any BramPaywallServicing)?
     private let entitlementRefreshService: (any BramEntitlementRefreshing)?
     private let promoRedemptionService: (any BramPromoRedeeming)?
+    private let welcomeEmailService: (any BramWelcomeEmailSending)?
     private let accountDeletionService: (any BramAccountDeleting)?
     private let passwordResetService: (any BramPasswordResetting)?
     private let analytics: any AnalyticsTracking
@@ -43,6 +44,7 @@ final class AccountSessionState: ObservableObject {
         paywallService: (any BramPaywallServicing)? = nil,
         entitlementRefreshService: (any BramEntitlementRefreshing)? = nil,
         promoRedemptionService: (any BramPromoRedeeming)? = nil,
+        welcomeEmailService: (any BramWelcomeEmailSending)? = nil,
         accountDeletionService: (any BramAccountDeleting)? = nil,
         passwordResetService: (any BramPasswordResetting)? = nil,
         analytics: any AnalyticsTracking = NoopAnalyticsService(),
@@ -60,6 +62,7 @@ final class AccountSessionState: ObservableObject {
         self.paywallService = paywallService
         self.entitlementRefreshService = entitlementRefreshService
         self.promoRedemptionService = promoRedemptionService
+        self.welcomeEmailService = welcomeEmailService
         self.accountDeletionService = accountDeletionService
         self.passwordResetService = passwordResetService
         self.analytics = analytics
@@ -85,6 +88,7 @@ final class AccountSessionState: ObservableObject {
                 paywallService: RevenueCatPaywallService.configuredFromBundle(),
                 entitlementRefreshService: BramRevenueCatEntitlementRefreshClient.configuredFromBundle(),
                 promoRedemptionService: BramPromoRedemptionClient.configuredFromBundle(),
+                welcomeEmailService: BramAccountWelcomeEmailClient.configuredFromBundle(),
                 accountDeletionService: BramAccountDeletionClient.configuredFromBundle(),
                 passwordResetService: BramPasswordResetClient.configuredFromBundle(),
                 analytics: analytics,
@@ -107,6 +111,7 @@ final class AccountSessionState: ObservableObject {
             return BramPreviewData.account
         }
         return SettingsAccountState(
+            userId: userId,
             displayName: account.displayName ?? "Bram user",
             email: account.email,
             accountTier: account.accountTier,
@@ -582,6 +587,7 @@ final class AccountSessionState: ObservableObject {
             let userId = try await operation()
             analytics.track(AnalyticsEvent(name: "auth_succeeded", properties: [:]))
             try await bootstrap(userId: userId)
+            sendWelcomeEmailIfPossible()
         } catch let error as AccountSessionError {
             analytics.track(AnalyticsEvent(name: "auth_failed", properties: ["reason": error.analyticsReason]))
             status = .failed(error.localizedDescription)
@@ -705,6 +711,18 @@ final class AccountSessionState: ObservableObject {
         guard self.userId != userId, let localStoreFactory else { return }
         localStore = localStoreFactory(userId)
         workoutSyncService = workoutSyncServiceFactory?(localStore)
+    }
+
+    private func sendWelcomeEmailIfPossible() {
+        guard let welcomeEmailService else { return }
+        Task {
+            do {
+                guard let token = try await authService?.currentAccessToken() else { return }
+                try await welcomeEmailService.sendWelcomeEmail(accessToken: token)
+            } catch {
+                reportNonFatal(source: "account", eventName: "welcome_email_failed", error: error)
+            }
+        }
     }
 
     private func runPaywallAction(_ action: () async throws -> Void) async {

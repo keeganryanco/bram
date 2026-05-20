@@ -77,6 +77,13 @@ struct LaunchChallengeProgress: Hashable {
         progressCount >= goalCount
     }
 
+    func isHomeOverlayEligible(asOf date: Date = Date(), calendar inputCalendar: Calendar = .current) -> Bool {
+        var calendar = inputCalendar
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(for: date)
+        return (state == .active || state == .completed) && today >= startDate && today <= endDate
+    }
+
     var clampedProgress: Int {
         min(progressCount, goalCount)
     }
@@ -329,6 +336,18 @@ struct StreakAward: Identifiable, Hashable {
     var systemImage: String
     var colorRole: MetricColorRole
     var isUnlocked: Bool
+
+    var key: String {
+        title
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: "'", with: "")
+    }
+}
+
+struct ReferralProgramStatus: Codable, Hashable {
+    var code: String
+    var successfulRedemptions: Int
 }
 
 enum StatsInsightKind: String, Hashable {
@@ -364,6 +383,7 @@ enum MetricColorRole: String, Codable, Hashable {
 }
 
 struct SettingsAccountState: Hashable {
+    var userId: UUID?
     var displayName: String
     var email: String
     var accountTier: BramAccountTier

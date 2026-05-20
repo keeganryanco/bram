@@ -3,6 +3,7 @@ import {
   isLaunchEmailEnabled,
   isDevLaunchEmailTestEnabled,
   launchEmailVariantForAddress,
+  sendAccountWelcomeEmail,
   sendDevLaunchEmailTest,
   sendLaunchDayWaitlistEmails,
   sendTestFlightWelcomeEmail,
@@ -183,6 +184,48 @@ describe("TestFlight welcome email", () => {
 
     expect(result.status).toBe("sent");
     expect(resend.emails.send).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("account welcome email", () => {
+  it("sends once and records an account email event", async () => {
+    const supabase = supabaseMock();
+    const resend = resendMock();
+
+    const result = await sendAccountWelcomeEmail(
+      { userId, email: "NewUser@TryBram.App" },
+      { supabase: supabase.client, resend },
+    );
+
+    expect(result.status).toBe("sent");
+    expect(resend.emails.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "newuser@trybram.app",
+        subject: "Welcome to Bram",
+        text: expect.stringContaining("keegan@trybram.app"),
+      }),
+    );
+    expect(supabase.inserts[0]).toMatchObject({
+      table: "account_email_events",
+      values: {
+        user_id: userId,
+        email: "newuser@trybram.app",
+        event_key: "welcome_2026_05",
+      },
+    });
+  });
+
+  it("does not resend when the welcome event already exists", async () => {
+    const supabase = supabaseMock({ existingEmailEvent: true });
+    const resend = resendMock();
+
+    const result = await sendAccountWelcomeEmail(
+      { userId, email: "newuser@trybram.app" },
+      { supabase: supabase.client, resend },
+    );
+
+    expect(result.status).toBe("duplicate");
+    expect(resend.emails.send).not.toHaveBeenCalled();
   });
 });
 

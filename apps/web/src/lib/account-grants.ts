@@ -9,6 +9,7 @@ export const AccountGrantKindSchema = z.enum([
   "FOUNDER_1MONTH",
   "FOUNDER_LIFETIME",
   "FRIENDS_DISCOUNT",
+  "REFERRAL_1MONTH",
 ]);
 
 export const AccountGrantRequestSchema = z
@@ -142,6 +143,8 @@ function promoCode(grantKind: string) {
       return "FOUNDERLIFETIME";
     case "FRIENDS_DISCOUNT":
       return "FRIENDS";
+    case "REFERRAL_1MONTH":
+      return "REFERRAL";
     default:
       return null;
   }
@@ -159,6 +162,8 @@ function promoLabel(grantKind: string) {
       return "Founder lifetime";
     case "FRIENDS_DISCOUNT":
       return "Friends access";
+    case "REFERRAL_1MONTH":
+      return "Referral month";
     default:
       return null;
   }

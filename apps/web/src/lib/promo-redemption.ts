@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { grantAccountAccess } from "./account-grants";
 import { sendTestFlightWelcomeEmail } from "./launch-emails";
+import { redeemReferralCodeForToken, ReferralError } from "./referrals";
 import { fetchAccountSnapshot } from "./revenuecat";
 
 const PromoCodeSchema = z
@@ -151,6 +152,18 @@ export async function redeemPromoCodeForToken(
   clients: { supabase?: SupabasePromoClient; resend?: ResendLike } = {},
 ) {
   const code = PromoCodeSchema.parse(rawCode);
+  if (!(code in promoCodes)) {
+    try {
+      return await redeemReferralCodeForToken(accessToken, code, {
+        supabase: clients.supabase as never,
+      });
+    } catch (error) {
+      if (error instanceof ReferralError) {
+        throw new PromoRedemptionError(error.message, error.status);
+      }
+      throw error;
+    }
+  }
   assertKnownPromo(code);
 
   const supabase = clients.supabase ?? getSupabaseAdmin();

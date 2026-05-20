@@ -36,6 +36,10 @@ struct HomeView: View {
     @State private var backendSuggestionTask: Task<Void, Never>?
     @State private var foregroundHealthRefreshTask: Task<Void, Never>?
     @State private var isRefreshingForegroundHealth = false
+    @State private var referralProgram: ReferralProgramStatus?
+    @State private var didLoadReferralProgram = false
+    @State private var showingLaunchChallengeOverlay = false
+    @State private var didTrackLaunchChallengeOverlayView = false
     private let noteStore: any WorkoutLocalStore
     private let interpreter: any WorkoutInterpretationService
     private let backendInterpreter: (any WorkoutInterpretationBackendClient)?
@@ -48,6 +52,7 @@ struct HomeView: View {
     private let onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)?
     private let onWorkoutDataSaved: (() async -> Void)?
     private let reminderService: (any WorkoutReminderScheduling)?
+    private let referralService: (any BramReferralProgramProviding)?
     private let accessTokenProvider: () async -> String?
     private let track: (AnalyticsEvent) -> Void
     private let reportError: (String, String, String?, Error?, [String: String]) -> Void
@@ -68,6 +73,7 @@ struct HomeView: View {
         onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)? = nil,
         onWorkoutDataSaved: (() async -> Void)? = nil,
         reminderService: (any WorkoutReminderScheduling)? = BramNotificationService(),
+        referralService: (any BramReferralProgramProviding)? = BramReferralProgramClient.configuredFromBundle(),
         accessTokenProvider: @escaping () async -> String? = { nil },
         track: @escaping (AnalyticsEvent) -> Void = { _ in },
         reportError: @escaping (String, String, String?, Error?, [String: String]) -> Void = { _, _, _, _, _ in },
@@ -87,6 +93,7 @@ struct HomeView: View {
         self.onGoalsProfileSave = onGoalsProfileSave
         self.onWorkoutDataSaved = onWorkoutDataSaved
         self.reminderService = reminderService
+        self.referralService = referralService
         self.accessTokenProvider = accessTokenProvider
         self.track = track
         self.reportError = reportError
@@ -205,6 +212,27 @@ struct HomeView: View {
             .presentationDetents([.height(350)])
             .presentationCornerRadius(28)
         }
+        .sheet(isPresented: $showingLaunchChallengeOverlay) {
+            LaunchChallengeOverlayView(
+                progress: progressStats.launchChallenge,
+                dismiss: dismissLaunchChallengeOverlay
+            )
+            .presentationDetents([.height(360)])
+            .presentationCornerRadius(28)
+            .onAppear {
+                guard !didTrackLaunchChallengeOverlayView else { return }
+                didTrackLaunchChallengeOverlayView = true
+                track(
+                    AnalyticsEvent(
+                        name: "launch_challenge_overlay_viewed",
+                        properties: [
+                            "event_key": progressStats.launchChallenge.eventKey,
+                            "state": progressStats.launchChallenge.state.rawValue
+                        ]
+                    )
+                )
+            }
+        }
         .task(id: selectedDayKey) {
             await loadNote(for: note.date)
         }
@@ -212,8 +240,13 @@ struct HomeView: View {
             track(AnalyticsEvent(name: "home_viewed", properties: ["access": featureAccess.canUseInterpretation ? "premium" : "free"]))
             await refreshCalendarDays()
             await refreshProgressStats()
+            updateLaunchChallengeOverlayPresentation()
             await loadGoalsProfile()
+            await loadReferralProgramIfNeeded()
             startForegroundHealthRefreshIfNeeded()
+        }
+        .onChange(of: progressStats.launchChallenge) { _, _ in
+            updateLaunchChallengeOverlayPresentation()
         }
         .onChange(of: note.body) { _, _ in
             scheduleDraftInterpretation()
@@ -259,6 +292,7 @@ struct HomeView: View {
                     selectedDate: note.date,
                     noteStore: noteStore,
                     healthAuthorizationState: healthService.authorizationState(),
+                    referralProgram: referralProgram,
                     initialMode: .stats,
                     track: track
                 )
@@ -308,6 +342,50 @@ struct HomeView: View {
                 }
             )
         }
+    }
+
+    private func loadReferralProgramIfNeeded() async {
+        guard !didLoadReferralProgram, let referralService else { return }
+        didLoadReferralProgram = true
+        do {
+            guard let token = await accessTokenProvider() else { return }
+            let program = try await referralService.referralProgram(accessToken: token)
+            await MainActor.run {
+                referralProgram = program
+            }
+        } catch {
+            reportError("referrals", "referral_code_load_failed", nil, error, [:])
+        }
+    }
+
+    private func updateLaunchChallengeOverlayPresentation() {
+        guard progressStats.launchChallenge.isHomeOverlayEligible(),
+              let userId = account.userId
+        else { return }
+
+        let key = launchChallengeDismissalKey(userId: userId)
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        showingLaunchChallengeOverlay = true
+    }
+
+    private func dismissLaunchChallengeOverlay() {
+        if let userId = account.userId {
+            UserDefaults.standard.set(true, forKey: launchChallengeDismissalKey(userId: userId))
+        }
+        track(
+            AnalyticsEvent(
+                name: "launch_challenge_overlay_dismissed",
+                properties: [
+                    "event_key": progressStats.launchChallenge.eventKey,
+                    "state": progressStats.launchChallenge.state.rawValue
+                ]
+            )
+        )
+        showingLaunchChallengeOverlay = false
+    }
+
+    private func launchChallengeDismissalKey(userId: UUID) -> String {
+        "bram.launchChallenge.\(LaunchChallengeProgress.eventKey).dismissed.\(userId.uuidString)"
     }
 
     private func detents(for panel: HomePanel) -> Set<PresentationDetent> {
@@ -1463,6 +1541,77 @@ private struct ReviewPromptSheet: View {
             .font(BramFont.label(size: 13))
             .foregroundStyle(BramColor.textTertiary)
             .frame(maxWidth: .infinity)
+        }
+        .padding(22)
+        .background(BramColor.appBackground)
+    }
+}
+
+private struct LaunchChallengeOverlayView: View {
+    let progress: LaunchChallengeProgress
+    let dismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(BramColor.energy.opacity(0.18))
+                    Image(systemName: progress.isEarned ? "rosette" : "flag.checkered")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(BramColor.energy)
+                }
+                .frame(width: 56, height: 56)
+
+                Spacer()
+
+                Button(action: dismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(BramColor.textTertiary)
+                        .frame(width: 34, height: 34)
+                        .background(BramColor.cardSurface, in: Circle())
+                }
+                .accessibilityLabel("Close")
+            }
+
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Founding Lifters Week")
+                    .font(BramFont.largeTitle(size: 31))
+                    .foregroundStyle(BramColor.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Log 4 workouts by May 30 and earn a limited launch badge.")
+                    .font(BramFont.body(size: 17))
+                    .foregroundStyle(BramColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(progress.progressText)
+                        .font(BramFont.label(size: 12))
+                        .foregroundStyle(BramColor.textPrimary)
+                        .monospacedDigit()
+                    Spacer()
+                    Text(progress.stateLabel)
+                        .font(BramFont.label(size: 11))
+                        .foregroundStyle(BramColor.energy)
+                }
+                ProgressView(value: Double(progress.clampedProgress), total: Double(progress.goalCount))
+                    .tint(BramColor.energy)
+            }
+
+            Spacer(minLength: 4)
+
+            Button(action: dismiss) {
+                Text("I'm in")
+                    .font(BramFont.button(size: 16))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(BramColor.violet, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+            .buttonStyle(.plain)
         }
         .padding(22)
         .background(BramColor.appBackground)

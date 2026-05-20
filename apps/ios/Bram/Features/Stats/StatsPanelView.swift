@@ -5,6 +5,7 @@ struct StatsPanelView: View {
     let selectedDate: Date
     let noteStore: any WorkoutLocalStore
     let healthAuthorizationState: HealthAuthorizationState
+    let referralProgram: ReferralProgramStatus?
     let track: (AnalyticsEvent) -> Void
     @State private var selectedMode: StatsMode
     @State private var selectedPeriod: StatsPeriod = .week
@@ -16,6 +17,7 @@ struct StatsPanelView: View {
         selectedDate: Date = .now,
         noteStore: any WorkoutLocalStore = SQLiteWorkoutLocalStore.shared,
         healthAuthorizationState: HealthAuthorizationState = .notRequested,
+        referralProgram: ReferralProgramStatus? = nil,
         initialMode: StatsMode = .stats,
         track: @escaping (AnalyticsEvent) -> Void = { _ in }
     ) {
@@ -23,6 +25,7 @@ struct StatsPanelView: View {
         self.selectedDate = selectedDate
         self.noteStore = noteStore
         self.healthAuthorizationState = healthAuthorizationState
+        self.referralProgram = referralProgram
         self.track = track
         _selectedMode = State(initialValue: initialMode)
         _anchorDate = State(initialValue: selectedDate)
@@ -46,7 +49,7 @@ struct StatsPanelView: View {
                     nextPeriod: { shiftPeriod(by: 1) }
                 )
             } else {
-                StreakOverview(stats: visibleStats, track: track)
+                StreakOverview(stats: visibleStats, referralProgram: referralProgram, track: track)
             }
         }
         .task(id: "\(selectedPeriod.rawValue)-\(SQLiteWorkoutLocalStore.dayKey(for: anchorDate))") {
@@ -692,9 +695,11 @@ private struct PlainProgressButtonStyle: ButtonStyle {
 
 private struct StreakOverview: View {
     let stats: StatsWeekSnapshot
+    let referralProgram: ReferralProgramStatus?
     let track: (AnalyticsEvent) -> Void
     @State private var trackedViewedKeys = Set<String>()
     @State private var trackedEarnedKeys = Set<String>()
+    @State private var selectedAward: StreakAward?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -760,7 +765,21 @@ private struct StreakOverview: View {
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                         ForEach(visibleAwards) { award in
-                            StreakAwardTile(award: award)
+                            Button {
+                                selectedAward = award
+                                track(
+                                    AnalyticsEvent(
+                                        name: "badge_opened",
+                                        properties: [
+                                            "badge_key": award.key,
+                                            "status": award.isUnlocked ? "unlocked" : "locked"
+                                        ]
+                                    )
+                                )
+                            } label: {
+                                StreakAwardTile(award: award)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -783,18 +802,52 @@ private struct StreakOverview: View {
                 }
             }
         }
+        .sheet(item: $selectedAward) { award in
+            BadgeDetailSheet(
+                award: award,
+                launchChallenge: award.title == stats.launchChallenge.badgeTitle ? stats.launchChallenge : nil,
+                referralProgram: referralProgram,
+                track: track
+            )
+            .presentationDetents([.medium])
+            .presentationCornerRadius(28)
+        }
     }
 
     private var visibleAwards: [StreakAward] {
-        guard stats.launchChallenge.isVisible else { return stats.streakAwards }
-        let challenge = StreakAward(
-            title: stats.launchChallenge.badgeTitle,
-            subtitle: "4 launch workouts",
-            systemImage: "rosette",
-            colorRole: .energy,
-            isUnlocked: stats.launchChallenge.isEarned
+        var awards = stats.streakAwards
+        if stats.launchChallenge.isVisible {
+            awards.append(
+                StreakAward(
+                    title: stats.launchChallenge.badgeTitle,
+                    subtitle: "4 launch workouts",
+                    systemImage: "rosette",
+                    colorRole: .energy,
+                    isUnlocked: stats.launchChallenge.isEarned
+                )
+            )
+        }
+        awards.append(
+            StreakAward(
+                title: "Share with a friend",
+                subtitle: referralSubtitle,
+                systemImage: "person.2.fill",
+                colorRole: .violet,
+                isUnlocked: (referralProgram?.successfulRedemptions ?? 0) > 0
+            )
         )
-        return stats.streakAwards + [challenge]
+        return awards
+    }
+
+    private var referralSubtitle: String {
+        let count = referralProgram?.successfulRedemptions ?? 0
+        if count == 0 {
+            return "Give 1 month free"
+        }
+        if count == 1 {
+            return "1 friend joined"
+        }
+        return "\(count) friends joined"
     }
 
     private func trackLaunchChallengeIfNeeded(_ progress: LaunchChallengeProgress) {
@@ -950,6 +1003,125 @@ private struct StreakAwardTile: View {
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(10)
         .background(BramColor.elevated.opacity(award.isUnlocked ? 1 : 0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+private struct BadgeDetailSheet: View {
+    let award: StreakAward
+    let launchChallenge: LaunchChallengeProgress?
+    let referralProgram: ReferralProgramStatus?
+    let track: (AnalyticsEvent) -> Void
+
+    private var isReferralBadge: Bool {
+        award.title == "Share with a friend"
+    }
+
+    private var description: String {
+        if isReferralBadge {
+            if award.isUnlocked {
+                return "You shared Bram and a friend joined with your code. Each successful referral gives your friend one month free and records your share badge."
+            }
+            return "Share Bram with a friend. They get one month free when they redeem your code, and you unlock this badge after the first successful signup."
+        }
+
+        if let launchChallenge {
+            return launchChallenge.isEarned
+                ? "You logged four workouts during Founding Lifters Week and earned the limited launch badge."
+                : "Log four qualifying workouts by May 30 to earn this limited launch badge. Lifts and cardio count; bodyweight-only notes do not."
+        }
+
+        return award.isUnlocked
+            ? "You earned this badge through consistent workout logging in Bram."
+            : "Keep logging workouts to unlock this badge."
+    }
+
+    private var statusText: String {
+        if let launchChallenge {
+            return "\(launchChallenge.progressText) • \(award.isUnlocked ? "Unlocked" : "Locked")"
+        }
+        if isReferralBadge, let referralProgram {
+            let count = referralProgram.successfulRedemptions
+            return count == 1 ? "1 successful share" : "\(count) successful shares"
+        }
+        return award.isUnlocked ? "Unlocked" : "Locked"
+    }
+
+    private var shareText: String? {
+        if isReferralBadge, let code = referralProgram?.code {
+            return "Try Bram free for a month. Use my code \(code) in the app: https://trybram.app"
+        }
+        guard award.isUnlocked else { return nil }
+        return "I earned \(award.title) in Bram: Workout Notes. https://trybram.app"
+    }
+
+    var body: some View {
+        BramPanelChrome(title: award.title) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .center, spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(award.colorRole.color.opacity(award.isUnlocked ? 0.2 : 0.12))
+                        Image(systemName: award.systemImage)
+                            .font(.system(size: 30, weight: .semibold))
+                            .foregroundStyle(award.isUnlocked ? award.colorRole.color : BramColor.textTertiary)
+                    }
+                    .frame(width: 68, height: 68)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(statusText)
+                            .font(BramFont.label(size: 12))
+                            .foregroundStyle(award.isUnlocked ? award.colorRole.color : BramColor.textTertiary)
+                        Text(award.subtitle)
+                            .font(BramFont.headline())
+                            .foregroundStyle(BramColor.textPrimary)
+                    }
+                }
+
+                Text(description)
+                    .font(BramFont.callout())
+                    .foregroundStyle(BramColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if isReferralBadge, let code = referralProgram?.code {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Your code")
+                            .font(BramFont.label(size: 11))
+                            .foregroundStyle(BramColor.textTertiary)
+                        Text(code)
+                            .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(BramColor.textPrimary)
+                            .textSelection(.enabled)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(BramColor.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+
+                if let shareText {
+                    ShareLink(item: shareText) {
+                        Text(isReferralBadge ? "Share invite" : "Share badge")
+                            .font(BramFont.button())
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(BramColor.violet, in: Capsule())
+                    }
+                    .simultaneousGesture(
+                        TapGesture().onEnded {
+                            track(
+                                AnalyticsEvent(
+                                    name: "badge_shared",
+                                    properties: [
+                                        "badge_key": award.key,
+                                        "status": award.isUnlocked ? "unlocked" : "locked"
+                                    ]
+                                )
+                            )
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
