@@ -50,7 +50,12 @@ function supabaseMock(options: {
   isDeveloper?: boolean;
   premiumExpiresAt?: string | null;
 } = {}) {
-  const calls: { table: string; operation: string; values?: unknown }[] = [];
+  const calls: {
+    table: string;
+    operation: string;
+    values?: unknown;
+    options?: { onConflict?: string; ignoreDuplicates?: boolean };
+  }[] = [];
   const state = {
     entitlementSource: options.entitlementSource ?? "NONE",
     accountTier: options.accountTier ?? "FREE",
@@ -110,10 +115,15 @@ function supabaseMock(options: {
           eq: vi.fn(async () => ({ error: null })),
         };
       }),
-      upsert: vi.fn(async (values: unknown) => {
-        calls.push({ table, operation: "upsert", values });
-        return { error: null };
-      }),
+      upsert: vi.fn(
+        async (
+          values: unknown,
+          options?: { onConflict?: string; ignoreDuplicates?: boolean },
+        ) => {
+          calls.push({ table, operation: "upsert", values, options });
+          return { error: null };
+        },
+      ),
       insert: vi.fn(async (values: unknown) => {
         calls.push({ table, operation: "insert", values });
         return { error: null };
@@ -224,6 +234,10 @@ describe("handleRevenueCatWebhook", () => {
       expect.objectContaining({
         table: "subscription_events",
         operation: "upsert",
+        options: {
+          onConflict: "provider,provider_event_id",
+          ignoreDuplicates: true,
+        },
         values: expect.objectContaining({
           provider: "REVENUECAT",
           provider_event_id: "event_123",
