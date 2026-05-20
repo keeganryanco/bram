@@ -210,6 +210,60 @@ async function fetchRevenueCatSubscriber(
   return (await response.json()) as RevenueCatSubscriberResponse;
 }
 
+function premiumEntitlementContext(subscriber: RevenueCatSubscriberResponse) {
+  const entitlement =
+    subscriber.subscriber?.entitlements?.[premiumEntitlementId] ?? undefined;
+  const productId = entitlement?.product_identifier ?? undefined;
+  const subscription = productId
+    ? subscriber.subscriber?.subscriptions?.[productId]
+    : undefined;
+  const active = Boolean(entitlement && isActive(entitlement.expires_date));
+
+  return { entitlement, subscription, active };
+}
+
+async function fetchRevenueCatSubscriberWithLegacyIds(
+  appUserId: string,
+  fetchImpl: typeof fetch,
+) {
+  const canonicalAppUserId = appUserId.toLowerCase();
+  const revenueCatIds = Array.from(
+    new Set([
+      canonicalAppUserId,
+      appUserId,
+      canonicalAppUserId.toUpperCase(),
+    ]),
+  );
+
+  let selectedRevenueCatAppUserId = revenueCatIds[0];
+  let selectedSubscriber = await fetchRevenueCatSubscriber(
+    selectedRevenueCatAppUserId,
+    fetchImpl,
+  );
+  let selectedContext = premiumEntitlementContext(selectedSubscriber);
+
+  for (const revenueCatAppUserId of revenueCatIds.slice(1)) {
+    if (selectedContext.active) {
+      break;
+    }
+
+    const subscriber = await fetchRevenueCatSubscriber(revenueCatAppUserId, fetchImpl);
+    const context = premiumEntitlementContext(subscriber);
+    if (context.active) {
+      selectedRevenueCatAppUserId = revenueCatAppUserId;
+      selectedSubscriber = subscriber;
+      selectedContext = context;
+      break;
+    }
+  }
+
+  return {
+    revenueCatAppUserId: selectedRevenueCatAppUserId,
+    subscriber: selectedSubscriber,
+    ...selectedContext,
+  };
+}
+
 async function currentAccountEntitlement(supabase: SupabaseLike, userId: string) {
   const { data, error } = await supabase
     .from("account_entitlements")
@@ -240,15 +294,14 @@ export async function syncRevenueCatEntitlement(
 ) {
   const supabase = clients.supabase ?? getSupabaseAdmin();
   const fetchImpl = clients.fetch ?? fetch;
-  const subscriber = await fetchRevenueCatSubscriber(appUserId, fetchImpl);
-  const entitlement =
-    subscriber.subscriber?.entitlements?.[premiumEntitlementId] ?? undefined;
-  const productId = entitlement?.product_identifier ?? undefined;
-  const subscription = productId
-    ? subscriber.subscriber?.subscriptions?.[productId]
-    : undefined;
-  const active = Boolean(entitlement && isActive(entitlement.expires_date));
-  const existing = await currentAccountEntitlement(supabase, appUserId);
+  const canonicalAppUserId = appUserId.toLowerCase();
+  const {
+    revenueCatAppUserId,
+    entitlement,
+    subscription,
+    active,
+  } = await fetchRevenueCatSubscriberWithLegacyIds(appUserId, fetchImpl);
+  const existing = await currentAccountEntitlement(supabase, canonicalAppUserId);
 
   if (!active && isManualGrantActive(existing)) {
     const { error } = await supabase
@@ -259,13 +312,13 @@ export async function syncRevenueCatEntitlement(
         entitlement_source: grantEntitlementSource(existing.active_promo_kind),
         premium_expires_at: existing.premium_expires_at ?? null,
       })
-      .eq("user_id", appUserId);
+      .eq("user_id", canonicalAppUserId);
 
     if (error) {
       throw error;
     }
 
-    return fetchAccountSnapshot(supabase, appUserId);
+    return fetchAccountSnapshot(supabase, canonicalAppUserId);
   }
 
   const update = active
@@ -273,27 +326,27 @@ export async function syncRevenueCatEntitlement(
         account_tier: "PREMIUM",
         subscription_status: subscriptionStatus(active, entitlement, subscription),
         entitlement_source: "REVENUECAT",
-        revenuecat_app_user_id: appUserId,
+        revenuecat_app_user_id: revenueCatAppUserId,
         premium_expires_at: entitlement?.expires_date ?? null,
       }
     : {
         account_tier: "FREE",
         subscription_status: "EXPIRED",
         entitlement_source: "NONE",
-        revenuecat_app_user_id: appUserId,
+        revenuecat_app_user_id: canonicalAppUserId,
         premium_expires_at: null,
       };
 
   const { error } = await supabase
     .from("account_entitlements")
     .update(update)
-    .eq("user_id", appUserId);
+    .eq("user_id", canonicalAppUserId);
 
   if (error) {
     throw error;
   }
 
-  return fetchAccountSnapshot(supabase, appUserId);
+  return fetchAccountSnapshot(supabase, canonicalAppUserId);
 }
 
 export async function fetchAccountSnapshot(

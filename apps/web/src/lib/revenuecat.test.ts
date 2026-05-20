@@ -8,7 +8,7 @@ import {
 
 const userId = "11111111-1111-4111-8111-111111111111";
 
-function revenueCatFetch(options: {
+function revenueCatResponse(options: {
   active?: boolean;
   unsubscribeDetectedAt?: string | null;
   billingIssuesDetectedAt?: string | null;
@@ -16,7 +16,7 @@ function revenueCatFetch(options: {
   errorBody?: string;
 } = {}) {
   const active = options.active ?? true;
-  return vi.fn(async () => ({
+  return {
     ok: options.status ? options.status >= 200 && options.status < 300 : true,
     status: options.status ?? 200,
     text: async () => options.errorBody ?? "",
@@ -40,7 +40,17 @@ function revenueCatFetch(options: {
         },
       },
     }),
-  })) as unknown as typeof fetch;
+  };
+}
+
+function revenueCatFetch(options: {
+  active?: boolean;
+  unsubscribeDetectedAt?: string | null;
+  billingIssuesDetectedAt?: string | null;
+  status?: number;
+  errorBody?: string;
+} = {}) {
+  return vi.fn(async () => revenueCatResponse(options)) as unknown as typeof fetch;
 }
 
 function supabaseMock(options: {
@@ -183,6 +193,42 @@ describe("refreshRevenueCatEntitlementForToken", () => {
           account_tier: "PREMIUM",
           subscription_status: "TRIAL",
           entitlement_source: "REVENUECAT",
+        }),
+      }),
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("finds active sandbox purchases attached to legacy uppercase app user ids", async () => {
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "rc_secret");
+    const mixedUserId = "abcdefab-cdef-4abc-8def-abcdefabcdef";
+    const requestedUrls: string[] = [];
+    const fetch = vi.fn(async (url: string | URL | Request) => {
+      const urlString = String(url);
+      requestedUrls.push(urlString);
+      return revenueCatResponse({
+        active: urlString.includes(mixedUserId.toUpperCase()),
+      });
+    }) as unknown as typeof globalThis.fetch;
+    const supabase = supabaseMock({ authUser: mixedUserId });
+
+    await refreshRevenueCatEntitlementForToken("good-token", {
+      supabase,
+      fetch,
+    });
+
+    expect(requestedUrls).toEqual([
+      expect.stringContaining(mixedUserId),
+      expect.stringContaining(mixedUserId.toUpperCase()),
+    ]);
+    expect(supabase.calls).toContainEqual(
+      expect.objectContaining({
+        table: "account_entitlements",
+        operation: "update",
+        values: expect.objectContaining({
+          account_tier: "PREMIUM",
+          entitlement_source: "REVENUECAT",
+          revenuecat_app_user_id: mixedUserId.toUpperCase(),
         }),
       }),
     );

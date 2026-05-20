@@ -21,7 +21,7 @@ final class RevenueCatPaywallService: BramPaywallServicing {
     }
 
     func configure(userId: UUID) async throws {
-        let userIdString = userId.uuidString
+        let userIdString = userId.uuidString.lowercased()
         if Purchases.isConfigured {
             if configuredUserId != userId {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
