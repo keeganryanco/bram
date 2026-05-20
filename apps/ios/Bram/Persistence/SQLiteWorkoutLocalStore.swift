@@ -269,6 +269,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             hardSetDelta: hardSetsInPeriod - previousHardSets,
             goal: goals.primaryGoal
         )
+        let launchChallengeProgress = try Self.launchChallengeProgress(database: database, asOf: Date(), calendar: calendar)
 
         return StatsWeekSnapshot(
             dateRangeTitle: Self.rangeTitle(for: period, start: interval.start, end: endDate),
@@ -292,6 +293,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             weeklyTarget: goals.weeklyTrainingDays,
             workoutDaysInPeriod: workoutDays.count,
             streakRepairCount: streakRepairsAvailable(from: workoutDays),
+            launchChallenge: launchChallengeProgress,
             healthMetricsConnected: !energyByDay.isEmpty && energyEstimateByDay.values.contains(false)
         )
     }
@@ -1468,6 +1470,33 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             }
         }
         return count
+    }
+
+    private static func launchChallengeProgress(
+        database: SQLiteDatabase,
+        asOf date: Date,
+        calendar: Calendar
+    ) throws -> LaunchChallengeProgress {
+        let template = LaunchChallengeProgress.make(qualifyingWorkoutDays: 0, asOf: date, calendar: calendar)
+        let sql = """
+        select count(distinct n.workout_date)
+        from workout_notes n
+        where n.deleted_at is null
+          and n.workout_date between ? and ?
+          and (
+            exists (select 1 from workout_strength_sets s where s.note_id = n.id)
+            or exists (select 1 from workout_cardio_entries c where c.note_id = n.id)
+          );
+        """
+        var count = 0
+        try database.withStatement(sql) { statement in
+            try database.bind(dayKey(for: template.startDate), to: 1, in: statement)
+            try database.bind(dayKey(for: template.endDate), to: 2, in: statement)
+            if try database.step(statement) {
+                count = database.int(at: 0, in: statement) ?? 0
+            }
+        }
+        return LaunchChallengeProgress.make(qualifyingWorkoutDays: count, asOf: date, calendar: calendar)
     }
 
     private func hardSetCount(from startKey: String, to endKey: String) throws -> Int {

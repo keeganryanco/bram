@@ -40,7 +40,117 @@ struct StatsWeekSnapshot: Hashable {
     var weeklyTarget: Int = 4
     var workoutDaysInPeriod: Int = 0
     var streakRepairCount: Int = 0
+    var launchChallenge: LaunchChallengeProgress = .make(qualifyingWorkoutDays: 0)
     var healthMetricsConnected: Bool
+}
+
+enum LaunchChallengeState: String, Hashable {
+    case hidden
+    case announced
+    case active
+    case completed
+    case ended
+}
+
+struct LaunchChallengeProgress: Hashable {
+    static let eventKey = "founding_lifters_week_2026"
+    static let title = "Founding Lifters Week"
+    static let badgeTitle = "Founding Lifters"
+    static let goalWorkoutDays = 4
+
+    var eventKey: String = Self.eventKey
+    var title: String = Self.title
+    var badgeTitle: String = Self.badgeTitle
+    var shortDescription: String = "Log 4 workouts and start your first strength history."
+    var progressCount: Int
+    var goalCount: Int = Self.goalWorkoutDays
+    var state: LaunchChallengeState
+    var announcementDate: Date
+    var startDate: Date
+    var endDate: Date
+
+    var isVisible: Bool {
+        state != .hidden
+    }
+
+    var isEarned: Bool {
+        progressCount >= goalCount
+    }
+
+    var clampedProgress: Int {
+        min(progressCount, goalCount)
+    }
+
+    var progressText: String {
+        "\(clampedProgress)/\(goalCount) workouts"
+    }
+
+    var stateLabel: String {
+        switch state {
+        case .hidden:
+            "Launch challenge"
+        case .announced:
+            "Starts May 26"
+        case .active:
+            isEarned ? "Badge earned" : "Live now"
+        case .completed:
+            "Badge earned"
+        case .ended:
+            isEarned ? "Badge earned" : "Ended"
+        }
+    }
+
+    var subtitle: String {
+        switch state {
+        case .hidden:
+            shortDescription
+        case .announced:
+            "Starts May 26. Log four workouts by June 2 to earn the limited badge."
+        case .active:
+            isEarned ? "Limited badge unlocked." : "Log \(max(goalCount - clampedProgress, 0)) more by June 2 to earn the limited badge."
+        case .completed:
+            "Limited badge unlocked."
+        case .ended:
+            isEarned ? "Limited badge unlocked." : "This launch challenge has ended."
+        }
+    }
+
+    static func make(
+        qualifyingWorkoutDays: Int,
+        asOf date: Date = Date(),
+        calendar inputCalendar: Calendar = .current
+    ) -> LaunchChallengeProgress {
+        var calendar = inputCalendar
+        calendar.timeZone = .current
+        let announcement = eventDate(year: 2026, month: 5, day: 22, calendar: calendar)
+        let start = eventDate(year: 2026, month: 5, day: 26, calendar: calendar)
+        let end = eventDate(year: 2026, month: 6, day: 2, calendar: calendar)
+        let today = calendar.startOfDay(for: date)
+        let earned = qualifyingWorkoutDays >= goalWorkoutDays
+        let state: LaunchChallengeState
+        if today < announcement {
+            state = .hidden
+        } else if earned {
+            state = .completed
+        } else if today < start {
+            state = .announced
+        } else if today <= end {
+            state = .active
+        } else {
+            state = .ended
+        }
+        return LaunchChallengeProgress(
+            progressCount: qualifyingWorkoutDays,
+            state: state,
+            announcementDate: announcement,
+            startDate: start,
+            endDate: end
+        )
+    }
+
+    private static func eventDate(year: Int, month: Int, day: Int, calendar: Calendar) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day)) ?? Date(timeIntervalSince1970: 0)
+    }
 }
 
 enum StatsPeriod: String, CaseIterable, Identifiable, Hashable {

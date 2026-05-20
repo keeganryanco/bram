@@ -259,7 +259,8 @@ struct HomeView: View {
                     selectedDate: note.date,
                     noteStore: noteStore,
                     healthAuthorizationState: healthService.authorizationState(),
-                    initialMode: .stats
+                    initialMode: .stats,
+                    track: track
                 )
             } else {
                 PremiumFeaturePromptView(feature: "Progress")

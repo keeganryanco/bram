@@ -5,6 +5,7 @@ struct StatsPanelView: View {
     let selectedDate: Date
     let noteStore: any WorkoutLocalStore
     let healthAuthorizationState: HealthAuthorizationState
+    let track: (AnalyticsEvent) -> Void
     @State private var selectedMode: StatsMode
     @State private var selectedPeriod: StatsPeriod = .week
     @State private var anchorDate: Date
@@ -15,12 +16,14 @@ struct StatsPanelView: View {
         selectedDate: Date = .now,
         noteStore: any WorkoutLocalStore = SQLiteWorkoutLocalStore.shared,
         healthAuthorizationState: HealthAuthorizationState = .notRequested,
-        initialMode: StatsMode = .stats
+        initialMode: StatsMode = .stats,
+        track: @escaping (AnalyticsEvent) -> Void = { _ in }
     ) {
         self.stats = stats
         self.selectedDate = selectedDate
         self.noteStore = noteStore
         self.healthAuthorizationState = healthAuthorizationState
+        self.track = track
         _selectedMode = State(initialValue: initialMode)
         _anchorDate = State(initialValue: selectedDate)
         _visibleStats = State(initialValue: stats)
@@ -43,7 +46,7 @@ struct StatsPanelView: View {
                     nextPeriod: { shiftPeriod(by: 1) }
                 )
             } else {
-                StreakOverview(stats: visibleStats)
+                StreakOverview(stats: visibleStats, track: track)
             }
         }
         .task(id: "\(selectedPeriod.rawValue)-\(SQLiteWorkoutLocalStore.dayKey(for: anchorDate))") {
@@ -689,6 +692,9 @@ private struct PlainProgressButtonStyle: ButtonStyle {
 
 private struct StreakOverview: View {
     let stats: StatsWeekSnapshot
+    let track: (AnalyticsEvent) -> Void
+    @State private var trackedViewedKeys = Set<String>()
+    @State private var trackedEarnedKeys = Set<String>()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -736,6 +742,16 @@ private struct StreakOverview: View {
                 }
             }
 
+            if stats.launchChallenge.isVisible {
+                LaunchChallengeCard(progress: stats.launchChallenge)
+                    .onAppear {
+                        trackLaunchChallengeIfNeeded(stats.launchChallenge)
+                    }
+                    .onChange(of: stats.launchChallenge) { _, progress in
+                        trackLaunchChallengeIfNeeded(progress)
+                    }
+            }
+
             BramCard {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Awards")
@@ -743,7 +759,7 @@ private struct StreakOverview: View {
                         .foregroundStyle(BramColor.textPrimary)
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        ForEach(stats.streakAwards) { award in
+                        ForEach(visibleAwards) { award in
                             StreakAwardTile(award: award)
                         }
                     }
@@ -769,6 +785,52 @@ private struct StreakOverview: View {
         }
     }
 
+    private var visibleAwards: [StreakAward] {
+        guard stats.launchChallenge.isVisible else { return stats.streakAwards }
+        let challenge = StreakAward(
+            title: stats.launchChallenge.badgeTitle,
+            subtitle: "4 launch workouts",
+            systemImage: "rosette",
+            colorRole: .energy,
+            isUnlocked: stats.launchChallenge.isEarned
+        )
+        return stats.streakAwards + [challenge]
+    }
+
+    private func trackLaunchChallengeIfNeeded(_ progress: LaunchChallengeProgress) {
+        guard progress.isVisible else { return }
+        let viewedKey = "\(progress.eventKey)-\(progress.state.rawValue)-\(progress.clampedProgress)"
+        if !trackedViewedKeys.contains(viewedKey) {
+            trackedViewedKeys.insert(viewedKey)
+            track(
+                AnalyticsEvent(
+                    name: "launch_challenge_viewed",
+                    properties: [
+                        "event_key": progress.eventKey,
+                        "state": progress.state.rawValue,
+                        "progress_bucket": progress.progressText
+                    ]
+                )
+            )
+        }
+
+        guard progress.isEarned else { return }
+        let earnedKey = "\(progress.eventKey)-earned"
+        if !trackedEarnedKeys.contains(earnedKey) {
+            trackedEarnedKeys.insert(earnedKey)
+            track(
+                AnalyticsEvent(
+                    name: "launch_challenge_badge_earned",
+                    properties: [
+                        "event_key": progress.eventKey,
+                        "state": progress.state.rawValue,
+                        "progress_bucket": progress.progressText
+                    ]
+                )
+            )
+        }
+    }
+
     private var repairText: String {
         if stats.streakRepairCount == 0 {
             return "No repair needed for this range."
@@ -777,6 +839,62 @@ private struct StreakOverview: View {
             return "1 repair available for a single missed day between workouts."
         }
         return "\(stats.streakRepairCount) repairs available for single missed days between workouts."
+    }
+}
+
+private struct LaunchChallengeCard: View {
+    let progress: LaunchChallengeProgress
+
+    var body: some View {
+        BramCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(BramColor.energy.opacity(progress.isEarned ? 0.2 : 0.14))
+                        Image(systemName: progress.isEarned ? "rosette" : "flag.checkered")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(BramColor.energy)
+                    }
+                    .frame(width: 42, height: 42)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(progress.title)
+                                .font(BramFont.headline())
+                                .foregroundStyle(BramColor.textPrimary)
+                            Spacer()
+                            Text(progress.stateLabel)
+                                .font(BramFont.label(size: 11))
+                                .foregroundStyle(BramColor.energy)
+                                .lineLimit(1)
+                        }
+
+                        Text(progress.subtitle)
+                            .font(BramFont.callout())
+                            .foregroundStyle(BramColor.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(progress.progressText)
+                            .font(BramFont.label(size: 12))
+                            .foregroundStyle(BramColor.textPrimary)
+                            .monospacedDigit()
+                        Spacer()
+                        Text("Challenge")
+                            .font(BramFont.label(size: 11))
+                            .foregroundStyle(BramColor.textTertiary)
+                    }
+                    ProgressView(value: Double(progress.clampedProgress), total: Double(progress.goalCount))
+                        .tint(BramColor.energy)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(progress.title). \(progress.stateLabel). \(progress.progressText). \(progress.subtitle)")
     }
 }
 

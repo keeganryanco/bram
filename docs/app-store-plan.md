@@ -93,6 +93,30 @@ Beta review notes:
 - Friends/family: use `FRIENDS_DISCOUNT` or `FOUNDER_LIFETIME` in Supabase. These recipients receive the lifetime-access launch email and can still subscribe from Settings if they want to support Bram.
 - Product Hunt: public `PRODUCTHUNT1MONTH` for launch day. Apple/RevenueCat native offer codes can follow after subscription approval and App Store offer setup.
 
+## In-App Event Nomination
+
+Use this only if the build with the in-app challenge is submitted and visible before nomination.
+
+- Event name: `Founding Lifters Week`
+- Badge: `Challenge`
+- Publish/announcement target: `2026-05-22`
+- Date range: `2026-05-26` to `2026-06-02`
+- Short description: `Log 4 workouts and start your first strength history.`
+- Long description:
+
+```text
+Founding Lifters Week is a limited-time launch challenge that helps new Bram users build their first week of training history.
+
+Log four workouts in Bram, review your weekly progress, and start turning natural gym notes into PRs, set volume, streaks, and training insights.
+
+Bram is built for lifters who already track in Notes, paper, or spreadsheets but want a cleaner iPhone-native way to remember their training. Write what you did. Bram tracks the rest.
+```
+
+- App Store nomination:
+  - Nomination Type: `New Content`
+  - Nomination Name: `Founding Lifters Week`
+  - Do you intend to submit a new In-App Event: `Yes`
+
 ## Review Notes Checklist
 
 - Demo account email and password, with Supabase developer access enabled.
