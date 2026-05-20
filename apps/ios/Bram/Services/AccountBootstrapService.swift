@@ -25,7 +25,6 @@ struct AccountBootstrapService: AccountBootstrapServicing {
     }
 
     func bootstrap(userId: UUID) async throws -> AccountBootstrapResult {
-        try? await applyBestAvailablePromo()
         let account = try await fetchAccountSnapshot()
         let profile = try await fetchOrCreateTrainingProfile(userId: userId, preferredUnits: account.preferredUnits)
         return AccountBootstrapResult(account: account, goalsProfile: profile)
@@ -95,12 +94,6 @@ struct AccountBootstrapService: AccountBootstrapServicing {
             .single()
             .execute()
             .value
-    }
-
-    private func applyBestAvailablePromo() async throws {
-        try await client
-            .rpc("apply_best_available_promo")
-            .execute()
     }
 
     private func fetchOrCreateTrainingProfile(userId: UUID, preferredUnits: String) async throws -> TrainingGoalsProfile {

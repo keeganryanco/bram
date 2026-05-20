@@ -461,6 +461,85 @@ struct BramTests {
     }
 
     @MainActor
+    @Test func appleSignInSkipsRequiredNameStepAndUsesDisplayNameFallback() async {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "apple@privaterelay.appleid.com",
+            displayName: nil,
+            preferredUnits: "lb",
+            onboardingCompletedAt: nil,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .none,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let localStore = MockLocalStore()
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: localStore
+        )
+
+        await state.signInWithApple()
+
+        #expect(state.status == .needsOnboarding)
+        #expect(state.onboardingDraft.firstName == "Bram user")
+        #expect(state.onboardingDraft.step == .goal)
+        #expect(state.account?.displayName == "Bram user")
+    }
+
+    @MainActor
+    @Test func purchaseFailureStaysOnPaywallInsteadOfAccountGate() async {
+        let userId = UUID()
+        let account = AccountSnapshot(
+            userId: userId,
+            email: "paywall@trybram.app",
+            displayName: "Paywall",
+            preferredUnits: "lb",
+            onboardingCompletedAt: .now,
+            accountTier: .free,
+            subscriptionStatus: .none,
+            entitlementSource: .none,
+            isDeveloper: false,
+            founderOfferEligible: false,
+            premiumExpiresAt: nil,
+            entitlementsUpdatedAt: .now
+        )
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: userId),
+            bootstrapService: MockBootstrapService(result: AccountBootstrapResult(account: account, goalsProfile: TrainingGoalsProfile())),
+            localStore: MockLocalStore(),
+            paywallService: MockPaywallService(purchaseError: BramPaywallError.refreshFailed)
+        )
+
+        await state.start()
+        await state.purchase(packageId: "monthly")
+
+        #expect(state.status == .needsPaywall)
+        #expect(state.paywallMessage == "We couldn't confirm App Store access yet. Restore or try again.")
+    }
+
+    @MainActor
+    @Test func appleOfferCodeRedemptionUsesStoreKitSheet() async {
+        let paywallService = MockPaywallService()
+        let state = AccountSessionState(
+            authService: MockAuthService(restoredUserId: UUID()),
+            bootstrapService: MockBootstrapService(result: nil),
+            localStore: MockLocalStore(),
+            paywallService: paywallService
+        )
+
+        await state.redeemAppleOfferCode()
+
+        #expect(paywallService.didPresentCodeRedemption)
+        #expect(state.paywallMessage == "Enter your App Store offer code, then return to Bram and tap Restore.")
+    }
+
+    @MainActor
     @Test func invalidCredentialsUseFriendlyResetCopy() async {
         let state = AccountSessionState(
             authService: MockAuthService(restoredUserId: nil, signInError: TestAuthError(message: "Invalid login credentials")),
@@ -2821,6 +2900,52 @@ private struct TestAuthError: LocalizedError {
 
     var errorDescription: String? {
         message
+    }
+}
+
+@MainActor
+private final class MockPaywallService: BramPaywallServicing {
+    var purchaseError: Error?
+    var restoreError: Error?
+    private(set) var didPresentCodeRedemption = false
+
+    init(purchaseError: Error? = nil, restoreError: Error? = nil) {
+        self.purchaseError = purchaseError
+        self.restoreError = restoreError
+    }
+
+    func configure(userId: UUID) throws {}
+
+    func loadPaywall() async throws -> BramPaywallSnapshot {
+        BramPaywallSnapshot(
+            packages: [
+                BramPaywallPackage(
+                    id: "monthly",
+                    productId: BramSubscriptionProductID.premiumMonthly,
+                    title: "Monthly",
+                    price: "$7.99",
+                    promoPrice: nil,
+                    period: "per month",
+                    detail: "3 days free, then monthly billing",
+                    isRecommended: false
+                )
+            ],
+            message: nil
+        )
+    }
+
+    func trackPaywallImpression() {}
+
+    func purchase(packageId: String) async throws {
+        if let purchaseError { throw purchaseError }
+    }
+
+    func restorePurchases() async throws {
+        if let restoreError { throw restoreError }
+    }
+
+    func presentCodeRedemption() {
+        didPresentCodeRedemption = true
     }
 }
 

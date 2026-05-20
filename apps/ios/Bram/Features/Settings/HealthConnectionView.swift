@@ -135,7 +135,7 @@ struct HealthConnectionContent: View {
         case .unavailable:
             "Health unavailable"
         case .notRequested:
-            "Connect Apple Health"
+            "Continue"
         case .requested, .connected, .connectedNoRecentData:
             "Refresh Health Data"
         case .accessNeedsReview, .error:

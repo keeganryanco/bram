@@ -281,7 +281,7 @@ struct AppleHealthProgressPresentation: Hashable {
             fallthrough
         case .requested, .connected, .connectedNoRecentData:
             return AppleHealthProgressPresentation(
-                title: "Connect Apple Health",
+                title: "Apple Health",
                 subtitle: "Energy, heart rate, duration, and bodyweight can improve progress.",
                 systemImage: "heart",
                 isConnectedLike: false,

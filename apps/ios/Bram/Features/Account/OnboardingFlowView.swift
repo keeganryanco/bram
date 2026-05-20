@@ -308,7 +308,7 @@ struct OnboardingFlowView: View {
 
     private var appleHealthStep: some View {
         OnboardingStepShell(
-            title: "Connect Apple Health for better context.",
+            title: "Apple Health can add context.",
             mascotImageName: "BramBearTrainingSetup",
             mascotSize: 136
         ) {
@@ -329,9 +329,6 @@ struct OnboardingFlowView: View {
     }
 
     private var footerTitle: String {
-        if draft.step == .appleHealth && !healthAuthorizationState.isConnectedLike && !didRequestHealthThisStep {
-            return "Connect Apple Health"
-        }
         return "Continue"
     }
 

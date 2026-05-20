@@ -10,6 +10,7 @@
   - Workout notes that track progress
   - Write workouts. Track progress.
   - A calmer way to get stronger
+- App description must clearly state near the top: `Bram requires an auto-renewable subscription after a 3-day free trial.`
 
 ## Required Links
 
@@ -57,16 +58,17 @@ Monday, May 18:
 
 Tuesday-Thursday, May 19-21:
 
-- Use TestFlight for Reddit/forum/friends feedback. TestFlight in-app purchases use Apple's sandbox and are free to testers, so use Supabase admin grants only when testers need app access without completing sandbox purchase flows.
-- Share the public `TESTFLIGHT1MONTH` code with testers who should get the one-month promo. Use `account_promo_eligibilities` only for account-specific automatic pre-grants; the app applies the best available pre-grant on bootstrap.
-- When a signed-in tester redeems `TESTFLIGHT1MONTH`, the server sends the branded "Welcome to the Bram TestFlight" Resend email once and records the send in `account_email_events`.
+- Use TestFlight for Reddit/forum/friends feedback. TestFlight in-app purchases use Apple's sandbox and are free to testers.
+- Use Apple subscription offer codes for one-month TestFlight access. The in-app `Redeem code` button opens Apple's official offer-code redemption sheet.
+- Supabase promo tables remain for campaign tracking, email segmentation, and private entitlement grants, but public in-app promo codes do not unlock paid access in the App Store build.
+- When a tester receives a TestFlight offer code email, the branded "Welcome to the Bram TestFlight" Resend email is sent once and recorded in `account_email_events`.
 - Every first successful Bram signup/session bootstrap can trigger the branded "Welcome to Bram" Resend email once through `account_email_events` event key `welcome_2026_05`.
 - Fix only launch-blocking bugs: crashes, account loss/mixing, broken onboarding, broken paywall, broken note parsing, broken data deletion/export, and metadata/privacy mismatches.
 
 Friday, May 22:
 
 - Product Hunt launch.
-- Use Product Hunt one-month access via Bram-owned Supabase grants first. Users can redeem the public `PRODUCTHUNT1MONTH` code in the native paywall; public Apple/RevenueCat offer codes can follow after App Store subscription approval and offer-code setup.
+- Use Apple subscription offer codes for Product Hunt one-month access. Distribute redemption links/codes through the launch email and Product Hunt messaging.
 - Vercel Cron sends the waitlist launch email at 7:00 AM Central when `CRON_SECRET` is configured and `LAUNCH_DAY_EMAIL_ENABLED=true`. Standard waitlisters get the one-month founder email. Emails with `FRIENDS_DISCOUNT` or `FOUNDER_LIFETIME` in `account_promo_eligibilities` or `account_entitlements` get the lifetime access variant.
 - Monitor PostHog onboarding/paywall funnels, Supabase support requests/error reports, Linear support issues, RevenueCat purchase state, and App Store/TestFlight feedback.
 
@@ -74,10 +76,10 @@ Friday, May 22:
 
 1. Upload the processed App Store Connect build from Xcode Organizer.
 2. Add yourself as an internal tester and install Bram through Apple's TestFlight app on your iPhone.
-3. Verify fresh install, email auth, Apple sign-in, Google sign-in, RevenueCat products, sandbox purchase/restore, `TESTFLIGHT1MONTH`, reinstall/sign-in sync, and developer bypass on the App Review account.
+3. Verify fresh install, email auth, Apple sign-in, Google sign-in, RevenueCat products, sandbox purchase/restore, Apple offer-code redemption, reinstall/sign-in sync, and developer bypass on the App Review account.
 4. Create an external group named `Reddit Beta` or `Bram TestFlight`, add the build, and submit it for Beta App Review.
 5. After approval, enable a public TestFlight link and start with a `100-250` tester limit.
-6. Reddit post should include the public TestFlight link, promo code `TESTFLIGHT1MONTH`, and a feedback ask: email `keegan@trybram.app` or comment on the Reddit post.
+6. Reddit post should include the public TestFlight link, Apple offer-code redemption instructions, and a feedback ask: email `keegan@trybram.app` or comment on the Reddit post.
 
 Beta review notes:
 
@@ -85,18 +87,16 @@ Beta review notes:
 - Subscriptions use App Store purchases and RevenueCat.
 - App Review demo account: `review@trybram.app` / `appstorereview498`.
 - The demo account has Supabase developer access and bypasses payment.
-- Testers may redeem `TESTFLIGHT1MONTH` for one month free app access.
+- Testers may redeem Apple subscription offer codes for one month free app access.
 
 ## Promo Strategy
 
-- TestFlight: public `TESTFLIGHT1MONTH`; redeem inside Bram after account creation/sign-in. This grants one month of `FREE_PREMIUM` through Supabase and sends the TestFlight welcome email once.
-- Waitlist: waitlist emails are founder eligible by default. Existing signup/account bootstrap auto-applies one month where possible; launch email also gives `FOUNDER1MONTH` as fallback.
-- Friends/family: use `FRIENDS_DISCOUNT` or `FOUNDER_LIFETIME` in Supabase. These recipients receive the lifetime-access launch email and can still subscribe from Settings if they want to support Bram.
-- Product Hunt: public `PRODUCTHUNT1MONTH` for launch day. Apple/RevenueCat native offer codes can follow after subscription approval and App Store offer setup.
-- Referrals: each signed-in user gets a server-generated Bram referral code from `/api/account/referral-code`. Friends redeem that code in the existing paywall promo sheet and receive one month of Bram-owned `FREE_PREMIUM` access with `REFERRAL_1MONTH`.
-- Referral rewards are Supabase entitlements, not Apple subscription extensions. If the referrer is not developer/friends-family/lifetime and does not have active App Store/RevenueCat paid access, each successful referred friend grants the referrer one Bram-owned promo month. If the referrer has active paid access, the reward is recorded as queued and should be applied after paid access expires.
-- Referral precedence: developer/friends-family/lifetime grants win, active App Store subscription wins over Bram-owned referral credits, active referral/free-month promos unlock the app until expiration, and expired referral promos fall back to the paywall.
-- App Store review note: promo and referral codes bypass payment only while valid; normal paid access remains the 3-day App Store trial and auto-renewable monthly/yearly subscription.
+- Public one-month promos use Apple subscription offer codes created in App Store Connect. The app's `Redeem code` action opens Apple's official redemption sheet.
+- TestFlight, waitlist/founder, and Product Hunt campaigns should distribute Apple offer-code links or codes by Resend/email/social copy.
+- Supabase promo tables remain for campaign attribution, email segmentation, and private account entitlements, but the reviewed app build does not expose Bram-owned public promo-code redemption.
+- Friends/family: use `FRIENDS_DISCOUNT` or `FOUNDER_LIFETIME` in Supabase. These account entitlements bypass the paywall and can still subscribe from Settings if they want to support Bram.
+- Referrals should not grant public non-IAP access in the reviewed build. Keep referral attribution/badge logic separate from subscription unlocks until an Apple-compliant referral offer is designed.
+- App Store review note: subscriptions and public offer codes are handled through Apple IAP; no Bram-owned in-app promo code unlocks paid features.
 
 ## In-App Event Nomination
 
@@ -128,6 +128,8 @@ Bram is built for lifters who already track in Notes, paper, or spreadsheets but
 
 - Demo account email and password, with Supabase developer access enabled.
 - Clear note that subscriptions are auto-renewable, include a 3-day free trial, and are managed through App Store purchase/restore.
+- Clear note that Bram requires an auto-renewable subscription after the 3-day free trial.
+- Clear note that `Redeem code` opens Apple's official offer-code redemption sheet and no Bram-owned public promo code unlocks paid access.
 - If subscription products are `Ready to Submit`, explain that they are submitted with this binary and visible on the Bram Premium screen.
 - Support URL/email and privacy/terms links.
 - Any AI processing disclosure in plain language: users write workout notes; Bram interprets them to calculate workout stats and suggestions.

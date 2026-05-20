@@ -9,6 +9,13 @@ enum AccountSessionStatus: Equatable {
     case failed(String)
 }
 
+private enum AccountAuthSource: Equatable {
+    case unknown
+    case email
+    case apple
+    case google
+}
+
 @MainActor
 final class AccountSessionState: ObservableObject {
     @Published private(set) var status: AccountSessionStatus = .initializing
@@ -17,6 +24,7 @@ final class AccountSessionState: ObservableObject {
     @Published private(set) var onboardingDraft = OnboardingDraft()
     @Published private(set) var hasPendingCrashSupportPrompt = false
     @Published private(set) var canChangeEmailWithPassword = false
+    @Published private(set) var paywallMessage: String?
 
     private let authService: (any BramAuthServicing)?
     private let bootstrapService: (any AccountBootstrapServicing)?
@@ -168,7 +176,7 @@ final class AccountSessionState: ObservableObject {
     }
 
     func signUp(email: String, password: String) async {
-        await authenticate {
+        await authenticate(source: .email) {
             do {
                 if let userId = try await authService?.signUp(email: email, password: password) {
                     return userId
@@ -192,7 +200,7 @@ final class AccountSessionState: ObservableObject {
     }
 
     func signIn(email: String, password: String) async {
-        await authenticate {
+        await authenticate(source: .email) {
             do {
                 guard let userId = try await authService?.signIn(email: email, password: password) else {
                     throw AccountSessionError.accountServicesUnavailable
@@ -228,7 +236,7 @@ final class AccountSessionState: ObservableObject {
     }
 
     func signInWithApple() async {
-        await authenticate {
+        await authenticate(source: .apple) {
             guard let userId = try await authService?.signInWithOAuth(.apple) else {
                 throw AccountSessionError.noSessionAfterOAuth
             }
@@ -237,7 +245,7 @@ final class AccountSessionState: ObservableObject {
     }
 
     func signInWithGoogle() async {
-        await authenticate {
+        await authenticate(source: .google) {
             guard let userId = try await authService?.signInWithOAuth(.google) else {
                 throw AccountSessionError.noSessionAfterOAuth
             }
@@ -450,6 +458,7 @@ final class AccountSessionState: ObservableObject {
     }
 
     func purchase(packageId: String) async {
+        paywallMessage = nil
         analytics.track(AnalyticsEvent(name: "purchase_started", properties: ["package_id": packageId]))
         await runPaywallAction {
             try await paywallService?.purchase(packageId: packageId)
@@ -463,10 +472,23 @@ final class AccountSessionState: ObservableObject {
     }
 
     func restorePurchases() async {
+        paywallMessage = nil
         analytics.track(AnalyticsEvent(name: "restore_purchases_started", properties: ["source": "paywall"]))
         await runPaywallAction {
             try await paywallService?.restorePurchases()
         }
+    }
+
+    func redeemAppleOfferCode() async {
+        paywallMessage = "Enter your App Store offer code, then return to Bram and tap Restore."
+        analytics.track(AnalyticsEvent(name: "apple_offer_code_sheet_opened", properties: ["source": "paywall"]))
+        paywallService?.presentCodeRedemption()
+    }
+
+    func retryPaywallAccess() async {
+        paywallMessage = nil
+        analytics.track(AnalyticsEvent(name: "paywall_access_retry_started", properties: [:]))
+        await runPaywallAction {}
     }
 
     func redeemPromoCode(_ code: String) async throws {
@@ -601,6 +623,7 @@ final class AccountSessionState: ObservableObject {
         userId = nil
         account = nil
         canChangeEmailWithPassword = false
+        paywallMessage = nil
         goalsProfile = BramPreviewData.goalsProfile
         onboardingDraft = OnboardingDraft()
         status = .signedOut
@@ -625,6 +648,7 @@ final class AccountSessionState: ObservableObject {
             userId = nil
             account = nil
             canChangeEmailWithPassword = false
+            paywallMessage = nil
             goalsProfile = BramPreviewData.goalsProfile
             onboardingDraft = OnboardingDraft()
             status = .signedOut
@@ -633,12 +657,13 @@ final class AccountSessionState: ObservableObject {
         }
     }
 
-    private func authenticate(_ operation: () async throws -> UUID) async {
+    private func authenticate(source: AccountAuthSource = .unknown, _ operation: () async throws -> UUID) async {
+        paywallMessage = nil
         status = .initializing
         do {
             let userId = try await operation()
             analytics.track(AnalyticsEvent(name: "auth_succeeded", properties: [:]))
-            try await bootstrap(userId: userId)
+            try await bootstrap(userId: userId, authSource: source)
             sendWelcomeEmailIfPossible()
         } catch let error as AccountSessionError {
             analytics.track(AnalyticsEvent(name: "auth_failed", properties: ["reason": error.analyticsReason]))
@@ -650,12 +675,12 @@ final class AccountSessionState: ObservableObject {
         }
     }
 
-    private func bootstrap(userId: UUID) async throws {
+    private func bootstrap(userId: UUID, authSource: AccountAuthSource = .unknown) async throws {
         guard let bootstrapService else {
             throw AccountSessionError.accountServicesUnavailable
         }
         configureLocalAccountStoreIfNeeded(userId: userId)
-        let result = try await bootstrapService.bootstrap(userId: userId)
+        var result = try await bootstrapService.bootstrap(userId: userId)
         self.userId = userId
         analytics.identify(
             userId: userId,
@@ -683,7 +708,19 @@ final class AccountSessionState: ObservableObject {
         }
         if result.needsOnboarding {
             analytics.track(AnalyticsEvent(name: "onboarding_started", properties: ["source": "bootstrap"]))
-            onboardingDraft = (try? await localStore.onboardingDraft()) ?? OnboardingDraft()
+            if authSource == .apple, Self.nonBlank(result.account.displayName) == nil {
+                result = try await bootstrapService.saveDisplayName("Bram user", userId: userId)
+            }
+
+            var draft = (try? await localStore.onboardingDraft()) ?? OnboardingDraft()
+            if authSource == .apple {
+                draft.firstName = Self.nonBlank(result.account.displayName) ?? "Bram user"
+                if draft.step == .name {
+                    draft.step = .goal
+                }
+                try? await localStore.save(draft)
+            }
+            onboardingDraft = draft
             goalsProfile = (try? await localStore.trainingGoalsProfile()) ?? result.goalsProfile
         } else {
             onboardingDraft = OnboardingDraft(firstName: result.account.displayName ?? "", step: .paywall)
@@ -788,16 +825,20 @@ final class AccountSessionState: ObservableObject {
             if let refreshed = try await entitlementRefreshService?.refresh(accessToken: token) {
                 let result = AccountBootstrapResult(account: refreshed, goalsProfile: goalsProfile)
                 apply(result)
+                paywallMessage = result.account.hasPremiumAccess || result.account.hasDeveloperAccess ? nil : "No active App Store subscription was found yet."
             } else if let bootstrapService {
                 let result = try await bootstrapService.bootstrap(userId: userId)
                 apply(result)
+                paywallMessage = result.account.hasPremiumAccess || result.account.hasDeveloperAccess ? nil : "No active App Store subscription was found yet."
             }
         } catch BramPaywallError.purchaseCancelled {
             analytics.track(AnalyticsEvent(name: "purchase_cancelled", properties: [:]))
+            paywallMessage = nil
             status = .needsPaywall
         } catch {
             reportNonFatal(source: "paywall", eventName: "paywall_action_failed", error: error)
-            status = .failed(error.localizedDescription)
+            paywallMessage = "We couldn't confirm App Store access yet. Restore or try again."
+            status = .needsPaywall
         }
     }
 
@@ -807,6 +848,13 @@ final class AccountSessionState: ObservableObject {
             metric.averageHeartRate != nil ||
             metric.bodyweightValue != nil ||
             metric.workoutDurationMinutes != nil
+    }
+
+    private static func nonBlank(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 }
 
