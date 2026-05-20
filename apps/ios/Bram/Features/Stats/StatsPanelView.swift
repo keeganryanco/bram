@@ -822,6 +822,7 @@ private struct StreakOverview: View {
                     title: stats.launchChallenge.badgeTitle,
                     subtitle: "4 launch workouts",
                     systemImage: "rosette",
+                    assetName: "BramBadgeFoundingLifters",
                     colorRole: .energy,
                     isUnlocked: stats.launchChallenge.isEarned
                 )
@@ -832,6 +833,7 @@ private struct StreakOverview: View {
                 title: "Share with a friend",
                 subtitle: referralSubtitle,
                 systemImage: "person.2.fill",
+                assetName: "BramBadgeShareFriend",
                 colorRole: .violet,
                 isUnlocked: (referralProgram?.successfulRedemptions ?? 0) > 0
             )
@@ -981,11 +983,7 @@ private struct StreakAwardTile: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
-            Image(systemName: award.systemImage)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(award.isUnlocked ? award.colorRole.color : BramColor.textTertiary)
-                .frame(width: 28, height: 28)
-                .background((award.isUnlocked ? award.colorRole.color : BramColor.textTertiary).opacity(0.12), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            BadgeArtwork(award: award, size: 34, cornerRadius: 10)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(award.title)
@@ -1061,9 +1059,7 @@ private struct BadgeDetailSheet: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(award.colorRole.color.opacity(award.isUnlocked ? 0.2 : 0.12))
-                        Image(systemName: award.systemImage)
-                            .font(.system(size: 30, weight: .semibold))
-                            .foregroundStyle(award.isUnlocked ? award.colorRole.color : BramColor.textTertiary)
+                        BadgeArtwork(award: award, size: 64, cornerRadius: 17)
                     }
                     .frame(width: 68, height: 68)
 
@@ -1122,6 +1118,36 @@ private struct BadgeDetailSheet: View {
                 }
             }
         }
+    }
+}
+
+private struct BadgeArtwork: View {
+    let award: StreakAward
+    let size: CGFloat
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        Group {
+            if let assetName = award.assetName {
+                Image(assetName)
+                    .resizable()
+                    .scaledToFill()
+                    .saturation(award.isUnlocked ? 1 : 0.25)
+                    .opacity(award.isUnlocked ? 1 : 0.55)
+            } else {
+                Image(systemName: award.systemImage)
+                    .font(.system(size: size * 0.44, weight: .semibold))
+                    .foregroundStyle(award.isUnlocked ? award.colorRole.color : BramColor.textTertiary)
+                    .background((award.isUnlocked ? award.colorRole.color : BramColor.textTertiary).opacity(0.12))
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(BramColor.hairline.opacity(award.isUnlocked ? 1 : 0.7), lineWidth: 1)
+        }
+        .accessibilityHidden(true)
     }
 }
 

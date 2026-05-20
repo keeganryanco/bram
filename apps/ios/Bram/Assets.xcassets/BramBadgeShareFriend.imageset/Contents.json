@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "bram_bear_share_with_friend_badge.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

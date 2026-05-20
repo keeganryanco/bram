@@ -1777,6 +1777,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                 title: "On Track",
                 subtitle: "\(workoutDays)/\(weeklyTarget) workouts",
                 systemImage: "target",
+                assetName: "BramBadgeOnTrack",
                 colorRole: workoutDays >= weeklyTarget ? .recovery : .violet,
                 isUnlocked: workoutDays >= weeklyTarget
             ),
@@ -1784,6 +1785,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                 title: "Record Spark",
                 subtitle: prCount == 1 ? "1 PR hit" : "\(prCount) PRs hit",
                 systemImage: "sparkles",
+                assetName: "BramBadgeRecordSpark",
                 colorRole: .violet,
                 isUnlocked: prCount > 0
             ),
@@ -1791,6 +1793,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                 title: "Balanced Build",
                 subtitle: "\(trainedGroups) muscle groups",
                 systemImage: "scale.3d",
+                assetName: "BramBadgeBalancedBuild",
                 colorRole: .cool,
                 isUnlocked: trainedGroups >= 3
             ),
@@ -1798,6 +1801,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                 title: "Weight Logged",
                 subtitle: bodyweightTrend.isEmpty ? "No check-in yet" : "Bodyweight check-in",
                 systemImage: "scalemass",
+                assetName: "BramBadgeWeightLogged",
                 colorRole: .recovery,
                 isUnlocked: !bodyweightTrend.isEmpty
             ),
@@ -1805,6 +1809,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                 title: "Comeback Ready",
                 subtitle: repairCount == 0 ? "No repair needed" : "\(repairCount) repair\(repairCount == 1 ? "" : "s") available",
                 systemImage: repairCount == 0 ? "checkmark.seal" : "bandage.fill",
+                assetName: "BramBadgeComebackReady",
                 colorRole: repairCount == 0 ? .recovery : .energy,
                 isUnlocked: repairCount > 0 || currentStreak > 0
             )

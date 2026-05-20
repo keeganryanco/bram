@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "bram_bear_record_spark_badge.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

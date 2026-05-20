@@ -334,6 +334,7 @@ struct StreakAward: Identifiable, Hashable {
     var title: String
     var subtitle: String
     var systemImage: String
+    var assetName: String?
     var colorRole: MetricColorRole
     var isUnlocked: Bool
 

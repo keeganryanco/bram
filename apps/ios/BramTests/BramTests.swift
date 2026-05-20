@@ -2604,6 +2604,16 @@ struct BramTests {
         #expect(UIImage(named: "BramBearBodyBaseline") != nil)
     }
 
+    @Test func badgeBearAssetsAreBundled() {
+        #expect(UIImage(named: "BramBadgeOnTrack") != nil)
+        #expect(UIImage(named: "BramBadgeRecordSpark") != nil)
+        #expect(UIImage(named: "BramBadgeBalancedBuild") != nil)
+        #expect(UIImage(named: "BramBadgeWeightLogged") != nil)
+        #expect(UIImage(named: "BramBadgeComebackReady") != nil)
+        #expect(UIImage(named: "BramBadgeFoundingLifters") != nil)
+        #expect(UIImage(named: "BramBadgeShareFriend") != nil)
+    }
+
     @Test func sqliteWorkoutStorePersistsOnboardingDraft() async throws {
         let path = FileManager.default.temporaryDirectory
             .appendingPathComponent("BramOnboardingTests-\(UUID().uuidString).sqlite")
