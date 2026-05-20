@@ -983,7 +983,7 @@ private struct StreakAwardTile: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
-            BadgeArtwork(award: award, size: 34, cornerRadius: 10)
+            BadgeArtwork(award: award, size: 40, cornerRadius: 12)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(award.title)
@@ -1055,23 +1055,23 @@ private struct BadgeDetailSheet: View {
     var body: some View {
         BramPanelChrome(title: award.title) {
             VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .center, spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(award.colorRole.color.opacity(award.isUnlocked ? 0.2 : 0.12))
-                        BadgeArtwork(award: award, size: 64, cornerRadius: 17)
-                    }
-                    .frame(width: 68, height: 68)
+                VStack(spacing: 12) {
+                    BadgeArtwork(award: award, size: 154, cornerRadius: 34)
+                        .shadow(color: award.colorRole.color.opacity(award.isUnlocked ? 0.22 : 0), radius: 18, y: 10)
 
-                    VStack(alignment: .leading, spacing: 5) {
+                    VStack(spacing: 5) {
                         Text(statusText)
                             .font(BramFont.label(size: 12))
                             .foregroundStyle(award.isUnlocked ? award.colorRole.color : BramColor.textTertiary)
                         Text(award.subtitle)
                             .font(BramFont.headline())
                             .foregroundStyle(BramColor.textPrimary)
+                            .multilineTextAlignment(.center)
                     }
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 2)
+                .padding(.bottom, 2)
 
                 Text(description)
                     .font(BramFont.callout())
@@ -1127,18 +1127,24 @@ private struct BadgeArtwork: View {
     let cornerRadius: CGFloat
 
     var body: some View {
-        Group {
-            if let assetName = award.assetName {
-                Image(assetName)
-                    .resizable()
-                    .scaledToFill()
-                    .saturation(award.isUnlocked ? 1 : 0.25)
-                    .opacity(award.isUnlocked ? 1 : 0.55)
-            } else {
-                Image(systemName: award.systemImage)
-                    .font(.system(size: size * 0.44, weight: .semibold))
-                    .foregroundStyle(award.isUnlocked ? award.colorRole.color : BramColor.textTertiary)
-                    .background((award.isUnlocked ? award.colorRole.color : BramColor.textTertiary).opacity(0.12))
+        ZStack {
+            artworkContent
+                .saturation(award.isUnlocked ? 1 : 0)
+                .brightness(award.isUnlocked ? 0 : -0.32)
+                .opacity(award.isUnlocked ? 1 : 0.42)
+
+            if !award.isUnlocked {
+                Color.black.opacity(0.58)
+
+                Image(systemName: "lock.fill")
+                    .font(.system(size: max(13, size * 0.22), weight: .semibold))
+                    .foregroundStyle(BramColor.textSecondary)
+                    .frame(width: max(28, size * 0.34), height: max(28, size * 0.34))
+                    .background(.black.opacity(0.5), in: Circle())
+                    .overlay {
+                        Circle()
+                            .stroke(BramColor.hairline.opacity(0.65), lineWidth: 1)
+                    }
             }
         }
         .frame(width: size, height: size)
@@ -1148,6 +1154,23 @@ private struct BadgeArtwork: View {
                 .stroke(BramColor.hairline.opacity(award.isUnlocked ? 1 : 0.7), lineWidth: 1)
         }
         .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var artworkContent: some View {
+        if let assetName = award.assetName {
+            Image(assetName)
+                .resizable()
+                .scaledToFill()
+        } else {
+            ZStack {
+                (award.isUnlocked ? award.colorRole.color : BramColor.textTertiary)
+                    .opacity(0.12)
+                Image(systemName: award.systemImage)
+                    .font(.system(size: size * 0.44, weight: .semibold))
+                    .foregroundStyle(award.isUnlocked ? award.colorRole.color : BramColor.textTertiary)
+            }
+        }
     }
 }
 
