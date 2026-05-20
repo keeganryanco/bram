@@ -121,7 +121,7 @@ protocol EntitlementProviding {
 
 @MainActor
 protocol BramPaywallServicing {
-    func configure(userId: UUID) throws
+    func configure(userId: UUID) async throws
     func loadPaywall() async throws -> BramPaywallSnapshot
     func trackPaywallImpression()
     func purchase(packageId: String) async throws

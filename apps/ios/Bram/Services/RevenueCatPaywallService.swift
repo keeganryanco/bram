@@ -20,16 +20,25 @@ final class RevenueCatPaywallService: BramPaywallServicing {
         return RevenueCatPaywallService(apiKey: apiKey)
     }
 
-    func configure(userId: UUID) throws {
+    func configure(userId: UUID) async throws {
+        let userIdString = userId.uuidString
         if Purchases.isConfigured {
             if configuredUserId != userId {
-                Purchases.shared.logIn(userId.uuidString) { _, _, _ in }
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    Purchases.shared.logIn(userIdString) { _, _, error in
+                        if let error {
+                            continuation.resume(throwing: error)
+                            return
+                        }
+                        continuation.resume(returning: ())
+                    }
+                }
                 configuredUserId = userId
             }
             return
         }
 
-        Purchases.configure(withAPIKey: apiKey, appUserID: userId.uuidString)
+        Purchases.configure(withAPIKey: apiKey, appUserID: userIdString)
         configuredUserId = userId
     }
 

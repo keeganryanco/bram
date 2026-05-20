@@ -807,7 +807,11 @@ final class AccountSessionState: ObservableObject {
     }
 
     private func configurePaywallIfPossible(userId: UUID) async {
-        try? paywallService?.configure(userId: userId)
+        do {
+            try await paywallService?.configure(userId: userId)
+        } catch {
+            reportNonFatal(source: "paywall", eventName: "revenuecat_login_failed", error: error)
+        }
     }
 
     private func configureLocalAccountStoreIfNeeded(userId: UUID) {

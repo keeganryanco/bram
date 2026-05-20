@@ -2914,7 +2914,7 @@ private final class MockPaywallService: BramPaywallServicing {
         self.restoreError = restoreError
     }
 
-    func configure(userId: UUID) throws {}
+    func configure(userId: UUID) async throws {}
 
     func loadPaywall() async throws -> BramPaywallSnapshot {
         BramPaywallSnapshot(
