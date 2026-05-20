@@ -76,28 +76,54 @@ struct BramAuthService: BramAuthServicing {
     }
 
     func signInWithOAuth(_ provider: BramOAuthProvider) async throws -> UUID? {
-        switch provider {
-        case .apple:
-            let session = try await client.auth.signInWithOAuth(
-                provider: .apple,
-                redirectTo: configuration.redirectURL
-            )
-            return session.user.id
-        case .google:
-            let session = try await client.auth.signInWithOAuth(
-                provider: .google,
-                redirectTo: configuration.redirectURL
-            )
-            return session.user.id
+        do {
+            switch provider {
+            case .apple:
+                let session = try await client.auth.signInWithOAuth(
+                    provider: .apple,
+                    redirectTo: configuration.redirectURL
+                )
+                return session.user.id
+            case .google:
+                let session = try await client.auth.signInWithOAuth(
+                    provider: .google,
+                    redirectTo: configuration.redirectURL
+                )
+                return session.user.id
+            }
+        } catch {
+            if let userId = await currentSessionUserId() {
+                return userId
+            }
+            throw error
         }
     }
 
     func handleCallbackURL(_ url: URL) async throws -> UUID {
-        let session = try await client.auth.session(from: url)
-        return session.user.id
+        do {
+            let session = try await client.auth.session(from: url)
+            return session.user.id
+        } catch {
+            if let userId = await currentSessionUserId() {
+                return userId
+            }
+            throw error
+        }
     }
 
     func signOut() async throws {
         try await client.auth.signOut()
+    }
+
+    private func currentSessionUserId() async -> UUID? {
+        if let currentUserId = client.auth.currentSession?.user.id {
+            return currentUserId
+        }
+
+        do {
+            return try await client.auth.session.user.id
+        } catch {
+            return nil
+        }
     }
 }
