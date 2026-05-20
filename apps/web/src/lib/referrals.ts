@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "node:crypto";
-import { grantAccountAccess } from "./account-grants";
 import { fetchAccountSnapshot } from "./revenuecat";
 
 const referralCodePattern = /^BRAM[A-Z0-9]{6,14}$/;
@@ -44,6 +43,29 @@ export class ReferralError extends Error {
 }
 
 let supabaseAdmin: SupabaseReferralClient | null = null;
+
+export function normalizeReferralCode(rawCode: string) {
+  return rawCode.replace(/[\s-]/g, "").toUpperCase();
+}
+
+export function referralShareURL(code: string) {
+  const siteURL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.trybram.app";
+  return `${siteURL.replace(/\/$/, "")}/referral/${encodeURIComponent(code)}`;
+}
+
+export function referralFriendOfferURL() {
+  if (process.env.BRAM_REFERRAL_FRIEND_OFFER_URL) {
+    return process.env.BRAM_REFERRAL_FRIEND_OFFER_URL;
+  }
+
+  const appId = process.env.BRAM_APPLE_APP_ID ?? process.env.NEXT_PUBLIC_APPLE_APP_ID;
+  const offerCode = process.env.BRAM_REFERRAL_FRIEND_OFFER_CODE;
+  if (!appId || !offerCode) {
+    return null;
+  }
+
+  return `https://apps.apple.com/redeem?ctx=offercodes&id=${encodeURIComponent(appId)}&code=${encodeURIComponent(offerCode)}`;
+}
 
 function getSupabaseAdmin() {
   if (supabaseAdmin) {
@@ -122,6 +144,8 @@ export async function referralProgramForToken(
     return {
       code: current,
       successfulRedemptions: await redemptionCount(supabase, userId),
+      shareURL: referralShareURL(current),
+      friendOfferRedemptionURL: referralFriendOfferURL(),
     };
   }
 
@@ -136,6 +160,8 @@ export async function referralProgramForToken(
       return {
         code,
         successfulRedemptions: await redemptionCount(supabase, userId),
+        shareURL: referralShareURL(code),
+        friendOfferRedemptionURL: referralFriendOfferURL(),
       };
     }
 
@@ -145,12 +171,6 @@ export async function referralProgramForToken(
   }
 
   throw new ReferralError("Could not create a unique referral code.");
-}
-
-function addOneMonth(date: Date) {
-  const value = new Date(date);
-  value.setUTCMonth(value.getUTCMonth() + 1);
-  return value;
 }
 
 function entitlementBlocksReferralReward(entitlement: Record<string, unknown> | null) {
@@ -166,23 +186,6 @@ function entitlementBlocksReferralReward(entitlement: Record<string, unknown> | 
     entitlement.active_promo_kind === "FRIENDS_DISCOUNT" ||
     entitlement.active_promo_kind === "FOUNDER_LIFETIME"
   );
-}
-
-function paidAccessIsActive(entitlement: Record<string, unknown> | null) {
-  return (
-    entitlement?.account_tier === "PREMIUM" &&
-    (entitlement.entitlement_source === "APP_STORE" ||
-      entitlement.entitlement_source === "REVENUECAT")
-  );
-}
-
-function currentPremiumExpiration(entitlement: Record<string, unknown> | null) {
-  const raw = entitlement?.premium_expires_at;
-  if (typeof raw !== "string") {
-    return null;
-  }
-  const date = new Date(raw);
-  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 async function insertReward(
@@ -234,54 +237,46 @@ async function rewardReferrer(
     return;
   }
 
-  if (paidAccessIsActive(entitlement)) {
-    await insertReward(supabase, {
-      redemptionId,
-      userId: referrerUserId,
-      status: "QUEUED",
-      reason: "Referrer has active App Store access; Bram-owned credit is queued.",
-    });
-    return;
-  }
-
-  const now = new Date();
-  const currentExpiration = currentPremiumExpiration(entitlement);
-  const rewardStart =
-    currentExpiration && currentExpiration > now ? currentExpiration : now;
-  const premiumExpiresAt = addOneMonth(rewardStart).toISOString();
-
-  await grantAccountAccess(
-    {
-      userId: referrerUserId,
-      grantKind: "REFERRAL_1MONTH",
-      premiumExpiresAt,
-      reason: "Earned one month by sharing Bram with a friend.",
-      createdBy: "referral-redemption",
-    },
-    { supabase: supabase as never },
-  );
-
   await insertReward(supabase, {
     redemptionId,
     userId: referrerUserId,
-    status: "APPLIED",
-    premiumExpiresAt,
-    reason: "Referral reward applied.",
+    status: "QUEUED",
+    reason:
+      "Referrer earned a one-month reward. Deliver through an Apple subscription offer code; do not grant non-IAP app access.",
   });
 }
 
-export async function redeemReferralCodeForToken(
+function snapshotHasAppleSubscriptionAccess(snapshot: Record<string, unknown>) {
+  const tier = snapshot.account_tier;
+  const source = snapshot.entitlement_source;
+  const status = snapshot.subscription_status;
+  return (
+    tier === "PREMIUM" &&
+    (source === "APP_STORE" || source === "REVENUECAT") &&
+    status !== "EXPIRED"
+  );
+}
+
+export async function claimReferralCodeForToken(
   accessToken: string,
   rawCode: string,
   clients: { supabase?: SupabaseReferralClient } = {},
 ) {
-  const code = rawCode.replace(/[\s-]/g, "").toUpperCase();
+  const code = normalizeReferralCode(rawCode);
   if (!referralCodePattern.test(code)) {
     throw new ReferralError("That promo code is not available for this account.", 404);
   }
 
   const supabase = clients.supabase ?? getSupabaseAdmin();
   const referredUserId = await userIdForToken(supabase, accessToken);
+  const snapshot = await fetchAccountSnapshot(supabase as never, referredUserId);
+  if (!snapshotHasAppleSubscriptionAccess(snapshot as Record<string, unknown>)) {
+    throw new ReferralError(
+      "Redeem the Apple offer code first, then return to Bram to finish the referral.",
+      402,
+    );
+  }
+
   const { data: referralCode, error: codeError } = await supabase
     .from("account_referral_codes")
     .select("user_id,code")
@@ -323,16 +318,7 @@ export async function redeemReferralCodeForToken(
     throw new ReferralError("Could not record referral redemption.");
   }
 
-  await grantAccountAccess(
-    {
-      userId: referredUserId,
-      grantKind: "REFERRAL_1MONTH",
-      reason: `Redeemed referral code ${code}.`,
-      createdBy: "referral-redemption",
-    },
-    { supabase: supabase as never },
-  );
   await rewardReferrer(supabase, referrerUserId, redemption.id);
 
-  return fetchAccountSnapshot(supabase as never, referredUserId);
+  return snapshot;
 }

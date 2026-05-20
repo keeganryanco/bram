@@ -79,14 +79,15 @@ RevenueCat sync maps active paid access to `PREMIUM`, active trials to `TRIAL`, 
 
 Server grants use `POST /api/admin/account-grants`, protected by `BRAM_ADMIN_GRANT_TOKEN`. The route accepts a `userId` or account email, `grantKind` (`TESTFLIGHT_1MONTH`, `PRODUCT_HUNT_1MONTH`, `FOUNDER_1MONTH`, `FOUNDER_LIFETIME`, or `FRIENDS_DISCOUNT`), optional expiration, and optional AI budget caps. Legacy `TESTFLIGHT` and `PRODUCT_HUNT` inputs are normalized to the one-month grant kinds.
 
-- TestFlight, Product Hunt, and first-month founder grants default to one month of `FREE_PREMIUM`.
+- TestFlight, Product Hunt, and first-month founder public campaigns use Apple subscription offer codes for App Store compliance. Manual grants remain available for private support/admin use only.
 - Founder lifetime grants use `entitlement_source = FOUNDER_OFFER` and `premium_expires_at = null`.
 - Friends discount grants use `FREE_PREMIUM` with `premium_expires_at = null`, `entitlement_source = MANUAL`, and the promo/founder AI budget policy so access is lifetime but model costs stay capped.
 - Every grant writes an `account_grant_events` audit row.
-- `POST /api/account/redeem-promo` lets the iOS paywall submit a public Bram code. `TESTFLIGHT1MONTH` and `PRODUCTHUNT1MONTH` can be redeemed by any signed-in account; `FOUNDER1MONTH` requires the account or matching waitlist email to be founder eligible.
-- `account_promo_eligibilities` is for account-specific pre-grants, not required for public code redemption. On account bootstrap, the app calls `apply_best_available_promo()` so Supabase can automatically apply the best unredeemed eligibility for that account. Precedence is friends discount, founder lifetime, founder month, Product Hunt month, then TestFlight month.
-- Apple/RevenueCat offer codes remain the public App Store campaign path later; Bram-owned grants are the controllable prelaunch path.
-- `account_email_events` records service-role-only lifecycle email sends. Redeeming `TESTFLIGHT1MONTH` sends the branded TestFlight welcome email once and records `testflight_welcome_2026_05`; the app never sends Resend email directly.
+- `POST /api/account/redeem-promo` no longer grants public Bram-owned promo access in the reviewed App Store path. Public subscription discounts and free months use Apple subscription offer codes.
+- `GET /api/account/referral-code` returns the user's referral URL. Referral friends redeem the Apple offer code, then open Bram with the referral URL so `POST /api/account/claim-referral` can record attribution only after Apple/RevenueCat access is active.
+- `account_promo_eligibilities` is for account-specific private/manual pre-grants and email segmentation. The app does not auto-apply public promo eligibilities on bootstrap in the App Store build.
+- Apple/RevenueCat offer codes are the public App Store campaign path. Bram-owned grants are limited to private/manual entitlements such as developer and friends/family access.
+- `account_email_events` records service-role-only lifecycle email sends. TestFlight and launch emails should distribute Apple offer-code links; the app never sends Resend email directly.
 
 ### Promo/founder AI budget
 

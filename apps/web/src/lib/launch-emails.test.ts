@@ -146,7 +146,7 @@ describe("TestFlight welcome email", () => {
       expect.objectContaining({
         to: "tester@trybram.app",
         subject: "Welcome to the Bram TestFlight",
-        text: expect.stringContaining("TESTFLIGHT1MONTH"),
+        text: expect.stringContaining("Apple's subscription offer-code flow"),
       }),
     );
     expect(supabase.inserts[0]).toMatchObject({

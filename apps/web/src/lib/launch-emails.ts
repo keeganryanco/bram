@@ -146,18 +146,31 @@ function paragraph(value: string) {
   return `<p style="font-size:17px;line-height:1.65;margin:0 0 18px;color:#4f535b;">${value}</p>`;
 }
 
+function appleOfferLink(envKey: string) {
+  return process.env[envKey] ?? null;
+}
+
+function offerParagraph(label: string, url: string | null) {
+  if (!url) {
+    return paragraph(`${label} Use the Apple subscription offer code link or code included with this launch message.`);
+  }
+  return `<p style="font-size:17px;line-height:1.65;margin:0 0 18px;color:#4f535b;">${label} <a href="${url}" style="color:#5d5af7;font-weight:700;">Redeem the Apple offer code.</a></p>`;
+}
+
 function signature() {
   return `<p style="font-size:17px;line-height:1.5;margin:10px 0 0;color:#23262c;">Keegan<br><span style="color:#6c7078;">Founder of Bram</span></p>`;
 }
 
 function buildTestFlightWelcomeHtml() {
+  const offerURL = appleOfferLink("BRAM_TESTFLIGHT_OFFER_URL");
   return emailShell(
     "Your Bram TestFlight account gets one month free.",
     "You are in.",
     [
       paragraph(
-        "Thanks for testing Bram before launch. Your TestFlight account gets one month free with the TESTFLIGHT1MONTH promo.",
+        "Thanks for testing Bram before launch. Your TestFlight account gets one month free through Apple's subscription offer-code flow.",
       ),
+      offerParagraph("Start with the free month first.", offerURL),
       paragraph(
         "I am especially looking for feedback on whether writing workouts feels as easy as Notes, whether Bram understands your lifts correctly, and whether the progress stats feel useful.",
       ),
@@ -206,6 +219,7 @@ function buildLaunchEmailHtml(variant: LaunchEmailVariant) {
     );
   }
 
+  const offerURL = appleOfferLink("BRAM_WAITLIST_OFFER_URL");
   return emailShell(
     "Bram launches today, and your first month is free.",
     "Bram launches today.",
@@ -213,9 +227,7 @@ function buildLaunchEmailHtml(variant: LaunchEmailVariant) {
       paragraph(
         "You joined the waitlist early, so you get one month free. Bram is built for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.",
       ),
-      paragraph(
-        "Download Bram from the App Store, create your account with this email, and your one-month founder access should apply automatically. If it does not, redeem FOUNDER1MONTH in the paywall.",
-      ),
+      offerParagraph("Redeem your free month through Apple, then create your Bram account with this email.", offerURL),
       paragraph(
         "Thanks for being early. If you have feedback, send it straight to keegan@trybram.app.",
       ),
@@ -291,7 +303,7 @@ export async function sendTestFlightWelcomeEmail(
     to: email,
     subject: "Welcome to the Bram TestFlight",
     text:
-      "You’re in.\n\nThanks for testing Bram before launch. Your TestFlight account gets one month free with the TESTFLIGHT1MONTH promo.\n\nI’m especially looking for feedback on whether writing workouts feels as easy as Notes, whether Bram understands your lifts correctly, and whether the progress stats feel useful.\n\nSend anything directly to keegan@trybram.app, or comment on the Reddit post where you found the TestFlight. Critique is genuinely helpful.\n\nKeegan\nFounder of Bram",
+      `You’re in.\n\nThanks for testing Bram before launch. Your TestFlight account gets one month free through Apple's subscription offer-code flow.${appleOfferLink("BRAM_TESTFLIGHT_OFFER_URL") ? `\n\nRedeem your free month: ${appleOfferLink("BRAM_TESTFLIGHT_OFFER_URL")}` : ""}\n\nI’m especially looking for feedback on whether writing workouts feels as easy as Notes, whether Bram understands your lifts correctly, and whether the progress stats feel useful.\n\nSend anything directly to keegan@trybram.app, or comment on the Reddit post where you found the TestFlight. Critique is genuinely helpful.\n\nKeegan\nFounder of Bram`,
     html: buildTestFlightWelcomeHtml(),
   });
 
@@ -304,7 +316,7 @@ export async function sendTestFlightWelcomeEmail(
     userId: values.userId,
     email,
     eventKey: testFlightWelcomeEventKey,
-    metadata: { promo_code: "TESTFLIGHT1MONTH" },
+    metadata: { offer_source: "apple_offer_code" },
   });
 
   return { status: "sent" as const };
@@ -417,7 +429,7 @@ async function sendLaunchEmail(
   const text =
     variant === "FRIENDS_LIFETIME"
       ? "Bram launches today.\n\nAs part of the friends and family group, you have lifetime free access to Bram. That access uses slightly adjusted AI/model limits so I can keep costs manageable while still giving you the full app experience.\n\nIf you want to support Bram anyway, you can subscribe from Settings in the app.\n\nDownload Bram from the App Store, create your account with this email, and your access should apply automatically. If anything looks wrong, email me directly at keegan@trybram.app.\n\nKeegan\nFounder of Bram"
-      : "Bram launches today.\n\nYou joined the waitlist early, so you get one month free. Bram is built for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.\n\nDownload Bram from the App Store, create your account with this email, and your one-month founder access should apply automatically. If it does not, redeem FOUNDER1MONTH in the paywall.\n\nThanks for being early. If you have feedback, send it straight to keegan@trybram.app.\n\nKeegan\nFounder of Bram";
+      : `Bram launches today.\n\nYou joined the waitlist early, so you get one month free. Bram is built for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.${appleOfferLink("BRAM_WAITLIST_OFFER_URL") ? `\n\nRedeem your free month through Apple: ${appleOfferLink("BRAM_WAITLIST_OFFER_URL")}` : "\n\nRedeem your free month through the Apple subscription offer code link or code included with this email."}\n\nThanks for being early. If you have feedback, send it straight to keegan@trybram.app.\n\nKeegan\nFounder of Bram`;
 
   const result = await resend.emails.send({
     from: fromEmail(),

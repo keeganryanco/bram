@@ -32,6 +32,7 @@ final class AccountSessionState: ObservableObject {
     private let paywallService: (any BramPaywallServicing)?
     private let entitlementRefreshService: (any BramEntitlementRefreshing)?
     private let promoRedemptionService: (any BramPromoRedeeming)?
+    private let referralService: (any BramReferralProgramProviding)?
     private let welcomeEmailService: (any BramWelcomeEmailSending)?
     private let accountDeletionService: (any BramAccountDeleting)?
     private let passwordResetService: (any BramPasswordResetting)?
@@ -45,6 +46,7 @@ final class AccountSessionState: ObservableObject {
     private let configurationError: Error?
     private var userId: UUID?
     private var didStart = false
+    private var pendingReferralCode: String?
 
     init(
         authService: (any BramAuthServicing)?,
@@ -53,6 +55,7 @@ final class AccountSessionState: ObservableObject {
         paywallService: (any BramPaywallServicing)? = nil,
         entitlementRefreshService: (any BramEntitlementRefreshing)? = nil,
         promoRedemptionService: (any BramPromoRedeeming)? = nil,
+        referralService: (any BramReferralProgramProviding)? = nil,
         welcomeEmailService: (any BramWelcomeEmailSending)? = nil,
         accountDeletionService: (any BramAccountDeleting)? = nil,
         passwordResetService: (any BramPasswordResetting)? = nil,
@@ -71,6 +74,7 @@ final class AccountSessionState: ObservableObject {
         self.paywallService = paywallService
         self.entitlementRefreshService = entitlementRefreshService
         self.promoRedemptionService = promoRedemptionService
+        self.referralService = referralService
         self.welcomeEmailService = welcomeEmailService
         self.accountDeletionService = accountDeletionService
         self.passwordResetService = passwordResetService
@@ -97,6 +101,7 @@ final class AccountSessionState: ObservableObject {
                 paywallService: RevenueCatPaywallService.configuredFromBundle(),
                 entitlementRefreshService: BramRevenueCatEntitlementRefreshClient.configuredFromBundle(),
                 promoRedemptionService: BramPromoRedemptionClient.configuredFromBundle(),
+                referralService: BramReferralProgramClient.configuredFromBundle(),
                 welcomeEmailService: BramAccountWelcomeEmailClient.configuredFromBundle(),
                 accountDeletionService: BramAccountDeletionClient.configuredFromBundle(),
                 passwordResetService: BramPasswordResetClient.configuredFromBundle(),
@@ -254,6 +259,13 @@ final class AccountSessionState: ObservableObject {
     }
 
     func handleCallbackURL(_ url: URL) async {
+        if let referralCode = Self.referralCode(from: url) {
+            pendingReferralCode = referralCode
+            analytics.track(AnalyticsEvent(name: "referral_deep_link_opened", properties: [:]))
+            await claimPendingReferralIfPossible()
+            return
+        }
+
         await authenticate {
             guard let userId = try await authService?.handleCallbackURL(url) else {
                 throw AccountSessionError.accountServicesUnavailable
@@ -729,6 +741,7 @@ final class AccountSessionState: ObservableObject {
         }
         canChangeEmailWithPassword = (try? await authService?.canChangeEmailWithPassword()) ?? false
         apply(result)
+        await claimPendingReferralIfPossible()
     }
 
     private func apply(_ result: AccountBootstrapResult) {
@@ -848,6 +861,39 @@ final class AccountSessionState: ObservableObject {
             metric.averageHeartRate != nil ||
             metric.bodyweightValue != nil ||
             metric.workoutDurationMinutes != nil
+    }
+
+    private func claimPendingReferralIfPossible() async {
+        guard let code = pendingReferralCode,
+              let referralService,
+              let token = try? await authService?.currentAccessToken()
+        else { return }
+
+        do {
+            if let refreshed = try await entitlementRefreshService?.refresh(accessToken: token) {
+                account = refreshed
+            }
+            let refreshed = try await referralService.claimReferral(code: code, accessToken: token)
+            account = refreshed
+            pendingReferralCode = nil
+            analytics.track(AnalyticsEvent(name: "referral_claimed", properties: [:]))
+        } catch {
+            reportNonFatal(source: "referrals", eventName: "referral_claim_failed", error: error)
+        }
+    }
+
+    private static func referralCode(from url: URL) -> String? {
+        guard url.scheme == "app.trybram.Bram", url.host == "referral" else { return nil }
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let rawCode = components?.queryItems?.first(where: { $0.name == "code" })?.value
+        let normalized = rawCode?
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .uppercased()
+        guard let normalized, normalized.range(of: #"^BRAM[A-Z0-9]{6,14}$"#, options: .regularExpression) != nil else {
+            return nil
+        }
+        return normalized
     }
 
     private static func nonBlank(_ value: String?) -> String? {

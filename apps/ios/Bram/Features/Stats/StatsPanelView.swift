@@ -1046,7 +1046,8 @@ private struct BadgeDetailSheet: View {
 
     private var shareText: String? {
         if isReferralBadge, let code = referralProgram?.code {
-            return "Try Bram free for a month. Use my code \(code) in the app: https://trybram.app"
+            let shareURL = referralProgram?.shareURL ?? "https://trybram.app"
+            return "Try Bram free for a month. Use my invite \(code): \(shareURL)"
         }
         guard award.isUnlocked else { return nil }
         return "I earned \(award.title) in Bram: Workout Notes. https://trybram.app"

@@ -139,6 +139,7 @@ protocol BramPromoRedeeming: Sendable {
 
 protocol BramReferralProgramProviding: Sendable {
     func referralProgram(accessToken: String) async throws -> ReferralProgramStatus
+    func claimReferral(code: String, accessToken: String) async throws -> AccountSnapshot
 }
 
 protocol BramWelcomeEmailSending: Sendable {

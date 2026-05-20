@@ -349,6 +349,8 @@ struct StreakAward: Identifiable, Hashable {
 struct ReferralProgramStatus: Codable, Hashable {
     var code: String
     var successfulRedemptions: Int
+    var shareURL: String?
+    var friendOfferRedemptionURL: String?
 }
 
 enum StatsInsightKind: String, Hashable {

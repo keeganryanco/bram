@@ -19,6 +19,10 @@ struct BramReferralProgramClient: BramReferralProgramProviding {
         let message: String?
     }
 
+    private struct ClaimRequestBody: Encodable {
+        let code: String
+    }
+
     private let baseURL: URL
     private let session: URLSession
 
@@ -51,5 +55,23 @@ struct BramReferralProgramClient: BramReferralProgramProviding {
 
         return try JSONDecoder().decode(ReferralProgramStatus.self, from: data)
     }
-}
 
+    func claimReferral(code: String, accessToken: String) async throws -> AccountSnapshot {
+        var request = URLRequest(url: baseURL.appending(path: "/api/account/claim-referral"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(ClaimRequestBody(code: code))
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ClientError.invalidResponse
+        }
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            let errorBody = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            throw ClientError.requestFailed(httpResponse.statusCode, errorBody?.message)
+        }
+
+        return try JSONDecoder().decode(AccountSnapshot.self, from: data)
+    }
+}

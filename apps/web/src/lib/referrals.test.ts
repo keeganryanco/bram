@@ -1,18 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  redeemReferralCodeForToken,
+  claimReferralCodeForToken,
   referralProgramForToken,
 } from "./referrals";
-import { grantAccountAccess } from "./account-grants";
-
-vi.mock("./account-grants", () => ({
-  grantAccountAccess: vi.fn(async () => undefined),
-}));
+import { fetchAccountSnapshot } from "./revenuecat";
 
 vi.mock("./revenuecat", () => ({
   fetchAccountSnapshot: vi.fn(async () => ({
-    account_tier: "FREE_PREMIUM",
-    active_promo_kind: "REFERRAL_1MONTH",
+    account_tier: "PREMIUM",
+    entitlement_source: "APP_STORE",
+    subscription_status: "ACTIVE",
   })),
 }));
 
@@ -114,6 +111,7 @@ describe("referrals", () => {
     expect(result).toMatchObject({
       code: "BRAMABC12345",
       successfulRedemptions: 1,
+      shareURL: "https://www.trybram.app/referral/BRAMABC12345",
     });
     expect(supabase.inserts).toHaveLength(0);
   });
@@ -122,7 +120,7 @@ describe("referrals", () => {
     const supabase = makeReferralSupabase({ referralCodeOwner: referredUserId });
 
     await expect(
-      redeemReferralCodeForToken("token", "BRAMABC12345", {
+      claimReferralCodeForToken("token", "BRAMABC12345", {
         supabase: supabase.client,
       }),
     ).rejects.toMatchObject({
@@ -130,36 +128,40 @@ describe("referrals", () => {
     });
   });
 
-  it("grants the friend and applies a referrer reward for a valid code", async () => {
+  it("records attribution and queues an Apple offer reward for a valid code", async () => {
     const supabase = makeReferralSupabase();
 
-    const result = await redeemReferralCodeForToken("token", "BRAMABC12345", {
+    const result = await claimReferralCodeForToken("token", "BRAMABC12345", {
       supabase: supabase.client,
     });
 
-    expect(result).toMatchObject({ active_promo_kind: "REFERRAL_1MONTH" });
-    expect(grantAccountAccess).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: referredUserId,
-        grantKind: "REFERRAL_1MONTH",
-      }),
-      expect.anything(),
-    );
-    expect(grantAccountAccess).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: referrerUserId,
-        grantKind: "REFERRAL_1MONTH",
-      }),
-      expect.anything(),
-    );
+    expect(result).toMatchObject({ account_tier: "PREMIUM" });
     expect(supabase.inserts).toContainEqual(
       expect.objectContaining({
         table: "account_referral_rewards",
         values: expect.objectContaining({
           user_id: referrerUserId,
-          status: "APPLIED",
+          status: "QUEUED",
         }),
       }),
     );
+  });
+
+  it("requires Apple subscription access before referral attribution is claimed", async () => {
+    vi.mocked(fetchAccountSnapshot).mockResolvedValueOnce({
+      account_tier: "FREE",
+      entitlement_source: "NONE",
+      subscription_status: "NONE",
+    });
+    const supabase = makeReferralSupabase();
+
+    await expect(
+      claimReferralCodeForToken("token", "BRAMABC12345", {
+        supabase: supabase.client,
+      }),
+    ).rejects.toMatchObject({
+      status: 402,
+    });
+    expect(supabase.inserts).toHaveLength(0);
   });
 });

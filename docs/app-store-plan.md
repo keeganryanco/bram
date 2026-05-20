@@ -95,7 +95,8 @@ Beta review notes:
 - TestFlight, waitlist/founder, and Product Hunt campaigns should distribute Apple offer-code links or codes by Resend/email/social copy.
 - Supabase promo tables remain for campaign attribution, email segmentation, and private account entitlements, but the reviewed app build does not expose Bram-owned public promo-code redemption.
 - Friends/family: use `FRIENDS_DISCOUNT` or `FOUNDER_LIFETIME` in Supabase. These account entitlements bypass the paywall and can still subscribe from Settings if they want to support Bram.
-- Referrals should not grant public non-IAP access in the reviewed build. Keep referral attribution/badge logic separate from subscription unlocks until an Apple-compliant referral offer is designed.
+- Referrals use Apple offer codes for paid access. The in-app share badge shares a Bram referral URL; the landing page sends the friend through Apple's offer-code redemption link, then back into Bram to attribute the referral after the friend has active Apple/RevenueCat access.
+- Referral rewards are queued as Apple-offer-code rewards in Supabase audit rows. Bram must deliver the referrer's extra month through an Apple subscription offer code, not a Supabase entitlement extension.
 - App Store review note: subscriptions and public offer codes are handled through Apple IAP; no Bram-owned in-app promo code unlocks paid features.
 
 ## In-App Event Nomination
@@ -107,7 +108,7 @@ Use this only if the build with the in-app challenge is submitted and visible be
 - Publish/announcement target: `2026-05-22`
 - Date range: `2026-05-23` to `2026-05-30`
 - In-app overlay: after onboarding/paywall access, signed-in users see a one-time dismissible Home overlay from May 23 through May 30 with `Founding Lifters Week`, `Log 4 workouts by May 30 and earn a limited launch badge.`, and CTA `I'm in`.
-- Badge details: Streaks award tiles open a detail sheet. Unlocked badges can be shared through the native share sheet; the referral badge shares the user's referral code.
+- Badge details: Streaks award tiles open a detail sheet. Unlocked badges can be shared through the native share sheet; the referral badge shares the user's referral URL.
 - Short description: `Log 4 workouts and start your first strength history.`
 - Long description:
 
