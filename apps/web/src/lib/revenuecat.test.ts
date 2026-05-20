@@ -12,11 +12,14 @@ function revenueCatFetch(options: {
   active?: boolean;
   unsubscribeDetectedAt?: string | null;
   billingIssuesDetectedAt?: string | null;
+  status?: number;
+  errorBody?: string;
 } = {}) {
   const active = options.active ?? true;
   return vi.fn(async () => ({
-    ok: true,
-    status: 200,
+    ok: options.status ? options.status >= 200 && options.status < 300 : true,
+    status: options.status ?? 200,
+    text: async () => options.errorBody ?? "",
     json: async () => ({
       subscriber: {
         entitlements: active
@@ -172,6 +175,24 @@ describe("refreshRevenueCatEntitlementForToken", () => {
           entitlement_source: "REVENUECAT",
         }),
       }),
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("surfaces RevenueCat error status and body without exposing the API key", async () => {
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "rc_secret");
+    const supabase = supabaseMock();
+
+    await expect(
+      refreshRevenueCatEntitlementForToken("good-token", {
+        supabase,
+        fetch: revenueCatFetch({
+          status: 403,
+          errorBody: "{\"message\":\"Project API key invalid\"}",
+        }),
+      }),
+    ).rejects.toThrow(
+      "RevenueCat subscriber fetch failed with 403: {\"message\":\"Project API key invalid\"}",
     );
     vi.unstubAllEnvs();
   });

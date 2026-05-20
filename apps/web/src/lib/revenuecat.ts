@@ -74,6 +74,16 @@ type RevenueCatClients = {
   fetch?: typeof fetch;
 };
 
+class RevenueCatAPIError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: string,
+  ) {
+    super(`RevenueCat subscriber fetch failed with ${status}: ${body}`);
+    this.name = "RevenueCatAPIError";
+  }
+}
+
 export class RevenueCatConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -188,7 +198,13 @@ async function fetchRevenueCatSubscriber(
   );
 
   if (!response.ok) {
-    throw new Error(`RevenueCat subscriber fetch failed with ${response.status}.`);
+    let body = "";
+    try {
+      body = (await response.text()).slice(0, 500);
+    } catch {
+      body = "Unable to read RevenueCat error body.";
+    }
+    throw new RevenueCatAPIError(response.status, body);
   }
 
   return (await response.json()) as RevenueCatSubscriberResponse;
