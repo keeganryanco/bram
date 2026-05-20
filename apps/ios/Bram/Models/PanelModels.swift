@@ -395,6 +395,7 @@ struct SettingsAccountState: Hashable {
     var appleHealthConnected: Bool
     var appearance: String
     var preferredUnits: String
+    var canChangeEmailWithPassword: Bool = false
 
     var subscriptionLabel: String {
         switch accountTier {

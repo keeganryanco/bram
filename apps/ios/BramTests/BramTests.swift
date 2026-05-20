@@ -2779,6 +2779,11 @@ private struct MockAuthService: BramAuthServicing {
         return "test-token"
     }
 
+    func canChangeEmailWithPassword() async throws -> Bool {
+        if let error { throw error }
+        return true
+    }
+
     func signUp(email: String, password: String) async throws -> UUID? {
         if let signUpError { throw signUpError }
         if let error { throw error }
@@ -2789,6 +2794,11 @@ private struct MockAuthService: BramAuthServicing {
         if let signInError { throw signInError }
         if let error { throw error }
         return restoredUserId ?? UUID()
+    }
+
+    func updateEmail(currentEmail: String, password: String, newEmail: String) async throws {
+        if let signInError { throw signInError }
+        if let error { throw error }
     }
 
     func signInWithOAuth(_ provider: BramOAuthProvider) async throws -> UUID? {
@@ -2841,6 +2851,12 @@ private struct MockBootstrapService: AccountBootstrapServicing {
     func saveGoalsProfile(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult {
         guard var result else { throw AccountSessionError.accountServicesUnavailable }
         result.goalsProfile = profile
+        return result
+    }
+
+    func saveDisplayName(_ displayName: String, userId: UUID) async throws -> AccountBootstrapResult {
+        guard var result else { throw AccountSessionError.accountServicesUnavailable }
+        result.account.displayName = displayName
         return result
     }
 }

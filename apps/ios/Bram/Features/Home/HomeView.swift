@@ -49,6 +49,9 @@ struct HomeView: View {
     private let account: SettingsAccountState
     private let onSignOut: () async -> Void
     private let onDeleteAccount: () async -> Void
+    private let onDisplayNameSave: (String) async throws -> Void
+    private let onEmailChange: (String, String) async throws -> Void
+    private let onPasswordReset: () async throws -> Void
     private let onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)?
     private let onWorkoutDataSaved: (() async -> Void)?
     private let reminderService: (any WorkoutReminderScheduling)?
@@ -70,6 +73,9 @@ struct HomeView: View {
         featureAccess: BramFeatureAccess = .previewPremium,
         onSignOut: @escaping () async -> Void = {},
         onDeleteAccount: @escaping () async -> Void = {},
+        onDisplayNameSave: @escaping (String) async throws -> Void = { _ in },
+        onEmailChange: @escaping (String, String) async throws -> Void = { _, _ in },
+        onPasswordReset: @escaping () async throws -> Void = {},
         onGoalsProfileSave: ((TrainingGoalsProfile) async -> Void)? = nil,
         onWorkoutDataSaved: (() async -> Void)? = nil,
         reminderService: (any WorkoutReminderScheduling)? = BramNotificationService(),
@@ -90,6 +96,9 @@ struct HomeView: View {
         self.featureAccess = featureAccess
         self.onSignOut = onSignOut
         self.onDeleteAccount = onDeleteAccount
+        self.onDisplayNameSave = onDisplayNameSave
+        self.onEmailChange = onEmailChange
+        self.onPasswordReset = onPasswordReset
         self.onGoalsProfileSave = onGoalsProfileSave
         self.onWorkoutDataSaved = onWorkoutDataSaved
         self.reminderService = reminderService
@@ -312,6 +321,9 @@ struct HomeView: View {
                 onGoalsSave: saveGoalsProfile,
                 onSignOut: onSignOut,
                 onDeleteAccount: onDeleteAccount,
+                onDisplayNameSave: onDisplayNameSave,
+                onEmailChange: onEmailChange,
+                onPasswordReset: onPasswordReset,
                 onHealthUpdated: {
                     track(AnalyticsEvent(name: "health_data_refreshed", properties: ["source": "settings"]))
                     Task {

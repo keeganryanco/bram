@@ -9,8 +9,10 @@ enum BramOAuthProvider: Equatable {
 protocol BramAuthServicing: Sendable {
     func restoreSessionUserId() async throws -> UUID?
     func currentAccessToken() async throws -> String?
+    func canChangeEmailWithPassword() async throws -> Bool
     func signUp(email: String, password: String) async throws -> UUID?
     func signIn(email: String, password: String) async throws -> UUID
+    func updateEmail(currentEmail: String, password: String, newEmail: String) async throws
     func signInWithOAuth(_ provider: BramOAuthProvider) async throws -> UUID?
     func handleCallbackURL(_ url: URL) async throws -> UUID
     func signOut() async throws
@@ -42,6 +44,12 @@ struct BramAuthService: BramAuthServicing {
         }
     }
 
+    func canChangeEmailWithPassword() async throws -> Bool {
+        let identities = try await client.auth.userIdentities()
+        let providers = Set(identities.map { $0.provider.lowercased() })
+        return providers == ["email"]
+    }
+
     func signUp(email: String, password: String) async throws -> UUID? {
         let response = try await client.auth.signUp(
             email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
@@ -57,6 +65,14 @@ struct BramAuthService: BramAuthServicing {
             password: password
         )
         return session.user.id
+    }
+
+    func updateEmail(currentEmail: String, password: String, newEmail: String) async throws {
+        _ = try await signIn(email: currentEmail, password: password)
+        try await client.auth.update(
+            user: UserAttributes(email: newEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()),
+            redirectTo: configuration.redirectURL
+        )
     }
 
     func signInWithOAuth(_ provider: BramOAuthProvider) async throws -> UUID? {

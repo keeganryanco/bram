@@ -1,5 +1,11 @@
 import SwiftUI
 
+private enum OnboardingFocusedField: Hashable {
+    case firstName
+    case currentWeight
+    case targetWeight
+}
+
 struct OnboardingFlowView: View {
     let account: SettingsAccountState
     let initialDraft: OnboardingDraft
@@ -22,6 +28,7 @@ struct OnboardingFlowView: View {
     @State private var onboardingHealthWorkouts: [HealthWorkoutSample] = []
     @State private var isLoadingOnboardingHealth = false
     @State private var didRequestHealthThisStep = false
+    @FocusState private var focusedField: OnboardingFocusedField?
 
     init(
         account: SettingsAccountState,
@@ -79,6 +86,14 @@ struct OnboardingFlowView: View {
                 healthAuthorizationState = healthService.authorizationState()
                 if healthAuthorizationState.isConnectedLike {
                     await loadOnboardingHealthSnapshot()
+                }
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    focusedField = nil
                 }
             }
         }
@@ -186,6 +201,11 @@ struct OnboardingFlowView: View {
             TextField("First name", text: $draft.firstName)
                 .textContentType(.givenName)
                 .textInputAutocapitalization(.words)
+                .focused($focusedField, equals: .firstName)
+                .submitLabel(.continue)
+                .onSubmit {
+                    Task { await continueTapped() }
+                }
                 .font(BramFont.headline(size: 22))
                 .foregroundStyle(OnboardingStyle.textPrimary)
                 .padding(18)
@@ -259,8 +279,20 @@ struct OnboardingFlowView: View {
             }
             .pickerStyle(.segmented)
 
-            OnboardingNumberField(title: "Current weight", detail: profile.preferredUnits.weightUnit, text: $currentWeightText)
-            OnboardingNumberField(title: "Target weight", detail: profile.preferredUnits.weightUnit, text: $targetWeightText)
+            OnboardingNumberField(
+                title: "Current weight",
+                detail: profile.preferredUnits.weightUnit,
+                text: $currentWeightText,
+                focusedField: $focusedField,
+                field: .currentWeight
+            )
+            OnboardingNumberField(
+                title: "Target weight",
+                detail: profile.preferredUnits.weightUnit,
+                text: $targetWeightText,
+                focusedField: $focusedField,
+                field: .targetWeight
+            )
         }
     }
 
@@ -332,6 +364,7 @@ struct OnboardingFlowView: View {
     }
 
     private func continueTapped() async {
+        focusedField = nil
         syncTextFields()
         if draft.step == .appleHealth && !healthAuthorizationState.isConnectedLike && !didRequestHealthThisStep {
             didRequestHealthThisStep = true
@@ -358,6 +391,7 @@ struct OnboardingFlowView: View {
     }
 
     private func backTapped() async {
+        focusedField = nil
         syncTextFields()
         guard let previous = draft.step.previousStep else { return }
         draft.step = previous
@@ -686,6 +720,8 @@ private struct OnboardingNumberField: View {
     let title: String
     let detail: String
     @Binding var text: String
+    var focusedField: FocusState<OnboardingFocusedField?>.Binding
+    let field: OnboardingFocusedField
 
     var body: some View {
         HStack {
@@ -700,6 +736,7 @@ private struct OnboardingNumberField: View {
             Spacer()
             TextField("-", text: $text)
                 .keyboardType(.decimalPad)
+                .focused(focusedField, equals: field)
                 .multilineTextAlignment(.trailing)
                 .font(BramFont.headline(size: 18))
                 .foregroundStyle(OnboardingStyle.textPrimary)

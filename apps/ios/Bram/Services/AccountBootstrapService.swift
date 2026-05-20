@@ -14,6 +14,7 @@ protocol AccountBootstrapServicing: Sendable {
     func bootstrap(userId: UUID) async throws -> AccountBootstrapResult
     func saveOnboarding(firstName: String, profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult
     func saveGoalsProfile(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult
+    func saveDisplayName(_ displayName: String, userId: UUID) async throws -> AccountBootstrapResult
 }
 
 struct AccountBootstrapService: AccountBootstrapServicing {
@@ -42,6 +43,15 @@ struct AccountBootstrapService: AccountBootstrapServicing {
 
     func saveGoalsProfile(profile: TrainingGoalsProfile, userId: UUID) async throws -> AccountBootstrapResult {
         try await saveProfile(profile, userId: userId, displayName: nil, onboardingCompletedAt: nil)
+        return try await bootstrap(userId: userId)
+    }
+
+    func saveDisplayName(_ displayName: String, userId: UUID) async throws -> AccountBootstrapResult {
+        try await client
+            .from("profiles")
+            .update(ProfileDisplayNameUpdate(displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines)))
+            .eq("user_id", value: userId)
+            .execute()
         return try await bootstrap(userId: userId)
     }
 
@@ -121,6 +131,14 @@ struct AccountBootstrapService: AccountBootstrapServicing {
             )
             .execute()
         return defaultProfile
+    }
+}
+
+private struct ProfileDisplayNameUpdate: Encodable {
+    var displayName: String
+
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
     }
 }
 

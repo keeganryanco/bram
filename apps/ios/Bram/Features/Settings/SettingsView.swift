@@ -12,6 +12,9 @@ struct SettingsView: View {
     let onGoalsSave: (TrainingGoalsProfile) -> Void
     let onSignOut: () async -> Void
     let onDeleteAccount: () async -> Void
+    let onDisplayNameSave: (String) async throws -> Void
+    let onEmailChange: (String, String) async throws -> Void
+    let onPasswordReset: () async throws -> Void
     let onHealthUpdated: () -> Void
     let setWorkoutRemindersEnabled: (Bool) async -> Bool
     let openGoals: () -> Void
@@ -24,6 +27,9 @@ struct SettingsView: View {
     @State private var showingSupport = false
     @State private var showingNotificationSettingsAlert = false
     @State private var isUpdatingWorkoutReminders = false
+    @State private var accountSheet: SettingsAccountSheet?
+    @State private var accountActionMessage: String?
+    @State private var isSendingPasswordReset = false
 
     init(
         account: SettingsAccountState,
@@ -35,6 +41,9 @@ struct SettingsView: View {
         onGoalsSave: @escaping (TrainingGoalsProfile) -> Void = { _ in },
         onSignOut: @escaping () async -> Void = {},
         onDeleteAccount: @escaping () async -> Void = {},
+        onDisplayNameSave: @escaping (String) async throws -> Void = { _ in },
+        onEmailChange: @escaping (String, String) async throws -> Void = { _, _ in },
+        onPasswordReset: @escaping () async throws -> Void = {},
         onHealthUpdated: @escaping () -> Void = {},
         setWorkoutRemindersEnabled: @escaping (Bool) async -> Bool = { _ in false },
         openGoals: @escaping () -> Void = {},
@@ -51,6 +60,9 @@ struct SettingsView: View {
         self.onGoalsSave = onGoalsSave
         self.onSignOut = onSignOut
         self.onDeleteAccount = onDeleteAccount
+        self.onDisplayNameSave = onDisplayNameSave
+        self.onEmailChange = onEmailChange
+        self.onPasswordReset = onPasswordReset
         self.onHealthUpdated = onHealthUpdated
         self.setWorkoutRemindersEnabled = setWorkoutRemindersEnabled
         self.openGoals = openGoals
@@ -62,9 +74,19 @@ struct SettingsView: View {
     var body: some View {
         BramPanelChrome(title: "Settings") {
             SettingsSection(title: "Account") {
-                SettingsInfoRow(title: "Name", value: account.displayName)
-                SettingsInfoRow(title: "Email", value: account.email)
-                SettingsLinkRow(title: account.subscriptionLabel, subtitle: subscriptionSubtitle, systemImage: "crown.fill", tint: BramColor.warning)
+                SettingsEditableInfoRow(title: "Name", value: account.displayName) {
+                    accountSheet = .name
+                }
+                SettingsEditableInfoRow(title: "Email", value: account.email) {
+                    accountSheet = .email
+                }
+                SettingsActionRow(title: "Change password", systemImage: "key.fill", tint: BramColor.cool) {
+                    Task { await sendPasswordResetTapped() }
+                }
+                .opacity(isSendingPasswordReset ? 0.55 : 1)
+                SettingsLinkRow(title: account.subscriptionLabel, subtitle: subscriptionSubtitle, systemImage: "crown.fill", tint: BramColor.warning) {
+                    openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
+                }
             }
 
             SettingsSection(title: "Training") {
@@ -161,10 +183,34 @@ struct SettingsView: View {
         } message: {
             Text("Turn on notifications in iOS Settings to use workout reminders.")
         }
+        .alert("Account", isPresented: accountActionAlertBinding) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(accountActionMessage ?? "")
+        }
         .sheet(isPresented: $showingSupport) {
             SupportRequestSheet(account: account, submit: submitSupportRequest)
                 .presentationDetents([.medium, .large])
                 .presentationCornerRadius(28)
+        }
+        .sheet(item: $accountSheet) { sheet in
+            switch sheet {
+            case .name:
+                EditDisplayNameSheet(
+                    initialName: account.displayName,
+                    save: onDisplayNameSave
+                )
+                .presentationDetents([.medium])
+                .presentationCornerRadius(28)
+            case .email:
+                ChangeEmailSheet(
+                    currentEmail: account.email,
+                    canChangeEmailWithPassword: account.canChangeEmailWithPassword,
+                    changeEmail: onEmailChange
+                )
+                .presentationDetents([.medium])
+                .presentationCornerRadius(28)
+            }
         }
     }
 
@@ -174,6 +220,17 @@ struct SettingsView: View {
         } else {
             "Manage through App Store"
         }
+    }
+
+    private var accountActionAlertBinding: Binding<Bool> {
+        Binding(
+            get: { accountActionMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    accountActionMessage = nil
+                }
+            }
+        )
     }
 
     private var appearanceBinding: Binding<BramAppearancePreference> {
@@ -204,6 +261,30 @@ struct SettingsView: View {
                 }
             }
         )
+    }
+
+    private func sendPasswordResetTapped() async {
+        guard !isSendingPasswordReset else { return }
+        isSendingPasswordReset = true
+        defer { isSendingPasswordReset = false }
+        do {
+            try await onPasswordReset()
+            accountActionMessage = "Password reset email sent. Check your inbox for the reset link."
+        } catch {
+            accountActionMessage = error.localizedDescription
+        }
+    }
+}
+
+private enum SettingsAccountSheet: Identifiable {
+    case name
+    case email
+
+    var id: String {
+        switch self {
+        case .name: "name"
+        case .email: "email"
+        }
     }
 }
 
@@ -405,6 +486,267 @@ private struct SettingsInfoRow: View {
         }
         .font(BramFont.body(size: 15))
         .padding(16)
+    }
+}
+
+private struct SettingsEditableInfoRow: View {
+    let title: String
+    let value: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(BramFont.body(size: 15))
+                    .foregroundStyle(BramColor.textSecondary)
+                Spacer()
+                Text(value)
+                    .font(BramFont.body(size: 15))
+                    .foregroundStyle(BramColor.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(BramColor.textTertiary)
+            }
+            .padding(16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct EditDisplayNameSheet: View {
+    let initialName: String
+    let save: (String) async throws -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var isSaving = false
+    @State private var message: String?
+    @FocusState private var focused: Bool
+
+    init(initialName: String, save: @escaping (String) async throws -> Void) {
+        self.initialName = initialName
+        self.save = save
+        _name = State(initialValue: initialName)
+    }
+
+    var body: some View {
+        AccountFormSheet(title: "Name", message: message) {
+            AccountTextField(title: "Name", text: $name, textContentType: .name)
+                .focused($focused)
+                .submitLabel(.done)
+                .onSubmit { Task { await saveTapped() } }
+
+            AccountPrimaryButton(title: isSaving ? "Saving..." : "Save", isDisabled: isSaving || cleanName.isEmpty) {
+                Task { await saveTapped() }
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focused = false }
+            }
+        }
+        .onAppear { focused = true }
+    }
+
+    private var cleanName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func saveTapped() async {
+        guard !isSaving else { return }
+        guard !cleanName.isEmpty else {
+            message = "Enter the name you want Bram to use."
+            return
+        }
+        focused = false
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await save(cleanName)
+            dismiss()
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
+private struct ChangeEmailSheet: View {
+    let currentEmail: String
+    let canChangeEmailWithPassword: Bool
+    let changeEmail: (String, String) async throws -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var newEmail = ""
+    @State private var password = ""
+    @State private var isSaving = false
+    @State private var message: String?
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case email
+        case password
+    }
+
+    var body: some View {
+        AccountFormSheet(title: "Email", message: message) {
+            if canChangeEmailWithPassword {
+                AccountTextField(title: "New email", text: $newEmail, textContentType: .emailAddress, keyboardType: .emailAddress)
+                    .focused($focusedField, equals: .email)
+                    .textInputAutocapitalization(.never)
+                    .submitLabel(.next)
+                    .onSubmit { focusedField = .password }
+
+                SecureField("Current password", text: $password)
+                    .textContentType(.password)
+                    .font(BramFont.body(size: 16))
+                    .foregroundStyle(BramColor.textPrimary)
+                    .padding(16)
+                    .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(BramColor.hairline, lineWidth: 1)
+                    }
+                    .focused($focusedField, equals: .password)
+                    .submitLabel(.done)
+                    .onSubmit { Task { await saveTapped() } }
+
+                Text("Bram will ask Supabase to confirm the email change. You may need to confirm it from your inbox before the new email appears here.")
+                    .font(BramFont.callout(size: 13))
+                    .foregroundStyle(BramColor.textTertiary)
+
+                AccountPrimaryButton(title: isSaving ? "Saving..." : "Change email", isDisabled: isSaving || cleanEmail.isEmpty || password.isEmpty) {
+                    Task { await saveTapped() }
+                }
+            } else {
+                Text("This account signs in with Apple or Google. Change the email for that account from the provider you use to sign in.")
+                    .font(BramFont.body(size: 15))
+                    .foregroundStyle(BramColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                AccountPrimaryButton(title: "Done", isDisabled: false) {
+                    dismiss()
+                }
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focusedField = nil }
+            }
+        }
+        .onAppear {
+            newEmail = currentEmail
+            if canChangeEmailWithPassword {
+                focusedField = .email
+            }
+        }
+    }
+
+    private var cleanEmail: String {
+        newEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func saveTapped() async {
+        guard !isSaving else { return }
+        focusedField = nil
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await changeEmail(cleanEmail, password)
+            message = "Check your inbox to confirm the email change."
+            password = ""
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
+private struct AccountFormSheet<Content: View>: View {
+    let title: String
+    let message: String?
+    private let content: Content
+
+    @Environment(\.dismiss) private var dismiss
+
+    init(title: String, message: String?, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.message = message
+        self.content = content()
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(title)
+                    .font(BramFont.largeTitle(size: 30))
+                    .foregroundStyle(BramColor.textPrimary)
+
+                content
+
+                if let message {
+                    Text(message)
+                        .font(BramFont.callout(size: 13))
+                        .foregroundStyle(BramColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(22)
+            .background(BramColor.appBackground)
+            .contentShape(Rectangle())
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+private struct AccountTextField: View {
+    let title: String
+    @Binding var text: String
+    var textContentType: UITextContentType? = nil
+    var keyboardType: UIKeyboardType = .default
+
+    var body: some View {
+        TextField(title, text: $text)
+            .textContentType(textContentType)
+            .keyboardType(keyboardType)
+            .font(BramFont.body(size: 16))
+            .foregroundStyle(BramColor.textPrimary)
+            .padding(16)
+            .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(BramColor.hairline, lineWidth: 1)
+            }
+    }
+}
+
+private struct AccountPrimaryButton: View {
+    let title: String
+    let isDisabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(BramFont.button(size: 16))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 54)
+                .background(BramColor.violet, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.48 : 1)
     }
 }
 

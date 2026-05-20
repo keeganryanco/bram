@@ -16,6 +16,7 @@ final class AccountSessionState: ObservableObject {
     @Published private(set) var goalsProfile = BramPreviewData.goalsProfile
     @Published private(set) var onboardingDraft = OnboardingDraft()
     @Published private(set) var hasPendingCrashSupportPrompt = false
+    @Published private(set) var canChangeEmailWithPassword = false
 
     private let authService: (any BramAuthServicing)?
     private let bootstrapService: (any AccountBootstrapServicing)?
@@ -121,7 +122,8 @@ final class AccountSessionState: ObservableObject {
             activePromoLabel: account.activePromoLabel,
             appleHealthConnected: false,
             appearance: "System",
-            preferredUnits: account.preferredUnits
+            preferredUnits: account.preferredUnits,
+            canChangeEmailWithPassword: canChangeEmailWithPassword
         )
     }
 
@@ -379,6 +381,54 @@ final class AccountSessionState: ObservableObject {
         }
     }
 
+    func updateDisplayName(_ displayName: String) async throws {
+        guard let userId, let bootstrapService else {
+            throw AccountSessionError.accountServicesUnavailable
+        }
+        let cleanName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else {
+            throw AccountSessionError.invalidAccountUpdate("Enter the name you want Bram to use.")
+        }
+
+        let result = try await bootstrapService.saveDisplayName(cleanName, userId: userId)
+        apply(result)
+        track(AnalyticsEvent(name: "account_name_updated", properties: [:]))
+    }
+
+    func updateEmail(newEmail: String, password: String) async throws {
+        guard canChangeEmailWithPassword,
+              let currentEmail = account?.email,
+              let authService
+        else {
+            throw AccountSessionError.invalidAccountUpdate("Email changes are available only for email and password accounts.")
+        }
+        let cleanEmail = newEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard cleanEmail.contains("@"), cleanEmail.contains(".") else {
+            throw AccountSessionError.invalidAccountUpdate("Enter a valid email address.")
+        }
+        guard !password.isEmpty else {
+            throw AccountSessionError.invalidAccountUpdate("Enter your current password to change your email.")
+        }
+
+        do {
+            try await authService.updateEmail(currentEmail: currentEmail, password: password, newEmail: cleanEmail)
+            track(AnalyticsEvent(name: "account_email_update_requested", properties: [:]))
+        } catch {
+            if Self.isInvalidCredentialsError(error) {
+                throw AccountSessionError.invalidAccountUpdate("That password is not correct.")
+            }
+            throw error
+        }
+    }
+
+    func sendCurrentAccountPasswordReset() async throws {
+        guard let email = account?.email, let passwordResetService else {
+            throw AccountSessionError.accountServicesUnavailable
+        }
+        try await passwordResetService.sendResetEmail(email: email)
+        track(AnalyticsEvent(name: "password_reset_requested", properties: ["source": "settings"]))
+    }
+
     func syncPendingWorkoutData() async {
         guard let userId, let workoutSyncService else { return }
         do {
@@ -550,6 +600,7 @@ final class AccountSessionState: ObservableObject {
         analytics.reset()
         userId = nil
         account = nil
+        canChangeEmailWithPassword = false
         goalsProfile = BramPreviewData.goalsProfile
         onboardingDraft = OnboardingDraft()
         status = .signedOut
@@ -573,6 +624,7 @@ final class AccountSessionState: ObservableObject {
             analytics.reset()
             userId = nil
             account = nil
+            canChangeEmailWithPassword = false
             goalsProfile = BramPreviewData.goalsProfile
             onboardingDraft = OnboardingDraft()
             status = .signedOut
@@ -638,6 +690,7 @@ final class AccountSessionState: ObservableObject {
             goalsProfile = result.goalsProfile
             await configurePaywallIfPossible(userId: userId)
         }
+        canChangeEmailWithPassword = (try? await authService?.canChangeEmailWithPassword()) ?? false
         apply(result)
     }
 
@@ -762,6 +815,7 @@ enum AccountSessionError: LocalizedError {
     case noSessionAfterSignup
     case noSessionAfterOAuth
     case invalidCredentials
+    case invalidAccountUpdate(String)
 
     var errorDescription: String? {
         switch self {
@@ -773,6 +827,18 @@ enum AccountSessionError: LocalizedError {
             "The provider sign-in did not return a session."
         case .invalidCredentials:
             "Email or password is wrong."
+        case .invalidAccountUpdate(let message):
+            message
+        }
+    }
+
+    var analyticsReason: String {
+        switch self {
+        case .accountServicesUnavailable: "services_unavailable"
+        case .noSessionAfterSignup: "no_session_after_signup"
+        case .noSessionAfterOAuth: "no_session_after_oauth"
+        case .invalidCredentials: "invalid_credentials"
+        case .invalidAccountUpdate: "invalid_account_update"
         }
     }
 }
@@ -790,17 +856,6 @@ private extension OnboardingStep {
         case .notifications: "notifications"
         case .recap: "recap"
         case .paywall: "paywall"
-        }
-    }
-}
-
-private extension AccountSessionError {
-    var analyticsReason: String {
-        switch self {
-        case .accountServicesUnavailable: "services_unavailable"
-        case .noSessionAfterSignup: "no_session_after_signup"
-        case .noSessionAfterOAuth: "no_session_after_oauth"
-        case .invalidCredentials: "invalid_credentials"
         }
     }
 }
