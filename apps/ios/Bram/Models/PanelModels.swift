@@ -90,7 +90,7 @@ struct LaunchChallengeProgress: Hashable {
         case .hidden:
             "Launch challenge"
         case .announced:
-            "Starts May 26"
+            "Starts May 23"
         case .active:
             isEarned ? "Badge earned" : "Live now"
         case .completed:
@@ -105,9 +105,9 @@ struct LaunchChallengeProgress: Hashable {
         case .hidden:
             shortDescription
         case .announced:
-            "Starts May 26. Log four workouts by June 2 to earn the limited badge."
+            "Starts May 23. Log four workouts by May 30 to earn the limited badge."
         case .active:
-            isEarned ? "Limited badge unlocked." : "Log \(max(goalCount - clampedProgress, 0)) more by June 2 to earn the limited badge."
+            isEarned ? "Limited badge unlocked." : "Log \(max(goalCount - clampedProgress, 0)) more by May 30 to earn the limited badge."
         case .completed:
             "Limited badge unlocked."
         case .ended:
@@ -123,8 +123,8 @@ struct LaunchChallengeProgress: Hashable {
         var calendar = inputCalendar
         calendar.timeZone = .current
         let announcement = eventDate(year: 2026, month: 5, day: 22, calendar: calendar)
-        let start = eventDate(year: 2026, month: 5, day: 26, calendar: calendar)
-        let end = eventDate(year: 2026, month: 6, day: 2, calendar: calendar)
+        let start = eventDate(year: 2026, month: 5, day: 23, calendar: calendar)
+        let end = eventDate(year: 2026, month: 5, day: 30, calendar: calendar)
         let today = calendar.startOfDay(for: date)
         let earned = qualifyingWorkoutDays >= goalWorkoutDays
         let state: LaunchChallengeState

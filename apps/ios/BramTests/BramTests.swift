@@ -1252,9 +1252,9 @@ struct BramTests {
         let calendar = Calendar(identifier: .gregorian)
         let beforeAnnouncement = calendar.date(from: DateComponents(year: 2026, month: 5, day: 21))!
         let announcement = calendar.date(from: DateComponents(year: 2026, month: 5, day: 22))!
-        let activeStart = calendar.date(from: DateComponents(year: 2026, month: 5, day: 26))!
-        let activeEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 2))!
-        let afterEvent = calendar.date(from: DateComponents(year: 2026, month: 6, day: 3))!
+        let activeStart = calendar.date(from: DateComponents(year: 2026, month: 5, day: 23))!
+        let activeEnd = calendar.date(from: DateComponents(year: 2026, month: 5, day: 30))!
+        let afterEvent = calendar.date(from: DateComponents(year: 2026, month: 5, day: 31))!
 
         #expect(LaunchChallengeProgress.make(qualifyingWorkoutDays: 0, asOf: beforeAnnouncement, calendar: calendar).state == .hidden)
         #expect(LaunchChallengeProgress.make(qualifyingWorkoutDays: 0, asOf: announcement, calendar: calendar).state == .announced)
@@ -1271,13 +1271,13 @@ struct BramTests {
             .path
         let store = try SQLiteWorkoutLocalStore(databasePath: path)
         let calendar = Calendar(identifier: .gregorian)
-        let outsideDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 25))!
-        let bodyweightOnlyDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 26))!
+        let outsideDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 22))!
+        let bodyweightOnlyDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 23))!
         let workoutDates = [
-            calendar.date(from: DateComponents(year: 2026, month: 5, day: 27))!,
+            calendar.date(from: DateComponents(year: 2026, month: 5, day: 24))!,
+            calendar.date(from: DateComponents(year: 2026, month: 5, day: 26))!,
             calendar.date(from: DateComponents(year: 2026, month: 5, day: 29))!,
-            calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!,
-            calendar.date(from: DateComponents(year: 2026, month: 6, day: 2))!
+            calendar.date(from: DateComponents(year: 2026, month: 5, day: 30))!
         ]
 
         var outsideNote = try await store.note(for: outsideDate)
@@ -1308,11 +1308,11 @@ struct BramTests {
         let store = try SQLiteWorkoutLocalStore(databasePath: path)
         let calendar = Calendar(identifier: .gregorian)
         let entries: [(Date, String)] = [
-            (calendar.date(from: DateComponents(year: 2026, month: 5, day: 25))!, "Bench 185 3x8"),
-            (calendar.date(from: DateComponents(year: 2026, month: 5, day: 26))!, "Weighed 192 lbs"),
-            (calendar.date(from: DateComponents(year: 2026, month: 5, day: 27))!, "Bench 185 3x8"),
-            (calendar.date(from: DateComponents(year: 2026, month: 5, day: 28))!, "Run 1 mile"),
-            (calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!, "Squat 225 3x5")
+            (calendar.date(from: DateComponents(year: 2026, month: 5, day: 22))!, "Bench 185 3x8"),
+            (calendar.date(from: DateComponents(year: 2026, month: 5, day: 23))!, "Weighed 192 lbs"),
+            (calendar.date(from: DateComponents(year: 2026, month: 5, day: 24))!, "Bench 185 3x8"),
+            (calendar.date(from: DateComponents(year: 2026, month: 5, day: 25))!, "Run 1 mile"),
+            (calendar.date(from: DateComponents(year: 2026, month: 5, day: 30))!, "Squat 225 3x5")
         ]
 
         for entry in entries {
@@ -1321,7 +1321,7 @@ struct BramTests {
             try await store.save(note)
         }
 
-        let stats = try await store.statsWeek(containing: calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!)
+        let stats = try await store.statsWeek(containing: calendar.date(from: DateComponents(year: 2026, month: 5, day: 30))!)
 
         #expect(stats.launchChallenge.progressCount == 3)
         #expect(!stats.launchChallenge.isEarned)

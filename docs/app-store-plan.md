@@ -100,7 +100,7 @@ Use this only if the build with the in-app challenge is submitted and visible be
 - Event name: `Founding Lifters Week`
 - Badge: `Challenge`
 - Publish/announcement target: `2026-05-22`
-- Date range: `2026-05-26` to `2026-06-02`
+- Date range: `2026-05-23` to `2026-05-30`
 - Short description: `Log 4 workouts and start your first strength history.`
 - Long description:
 
