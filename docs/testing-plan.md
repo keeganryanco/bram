@@ -19,6 +19,7 @@ Manual checks:
 - Duplicate email returns a clear already-on-waitlist message.
 - New waitlist signup sends the branded Resend welcome email and records `welcome_email_sent_at`.
 - TestFlight welcome email sends once, includes Apple offer-code redemption language, and records `account_email_events`.
+- TestFlight account bootstrap records `testflight_signup_2026_05`, and the TestFlight launch-offer cron sends the App Store offer email once.
 - Launch-day waitlist cron rejects missing/wrong `CRON_SECRET`, sends the correct waitlist or friends/family variant, and marks rows with `launch_email_sent_at`.
 - Privacy and terms pages load.
 - Contact link opens `mailto:support@trybram.app`.

@@ -62,6 +62,7 @@ Tuesday-Thursday, May 19-21:
 - Use Apple subscription offer codes for one-month TestFlight access. The in-app `Redeem code` button opens Apple's official offer-code redemption sheet.
 - Supabase promo tables remain for campaign tracking, email segmentation, and private entitlement grants, but public in-app promo codes do not unlock paid access in the App Store build.
 - When a tester receives a TestFlight offer code email, the branded "Welcome to the Bram TestFlight" Resend email is sent once and recorded in `account_email_events`.
+- When a signed-in user bootstraps from a TestFlight build, iOS sends a sandbox-receipt distribution signal to `/api/account/welcome-email`; the server records `testflight_signup_2026_05` for launch follow-up email targeting.
 - Every first successful Bram signup/session bootstrap can trigger the branded "Welcome to Bram" Resend email once through `account_email_events` event key `welcome_2026_05`.
 - Fix only launch-blocking bugs: crashes, account loss/mixing, broken onboarding, broken paywall, broken note parsing, broken data deletion/export, and metadata/privacy mismatches.
 
@@ -70,6 +71,7 @@ Friday, May 22:
 - Product Hunt launch.
 - Use Apple subscription offer codes for Product Hunt one-month access. Distribute redemption links/codes through the launch email and Product Hunt messaging.
 - Vercel Cron sends the waitlist launch email at 7:00 AM Central when `CRON_SECRET` is configured and `LAUNCH_DAY_EMAIL_ENABLED=true`. Standard waitlisters get the one-month founder email. Emails with `FRIENDS_DISCOUNT` or `FOUNDER_LIFETIME` in `account_promo_eligibilities` or `account_entitlements` get the lifetime access variant.
+- Vercel Cron also sends a TestFlight launch follow-up at 7:00 AM Central to signed-in TestFlight accounts recorded with `testflight_signup_2026_05`, using `BRAM_TESTFLIGHT_LAUNCH_OFFER_URL` when configured.
 - Monitor PostHog onboarding/paywall funnels, Supabase support requests/error reports, Linear support issues, RevenueCat purchase state, and App Store/TestFlight feedback.
 
 ## TestFlight Distribution
@@ -93,6 +95,7 @@ Beta review notes:
 
 - Public one-month promos use Apple subscription offer codes created in App Store Connect. The app's `Redeem code` action opens Apple's official redemption sheet.
 - TestFlight, waitlist/founder, and Product Hunt campaigns should distribute Apple offer-code links or codes by Resend/email/social copy.
+- TestFlight users are identifiable only after they sign into Bram from a TestFlight build; Apple does not expose a public tester list to Bram. Those users are marked by the sandbox receipt signal and can receive a launch-day App Store offer email.
 - Supabase promo tables remain for campaign attribution, email segmentation, and private account entitlements, but the reviewed app build does not expose Bram-owned public promo-code redemption.
 - Friends/family: use `FRIENDS_DISCOUNT` or `FOUNDER_LIFETIME` in Supabase. These account entitlements bypass the paywall and can still subscribe from Settings if they want to support Bram.
 - Referrals use Apple offer codes for paid access. The in-app share badge shares a Bram referral URL; the landing page sends the friend through Apple's offer-code redemption link, then back into Bram to attribute the referral after the friend has active Apple/RevenueCat access.

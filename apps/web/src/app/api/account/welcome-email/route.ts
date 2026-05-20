@@ -32,6 +32,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
 
+    let distributionChannel: string | null = null;
+    try {
+      const body = await request.json();
+      if (
+        body &&
+        typeof body === "object" &&
+        "distributionChannel" in body &&
+        typeof body.distributionChannel === "string"
+      ) {
+        distributionChannel = body.distributionChannel;
+      }
+    } catch {
+      distributionChannel = null;
+    }
+
     const supabase = supabaseAdmin();
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) {
@@ -57,7 +72,12 @@ export async function POST(request: Request) {
     }
 
     const result = await sendAccountWelcomeEmail(
-      { userId: data.user.id, email },
+      {
+        userId: data.user.id,
+        email,
+        distributionChannel:
+          distributionChannel === "testflight" ? "testflight" : "unknown",
+      },
       { supabase: supabase as never },
     );
     return NextResponse.json(result);

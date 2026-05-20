@@ -3,9 +3,11 @@ import {
   isLaunchEmailEnabled,
   isDevLaunchEmailTestEnabled,
   launchEmailVariantForAddress,
+  recordTestFlightSignup,
   sendAccountWelcomeEmail,
   sendDevLaunchEmailTest,
   sendLaunchDayWaitlistEmails,
+  sendTestFlightLaunchOfferEmails,
   sendTestFlightWelcomeEmail,
   verifyCronSecret,
 } from "./launch-emails";
@@ -39,6 +41,10 @@ function makeFilter(table: string, state: MockState) {
 
       if (table === "account_promo_eligibilities") {
         return { data: state.friendPromo ? [{ id: "promo_1" }] : [], error: null };
+      }
+
+      if (table === "account_email_events") {
+        return { data: state.emailEventRows ?? [], error: null };
       }
 
       return { data: [], error: null };
@@ -87,6 +93,7 @@ type MockState = {
   friendPromo?: boolean;
   profileUserId?: string | null;
   activePromoKind?: string | null;
+  emailEventRows?: Record<string, unknown>[];
   waitlistRows?: Record<string, unknown>[];
   devAccountRows?: Record<string, unknown>[];
   updateError?: unknown | null;
@@ -211,6 +218,62 @@ describe("account welcome email", () => {
         user_id: userId,
         email: "newuser@trybram.app",
         event_key: "welcome_2026_05",
+        metadata: { distribution_channel: "unknown" },
+      },
+    });
+  });
+
+  it("records TestFlight signup attribution from TestFlight distribution", async () => {
+    const supabase = supabaseMock();
+    const resend = resendMock();
+
+    const result = await sendAccountWelcomeEmail(
+      {
+        userId,
+        email: "Tester@TryBram.App",
+        distributionChannel: "testflight",
+      },
+      { supabase: supabase.client, resend },
+    );
+
+    expect(result.status).toBe("sent");
+    expect(supabase.inserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: "account_email_events",
+          values: expect.objectContaining({
+            user_id: userId,
+            event_key: "welcome_2026_05",
+            metadata: { distribution_channel: "testflight" },
+          }),
+        }),
+        expect.objectContaining({
+          table: "account_email_events",
+          values: expect.objectContaining({
+            user_id: userId,
+            event_key: "testflight_signup_2026_05",
+            metadata: { distribution_channel: "testflight" },
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("can record TestFlight signup attribution without sending another welcome email", async () => {
+    const supabase = supabaseMock();
+
+    const result = await recordTestFlightSignup(
+      { userId, email: "tester@trybram.app" },
+      { supabase: supabase.client },
+    );
+
+    expect(result.status).toBe("recorded");
+    expect(supabase.inserts[0]).toMatchObject({
+      table: "account_email_events",
+      values: {
+        user_id: userId,
+        email: "tester@trybram.app",
+        event_key: "testflight_signup_2026_05",
       },
     });
   });
@@ -334,6 +397,41 @@ describe("launch day waitlist email", () => {
         to: "dev@trybram.app",
         subject: "Bram launches today — you have lifetime access",
       }),
+    );
+  });
+
+  it("sends launch offer emails to attributed TestFlight accounts", async () => {
+    vi.stubEnv("LAUNCH_DAY_EMAIL_ENABLED", "true");
+    vi.stubEnv("BRAM_TESTFLIGHT_LAUNCH_OFFER_URL", "https://apps.apple.com/redeem/testflight");
+    const supabase = supabaseMock({
+      emailEventRows: [{ user_id: userId, email: "tester@trybram.app" }],
+    });
+    const resend = resendMock();
+
+    const result = await sendTestFlightLaunchOfferEmails(
+      { now: new Date("2026-05-22T12:00:00.000Z") },
+      { supabase: supabase.client, resend },
+    );
+
+    expect(result).toMatchObject({ status: "sent", sent: 1, failed: 0 });
+    expect(resend.emails.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "tester@trybram.app",
+        subject: "Bram is live — your first month is free",
+        text: expect.stringContaining("https://apps.apple.com/redeem/testflight"),
+      }),
+    );
+    expect(supabase.inserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: "account_email_events",
+          values: expect.objectContaining({
+            user_id: userId,
+            event_key: "testflight_launch_offer_2026_05",
+            metadata: { source: "testflight_signup" },
+          }),
+        }),
+      ]),
     );
   });
 });

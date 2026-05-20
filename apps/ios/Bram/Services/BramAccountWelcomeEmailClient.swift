@@ -19,6 +19,10 @@ struct BramAccountWelcomeEmailClient: BramWelcomeEmailSending {
         let message: String?
     }
 
+    private struct RequestBody: Encodable {
+        let distributionChannel: String?
+    }
+
     private let baseURL: URL
     private let session: URLSession
 
@@ -38,7 +42,11 @@ struct BramAccountWelcomeEmailClient: BramWelcomeEmailSending {
     func sendWelcomeEmail(accessToken: String) async throws {
         var request = URLRequest(url: baseURL.appending(path: "/api/account/welcome-email"))
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(
+            RequestBody(distributionChannel: Self.distributionChannel())
+        )
 
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -49,5 +57,11 @@ struct BramAccountWelcomeEmailClient: BramWelcomeEmailSending {
             throw ClientError.requestFailed(httpResponse.statusCode, errorBody?.message)
         }
     }
-}
 
+    private static func distributionChannel(_ bundle: Bundle = .main) -> String? {
+        guard bundle.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt" else {
+            return nil
+        }
+        return "testflight"
+    }
+}

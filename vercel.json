@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/launch-day-waitlist-email",
+      "schedule": "0 12 22 5 *"
+    },
+    {
+      "path": "/api/cron/testflight-launch-offer-email",
+      "schedule": "0 12 22 5 *"
+    }
+  ]
+}

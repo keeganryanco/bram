@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
 const testFlightWelcomeEventKey = "testflight_welcome_2026_05";
+const testFlightSignupEventKey = "testflight_signup_2026_05";
+const testFlightLaunchOfferEventKey = "testflight_launch_offer_2026_05";
 const accountWelcomeEventKey = "welcome_2026_05";
 const launchTargetDate = "2026-05-22";
 const devLaunchTestTargetDate = "2026-05-19";
@@ -51,6 +53,7 @@ type LaunchEmailClients = {
 };
 
 export type LaunchEmailVariant = "WAITLIST_1MONTH" | "FRIENDS_LIFETIME";
+type AccountDistributionChannel = "testflight" | "app_store" | "unknown";
 
 export class LaunchEmailConfigError extends Error {
   constructor(message: string) {
@@ -236,6 +239,28 @@ function buildLaunchEmailHtml(variant: LaunchEmailVariant) {
   );
 }
 
+function buildTestFlightLaunchOfferHtml() {
+  const offerURL =
+    appleOfferLink("BRAM_TESTFLIGHT_LAUNCH_OFFER_URL") ??
+    appleOfferLink("BRAM_TESTFLIGHT_OFFER_URL") ??
+    appleOfferLink("BRAM_WAITLIST_OFFER_URL");
+
+  return emailShell(
+    "Bram is live, and your first App Store month is free.",
+    "Bram is live.",
+    [
+      paragraph(
+        "Thanks for testing Bram in TestFlight before launch. The App Store version is now live, and your first month is free through Apple's subscription offer-code flow.",
+      ),
+      offerParagraph("Redeem your free month through Apple, then install Bram from the App Store.", offerURL),
+      paragraph(
+        "If anything feels off, send it straight to keegan@trybram.app. TestFlight feedback genuinely shaped the launch build.",
+      ),
+      signature(),
+    ].join(""),
+  );
+}
+
 async function existingEmailEvent(
   supabase: SupabaseEmailClient,
   userId: string,
@@ -323,39 +348,74 @@ export async function sendTestFlightWelcomeEmail(
 }
 
 export async function sendAccountWelcomeEmail(
-  values: { userId: string; email: string },
+  values: {
+    userId: string;
+    email: string;
+    distributionChannel?: AccountDistributionChannel | null;
+  },
   clients: LaunchEmailClients = {},
 ) {
   const supabase = clients.supabase ?? getSupabaseAdmin();
   const resend = clients.resend ?? getResend();
   const email = values.email.toLowerCase();
 
-  if (await existingEmailEvent(supabase, values.userId, accountWelcomeEventKey)) {
-    return { status: "duplicate" as const };
+  const welcomeAlreadySent = await existingEmailEvent(
+    supabase,
+    values.userId,
+    accountWelcomeEventKey,
+  );
+
+  if (!welcomeAlreadySent) {
+    const result = await resend.emails.send({
+      from: fromEmail(),
+      to: email,
+      subject: "Welcome to Bram",
+      text:
+        "Welcome to Bram.\n\nThanks for using Bram. I built it for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.\n\nIf you have feature requests, feedback, or anything that feels confusing, send it directly to keegan@trybram.app. I read it all.\n\nWrite what you did. Bram tracks the rest.\n\nKeegan\nFounder of Bram",
+      html: buildAccountWelcomeHtml(),
+    });
+
+    const sendError = getSendError(result);
+    if (sendError) {
+      throw new Error("Bram welcome email failed to send.");
+    }
+
+    await recordEmailEvent(supabase, {
+      userId: values.userId,
+      email,
+      eventKey: accountWelcomeEventKey,
+      metadata: {
+        distribution_channel: values.distributionChannel ?? "unknown",
+      },
+    });
   }
 
-  const result = await resend.emails.send({
-    from: fromEmail(),
-    to: email,
-    subject: "Welcome to Bram",
-    text:
-      "Welcome to Bram.\n\nThanks for using Bram. I built it for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.\n\nIf you have feature requests, feedback, or anything that feels confusing, send it directly to keegan@trybram.app. I read it all.\n\nWrite what you did. Bram tracks the rest.\n\nKeegan\nFounder of Bram",
-    html: buildAccountWelcomeHtml(),
-  });
+  if (values.distributionChannel === "testflight") {
+    await recordTestFlightSignup({ userId: values.userId, email }, { supabase });
+  }
 
-  const sendError = getSendError(result);
-  if (sendError) {
-    throw new Error("Bram welcome email failed to send.");
+  return { status: welcomeAlreadySent ? ("duplicate" as const) : ("sent" as const) };
+}
+
+export async function recordTestFlightSignup(
+  values: { userId: string; email: string },
+  clients: Pick<LaunchEmailClients, "supabase"> = {},
+) {
+  const supabase = clients.supabase ?? getSupabaseAdmin();
+  const email = values.email.toLowerCase();
+
+  if (await existingEmailEvent(supabase, values.userId, testFlightSignupEventKey)) {
+    return { status: "duplicate" as const };
   }
 
   await recordEmailEvent(supabase, {
     userId: values.userId,
     email,
-    eventKey: accountWelcomeEventKey,
-    metadata: {},
+    eventKey: testFlightSignupEventKey,
+    metadata: { distribution_channel: "testflight" },
   });
 
-  return { status: "sent" as const };
+  return { status: "recorded" as const };
 }
 
 async function hasLifetimeFriendAccess(
@@ -445,6 +505,26 @@ async function sendLaunchEmail(
   }
 }
 
+async function sendTestFlightLaunchOfferEmail(email: string, resend: ResendLike) {
+  const offerURL =
+    appleOfferLink("BRAM_TESTFLIGHT_LAUNCH_OFFER_URL") ??
+    appleOfferLink("BRAM_TESTFLIGHT_OFFER_URL") ??
+    appleOfferLink("BRAM_WAITLIST_OFFER_URL");
+  const result = await resend.emails.send({
+    from: fromEmail(),
+    to: email,
+    subject: "Bram is live — your first month is free",
+    text:
+      `Bram is live.\n\nThanks for testing Bram in TestFlight before launch. The App Store version is now live, and your first month is free through Apple's subscription offer-code flow.${offerURL ? `\n\nRedeem your free month through Apple: ${offerURL}` : "\n\nRedeem your free month through the Apple subscription offer code link or code included with this email."}\n\nIf anything feels off, send it straight to keegan@trybram.app. TestFlight feedback genuinely shaped the launch build.\n\nKeegan\nFounder of Bram`,
+    html: buildTestFlightLaunchOfferHtml(),
+  });
+
+  const sendError = getSendError(result);
+  if (sendError) {
+    throw new Error("Bram TestFlight launch offer email failed to send.");
+  }
+}
+
 async function sendIdempotentLaunchEmail(
   values: {
     userId: string;
@@ -460,6 +540,30 @@ async function sendIdempotentLaunchEmail(
   }
 
   await sendLaunchEmail(values.email, values.variant, clients.resend);
+  await recordEmailEvent(clients.supabase, {
+    userId: values.userId,
+    email: values.email,
+    eventKey: values.eventKey,
+    metadata: values.metadata,
+  });
+
+  return "sent" as const;
+}
+
+async function sendIdempotentTestFlightLaunchOfferEmail(
+  values: {
+    userId: string;
+    email: string;
+    eventKey: string;
+    metadata?: Record<string, unknown>;
+  },
+  clients: { supabase: SupabaseEmailClient; resend: ResendLike },
+) {
+  if (await existingEmailEvent(clients.supabase, values.userId, values.eventKey)) {
+    return "duplicate" as const;
+  }
+
+  await sendTestFlightLaunchOfferEmail(values.email, clients.resend);
   await recordEmailEvent(clients.supabase, {
     userId: values.userId,
     email: values.email,
@@ -560,6 +664,73 @@ export async function sendLaunchDayWaitlistEmails(
           .update({ launch_email_error: message })
           .eq("id", id);
       }
+    }
+  }
+
+  return {
+    status: options.dryRun ? ("dry-run" as const) : ("sent" as const),
+    sent,
+    failed,
+    skipped,
+  };
+}
+
+export async function sendTestFlightLaunchOfferEmails(
+  options: { dryRun?: boolean; now?: Date } = {},
+  clients: LaunchEmailClients = {},
+) {
+  if (!isLaunchEmailEnabled(options.now)) {
+    return { status: "disabled" as const, sent: 0, failed: 0, skipped: 0 };
+  }
+
+  const supabase = clients.supabase ?? getSupabaseAdmin();
+  const resend = clients.resend ?? getResend();
+  const batchSize = parseBatchSize(process.env.LAUNCH_EMAIL_BATCH_SIZE);
+
+  const { data, error } = await supabase
+    .from("account_email_events")
+    .select("user_id,email")
+    .eq("event_key", testFlightSignupEventKey)
+    .order("created_at", { ascending: true })
+    .limit(batchSize);
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    const userId = typeof row.user_id === "string" ? row.user_id : null;
+    const email = typeof row.email === "string" ? row.email.toLowerCase() : null;
+    if (!userId || !email) {
+      skipped += 1;
+      continue;
+    }
+
+    try {
+      if (!options.dryRun) {
+        const result = await sendIdempotentTestFlightLaunchOfferEmail(
+          {
+            userId,
+            email,
+            eventKey: testFlightLaunchOfferEventKey,
+            metadata: { source: "testflight_signup" },
+          },
+          { supabase, resend },
+        );
+        if (result === "duplicate") {
+          skipped += 1;
+          continue;
+        }
+      }
+      sent += 1;
+    } catch (error) {
+      console.error("testflight_launch_offer_email_failed", { email, error });
+      failed += 1;
     }
   }
 
