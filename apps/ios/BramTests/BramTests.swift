@@ -4,6 +4,17 @@ import UIKit
 @testable import Bram
 
 struct BramTests {
+    @Test func postHogTokenResolverRejectsMissingOrUnresolvedBuildSettings() {
+        #expect(PostHogAnalyticsService.resolvedProjectToken(nil) == nil)
+        #expect(PostHogAnalyticsService.resolvedProjectToken("") == nil)
+        #expect(PostHogAnalyticsService.resolvedProjectToken("$(BRAM_IOS_POSTHOG_PROJECT_TOKEN)") == nil)
+        #expect(PostHogAnalyticsService.resolvedProjectToken("not-a-posthog-token") == nil)
+    }
+
+    @Test func postHogTokenResolverAcceptsProjectTokens() {
+        #expect(PostHogAnalyticsService.resolvedProjectToken("  phc_testprojecttoken  ") == "phc_testprojecttoken")
+    }
+
     @Test func workoutNoteDefaultsToEmptyBody() {
         let note = WorkoutNote()
         #expect(note.body.isEmpty)

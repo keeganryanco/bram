@@ -794,7 +794,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				BRAM_IOS_POSTHOG_PROJECT_TOKEN = "";
+				BRAM_IOS_POSTHOG_PROJECT_TOKEN = phc_Apn4fjy5JgRACUFCdEygPkDSAcz4CvctBAQC94oksGsi;
 				BRAM_IOS_REVENUECAT_API_KEY = appl_hTooxCdvHUyRfGjseYYIyTuqFHC;
 				CODE_SIGN_ENTITLEMENTS = Bram/Bram.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
@@ -880,7 +880,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				BRAM_IOS_POSTHOG_PROJECT_TOKEN = "";
+				BRAM_IOS_POSTHOG_PROJECT_TOKEN = phc_Apn4fjy5JgRACUFCdEygPkDSAcz4CvctBAQC94oksGsi;
 				BRAM_IOS_REVENUECAT_API_KEY = appl_hTooxCdvHUyRfGjseYYIyTuqFHC;
 				CODE_SIGN_ENTITLEMENTS = Bram/Bram.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";

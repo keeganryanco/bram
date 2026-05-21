@@ -10,9 +10,9 @@ final class PostHogAnalyticsService: AnalyticsTracking, @unchecked Sendable {
     }
 
     static func configuredFromBundle(_ bundle: Bundle = .main) -> any AnalyticsTracking {
-        guard let token = bundle.object(forInfoDictionaryKey: "BramPostHogProjectToken") as? String,
-              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
+        guard let token = resolvedProjectToken(
+            bundle.object(forInfoDictionaryKey: "BramPostHogProjectToken") as? String
+        ) else {
             return NoopAnalyticsService()
         }
 
@@ -23,8 +23,8 @@ final class PostHogAnalyticsService: AnalyticsTracking, @unchecked Sendable {
             let config = PostHogConfig(projectToken: token, host: host.absoluteString)
             config.captureApplicationLifecycleEvents = true
             config.captureScreenViews = false
-            config.flushAt = 10
-            config.flushIntervalSeconds = 30
+            config.flushAt = 1
+            config.flushIntervalSeconds = 5
             config.sendFeatureFlagEvent = false
             config.sessionReplay = false
             config.errorTrackingConfig.autoCapture = true
@@ -38,6 +38,7 @@ final class PostHogAnalyticsService: AnalyticsTracking, @unchecked Sendable {
     func track(_ event: AnalyticsEvent) {
         guard isConfigured else { return }
         PostHogSDK.shared.capture(event.name, properties: event.properties)
+        PostHogSDK.shared.flush()
     }
 
     func capture(error: Error, properties: [String: String]) {
@@ -47,11 +48,23 @@ final class PostHogAnalyticsService: AnalyticsTracking, @unchecked Sendable {
 
     func identify(userId: UUID, properties: [String: String]) {
         guard isConfigured else { return }
-        PostHogSDK.shared.identify(userId.uuidString, userProperties: properties)
+        PostHogSDK.shared.identify(userId.uuidString.lowercased(), userProperties: properties)
     }
 
     func reset() {
         guard isConfigured else { return }
         PostHogSDK.shared.reset()
+    }
+
+    static func resolvedProjectToken(_ rawToken: String?) -> String? {
+        guard let token = rawToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !token.isEmpty,
+              !token.contains("$("),
+              token.hasPrefix("phc_")
+        else {
+            return nil
+        }
+
+        return token
     }
 }
