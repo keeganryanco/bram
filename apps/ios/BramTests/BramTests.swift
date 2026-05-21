@@ -523,6 +523,18 @@ struct BramTests {
         #expect(state.paywallMessage == "We couldn't confirm App Store access yet. Restore or try again.")
     }
 
+    @Test func paywallActionsSuppressAutomaticCrashPrompt() {
+        let suiteName = "bram.tests.diagnostics.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let recorder = AppDiagnosticsRecorder(defaults: defaults)
+
+        recorder.suppressCrashPromptTemporarily()
+
+        #expect(recorder.beginSession() == false)
+        #expect(recorder.beginSession() == false)
+    }
+
     @MainActor
     @Test func appleOfferCodeRedemptionUsesStoreKitSheet() async {
         let paywallService = MockPaywallService()

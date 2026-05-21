@@ -471,6 +471,7 @@ final class AccountSessionState: ObservableObject {
 
     func purchase(packageId: String) async {
         paywallMessage = nil
+        diagnosticsRecorder.suppressCrashPromptTemporarily()
         analytics.track(AnalyticsEvent(name: "purchase_started", properties: ["package_id": packageId]))
         await runPaywallAction {
             try await paywallService?.purchase(packageId: packageId)
@@ -485,6 +486,7 @@ final class AccountSessionState: ObservableObject {
 
     func restorePurchases() async {
         paywallMessage = nil
+        diagnosticsRecorder.suppressCrashPromptTemporarily()
         analytics.track(AnalyticsEvent(name: "restore_purchases_started", properties: ["source": "paywall"]))
         await runPaywallAction {
             try await paywallService?.restorePurchases()
@@ -499,6 +501,7 @@ final class AccountSessionState: ObservableObject {
 
     func retryPaywallAccess() async {
         paywallMessage = nil
+        diagnosticsRecorder.suppressCrashPromptTemporarily(duration: 120)
         analytics.track(AnalyticsEvent(name: "paywall_access_retry_started", properties: [:]))
         await runPaywallAction {}
     }
