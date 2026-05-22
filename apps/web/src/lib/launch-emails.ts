@@ -156,9 +156,9 @@ function appleOfferLink(envKey: string) {
 
 function offerParagraph(label: string, url: string | null) {
   if (!url) {
-    return paragraph(`${label} Use the Apple subscription offer code link or code included with this launch message.`);
+    return paragraph(`${label} Use the Apple subscription offer code link or code included with this launch message. This offer applies to Bram's yearly plan.`);
   }
-  return `<p style="font-size:17px;line-height:1.65;margin:0 0 18px;color:#4f535b;">${label} <a href="${url}" style="color:#5d5af7;font-weight:700;">Redeem the Apple offer code.</a></p>`;
+  return `<p style="font-size:17px;line-height:1.65;margin:0 0 18px;color:#4f535b;">${label} <a href="${url}" style="color:#5d5af7;font-weight:700;">Redeem the Apple offer code.</a> This offer applies to Bram's yearly plan.</p>`;
 }
 
 function appStoreParagraph(label = "Download Bram from the App Store.") {
@@ -176,7 +176,7 @@ function buildTestFlightWelcomeHtml() {
     "You are in.",
     [
       paragraph(
-        "Thanks for testing Bram before launch. Your TestFlight account gets one month free through Apple's subscription offer-code flow.",
+        "Thanks for testing Bram before launch. Your TestFlight account gets one month free through Apple's subscription offer-code flow on Bram's yearly plan.",
       ),
       offerParagraph("Start with the free month first.", offerURL),
       paragraph(
@@ -234,7 +234,7 @@ function buildLaunchEmailHtml(variant: LaunchEmailVariant) {
     "Bram launches today.",
     [
       paragraph(
-        "You joined the waitlist early, so you get one month free. Bram is built for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.",
+        "You joined the waitlist early, so you get one month free on Bram's yearly plan. Bram is built for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.",
       ),
       appStoreParagraph(),
       offerParagraph("Redeem your free month through Apple, then create your Bram account with this email.", offerURL),
@@ -257,7 +257,7 @@ function buildTestFlightLaunchOfferHtml() {
     "Bram is live.",
     [
       paragraph(
-        "Thanks for testing Bram in TestFlight before launch. The App Store version is now live, and your first month is free through Apple's subscription offer-code flow.",
+        "Thanks for testing Bram in TestFlight before launch. The App Store version is now live, and your first month is free through Apple's subscription offer-code flow on Bram's yearly plan.",
       ),
       appStoreParagraph(),
       offerParagraph("Redeem your free month through Apple, then install Bram from the App Store.", offerURL),
@@ -336,7 +336,7 @@ export async function sendTestFlightWelcomeEmail(
     to: email,
     subject: "Welcome to the Bram TestFlight",
     text:
-      `You’re in.\n\nThanks for testing Bram before launch. Your TestFlight account gets one month free through Apple's subscription offer-code flow.${appleOfferLink("BRAM_TESTFLIGHT_OFFER_URL") ? `\n\nRedeem your free month: ${appleOfferLink("BRAM_TESTFLIGHT_OFFER_URL")}` : ""}\n\nI’m especially looking for feedback on whether writing workouts feels as easy as Notes, whether Bram understands your lifts correctly, and whether the progress stats feel useful.\n\nSend anything directly to keegan@trybram.app, or comment on the Reddit post where you found the TestFlight. Critique is genuinely helpful.\n\nKeegan\nFounder of Bram`,
+      `You’re in.\n\nThanks for testing Bram before launch. Your TestFlight account gets one month free through Apple's subscription offer-code flow on Bram's yearly plan.${appleOfferLink("BRAM_TESTFLIGHT_OFFER_URL") ? `\n\nRedeem your free month: ${appleOfferLink("BRAM_TESTFLIGHT_OFFER_URL")}` : ""}\n\nI’m especially looking for feedback on whether writing workouts feels as easy as Notes, whether Bram understands your lifts correctly, and whether the progress stats feel useful.\n\nSend anything directly to keegan@trybram.app, or comment on the Reddit post where you found the TestFlight. Critique is genuinely helpful.\n\nKeegan\nFounder of Bram`,
     html: buildTestFlightWelcomeHtml(),
   });
 
@@ -497,7 +497,7 @@ async function sendLaunchEmail(
   const text =
     variant === "FRIENDS_LIFETIME"
       ? `Bram launches today.\n\nAs part of the friends and family group, you have lifetime free access to Bram. That access uses slightly adjusted AI/model limits so I can keep costs manageable while still giving you the full app experience.\n\nIf you want to support Bram anyway, you can subscribe from Settings in the app.\n\nDownload Bram from the App Store: ${appStoreURL}\n\nCreate your account with this email, and your access should apply automatically. If anything looks wrong, email me directly at keegan@trybram.app.\n\nKeegan\nFounder of Bram`
-      : `Bram launches today.\n\nYou joined the waitlist early, so you get one month free. Bram is built for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.\n\nDownload Bram from the App Store: ${appStoreURL}${appleOfferLink("BRAM_WAITLIST_OFFER_URL") ? `\n\nRedeem your free month through Apple: ${appleOfferLink("BRAM_WAITLIST_OFFER_URL")}` : "\n\nRedeem your free month through the Apple subscription offer code link or code included with this email."}\n\nThanks for being early. If you have feedback, send it straight to keegan@trybram.app.\n\nKeegan\nFounder of Bram`;
+      : `Bram launches today.\n\nYou joined the waitlist early, so you get one month free on Bram's yearly plan. Bram is built for people who want workout tracking to feel as easy as writing in Notes, while still remembering lifts, PRs, streaks, and what to beat next time.\n\nDownload Bram from the App Store: ${appStoreURL}${appleOfferLink("BRAM_WAITLIST_OFFER_URL") ? `\n\nRedeem your free month through Apple: ${appleOfferLink("BRAM_WAITLIST_OFFER_URL")}` : "\n\nRedeem your free month through the Apple subscription offer code link or code included with this email."}\n\nThanks for being early. If you have feedback, send it straight to keegan@trybram.app.\n\nKeegan\nFounder of Bram`;
 
   const result = await resend.emails.send({
     from: fromEmail(),
@@ -523,7 +523,7 @@ async function sendTestFlightLaunchOfferEmail(email: string, resend: ResendLike)
     to: email,
     subject: "Bram is live — your first month is free",
     text:
-      `Bram is live.\n\nThanks for testing Bram in TestFlight before launch. The App Store version is now live, and your first month is free through Apple's subscription offer-code flow.\n\nDownload Bram from the App Store: ${appStoreURL}${offerURL ? `\n\nRedeem your free month through Apple: ${offerURL}` : "\n\nRedeem your free month through the Apple subscription offer code link or code included with this email."}\n\nIf anything feels off, send it straight to keegan@trybram.app. TestFlight feedback genuinely shaped the launch build.\n\nKeegan\nFounder of Bram`,
+      `Bram is live.\n\nThanks for testing Bram in TestFlight before launch. The App Store version is now live, and your first month is free through Apple's subscription offer-code flow on Bram's yearly plan.\n\nDownload Bram from the App Store: ${appStoreURL}${offerURL ? `\n\nRedeem your free month through Apple: ${offerURL}` : "\n\nRedeem your free month through the Apple subscription offer code link or code included with this email."}\n\nIf anything feels off, send it straight to keegan@trybram.app. TestFlight feedback genuinely shaped the launch build.\n\nKeegan\nFounder of Bram`,
     html: buildTestFlightLaunchOfferHtml(),
   });
 

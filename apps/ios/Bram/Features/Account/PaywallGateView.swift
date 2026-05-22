@@ -130,6 +130,11 @@ struct PaywallGateView: View {
                     .font(BramFont.label(size: 13))
                     .foregroundStyle(BramColor.textTertiary)
                     .disabled(isSubmitting)
+
+                    Text("Apple offer codes apply to the yearly plan.")
+                        .font(BramFont.callout(size: 12))
+                        .foregroundStyle(BramColor.textTertiary)
+                        .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 8)
