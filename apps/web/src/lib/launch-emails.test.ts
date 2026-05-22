@@ -341,6 +341,7 @@ describe("launch day waitlist email", () => {
       expect.objectContaining({
         to: "lift@trybram.app",
         subject: "Bram launches today — your first month is free",
+        text: expect.stringContaining("https://apps.apple.com/us/app/bram-workout-notes/id6767239086"),
       }),
     );
     expect(supabase.updates[0]).toMatchObject({
@@ -418,7 +419,9 @@ describe("launch day waitlist email", () => {
       expect.objectContaining({
         to: "tester@trybram.app",
         subject: "Bram is live — your first month is free",
-        text: expect.stringContaining("https://apps.apple.com/redeem/testflight"),
+        text: expect.stringMatching(
+          /https:\/\/apps\.apple\.com\/us\/app\/bram-workout-notes\/id6767239086[\s\S]*https:\/\/apps\.apple\.com\/redeem\/testflight/,
+        ),
       }),
     );
     expect(supabase.inserts).toEqual(
