@@ -315,6 +315,8 @@ private struct GoalsStepperRow: View {
             HStack(spacing: 8) {
                 Button(action: decrement) {
                     Image(systemName: "minus")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Decrease \(title)")
                 Text(value)
@@ -323,6 +325,8 @@ private struct GoalsStepperRow: View {
                     .frame(minWidth: 58)
                 Button(action: increment) {
                     Image(systemName: "plus")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Increase \(title)")
             }
