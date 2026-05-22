@@ -13,10 +13,16 @@ struct AccountGateView: View {
         case signIn
     }
 
+    private enum FocusedField: Hashable {
+        case email
+        case password
+    }
+
     @State private var email = ""
     @State private var password = ""
     @State private var isSubmitting = false
     @State private var mode: Mode = .createAccount
+    @FocusState private var focusedField: FocusedField?
 
     var body: some View {
         ZStack {
@@ -47,26 +53,30 @@ struct AccountGateView: View {
 
                 VStack(spacing: 12) {
                     TextField("Email", text: $email)
-                        .textContentType(.emailAddress)
+                        .textContentType(.username)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .focused($focusedField, equals: .email)
+                        .submitLabel(.next)
+                        .onSubmit {
+                            focusedField = .password
+                        }
                         .bramAccountField()
 
                     SecureField("Password", text: $password)
-                        .textContentType(.password)
+                        .textContentType(mode == .createAccount ? .newPassword : .password)
+                        .focused($focusedField, equals: .password)
+                        .submitLabel(.go)
+                        .onSubmit {
+                            submitPrimary()
+                        }
                         .bramAccountField()
                 }
 
                 VStack(spacing: 12) {
                     AuthPrimaryButton(title: primaryButtonTitle, isDisabled: isSubmitting || email.isEmpty || password.isEmpty) {
-                        submit {
-                            if mode == .createAccount {
-                                await signUp(email, password)
-                            } else {
-                                await signIn(email, password)
-                            }
-                        }
+                        submitPrimary()
                     }
 
                     HStack(spacing: 10) {
@@ -102,6 +112,8 @@ struct AccountGateView: View {
                 Button(mode == .createAccount ? "Already have an account? Sign in" : "Create a new account") {
                     withAnimation(.snappy) {
                         mode = mode == .createAccount ? .signIn : .createAccount
+                        password = ""
+                        focusedField = .email
                     }
                 }
                 .font(BramFont.label())
@@ -127,11 +139,23 @@ struct AccountGateView: View {
 
     private func submit(_ operation: @escaping () async -> Void) {
         guard !isSubmitting else { return }
+        focusedField = nil
         isSubmitting = true
         Task {
             await operation()
             await MainActor.run {
                 isSubmitting = false
+            }
+        }
+    }
+
+    private func submitPrimary() {
+        guard !email.isEmpty, !password.isEmpty else { return }
+        submit {
+            if mode == .createAccount {
+                await signUp(email, password)
+            } else {
+                await signIn(email, password)
             }
         }
     }
