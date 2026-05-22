@@ -2744,6 +2744,16 @@ struct BramTests {
         #expect(OnboardingStep.recap.previousStep == .notifications)
     }
 
+    @Test func trainingGoalsAllowOneToSevenDaysAndShortSessions() {
+        let low = TrainingGoalsProfile(weeklyTrainingDays: 0, sessionLengthMinutes: 1).sanitized
+        let high = TrainingGoalsProfile(weeklyTrainingDays: 14, sessionLengthMinutes: 300).sanitized
+
+        #expect(low.weeklyTrainingDays == 1)
+        #expect(low.sessionLengthMinutes == 5)
+        #expect(high.weeklyTrainingDays == 7)
+        #expect(high.sessionLengthMinutes == 240)
+    }
+
     private func coachCardContext(
         metrics: WorkoutMetricSnapshot,
         goal: TrainingPrimaryGoal = .stronger,

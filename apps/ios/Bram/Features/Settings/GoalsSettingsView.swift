@@ -58,7 +58,7 @@ struct GoalsSettingsContent: View {
                     value: "\(draft.weeklyTrainingDays)/week",
                     systemImage: "calendar",
                     decrement: { draft.weeklyTrainingDays = max(1, draft.weeklyTrainingDays - 1) },
-                    increment: { draft.weeklyTrainingDays = min(14, draft.weeklyTrainingDays + 1) }
+                    increment: { draft.weeklyTrainingDays = min(7, draft.weeklyTrainingDays + 1) }
                 )
                 GoalsDivider()
                 GoalsStepperRow(
@@ -66,7 +66,7 @@ struct GoalsSettingsContent: View {
                     subtitle: "Typical workout",
                     value: "\(draft.sessionLengthMinutes) min",
                     systemImage: "clock",
-                    decrement: { draft.sessionLengthMinutes = max(10, draft.sessionLengthMinutes - 5) },
+                    decrement: { draft.sessionLengthMinutes = max(5, draft.sessionLengthMinutes - 5) },
                     increment: { draft.sessionLengthMinutes = min(240, draft.sessionLengthMinutes + 5) }
                 )
             }

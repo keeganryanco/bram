@@ -92,8 +92,8 @@ struct OnboardingFlowView: View {
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") {
-                    focusedField = nil
+                Button("Continue") {
+                    Task { await primaryContinueTapped() }
                 }
             }
         }
@@ -166,7 +166,7 @@ struct OnboardingFlowView: View {
     private var footer: some View {
         VStack(spacing: 12) {
             Button {
-                Task { await continueTapped() }
+                Task { await primaryContinueTapped() }
             } label: {
                 Text(footerTitle)
                     .font(BramFont.button(size: 16))
@@ -204,7 +204,7 @@ struct OnboardingFlowView: View {
                 .focused($focusedField, equals: .firstName)
                 .submitLabel(.continue)
                 .onSubmit {
-                    Task { await continueTapped() }
+                    Task { await primaryContinueTapped() }
                 }
                 .font(BramFont.headline(size: 22))
                 .foregroundStyle(OnboardingStyle.textPrimary)
@@ -245,10 +245,10 @@ struct OnboardingFlowView: View {
             OnboardingStepper(title: "Workout days", value: "\(profile.weeklyTrainingDays)x / week") {
                 profile.weeklyTrainingDays = max(1, profile.weeklyTrainingDays - 1)
             } increment: {
-                profile.weeklyTrainingDays = min(14, profile.weeklyTrainingDays + 1)
+                profile.weeklyTrainingDays = min(7, profile.weeklyTrainingDays + 1)
             }
             OnboardingStepper(title: "Typical session", value: "\(profile.sessionLengthMinutes) min") {
-                profile.sessionLengthMinutes = max(10, profile.sessionLengthMinutes - 5)
+                profile.sessionLengthMinutes = max(5, profile.sessionLengthMinutes - 5)
             } increment: {
                 profile.sessionLengthMinutes = min(240, profile.sessionLengthMinutes + 5)
             }
@@ -357,6 +357,25 @@ struct OnboardingFlowView: View {
                 OnboardingRecapRow(title: "Typical session", value: "\(profile.sessionLengthMinutes) min")
                 OnboardingRecapRow(title: "Training", value: profile.trainingStyles.first?.label ?? "Flexible")
             }
+        }
+    }
+
+    private func primaryContinueTapped() async {
+        if advanceFocusedFieldIfNeeded() {
+            return
+        }
+        await continueTapped()
+    }
+
+    @MainActor
+    private func advanceFocusedFieldIfNeeded() -> Bool {
+        syncTextFields()
+        switch focusedField {
+        case .currentWeight:
+            focusedField = .targetWeight
+            return true
+        default:
+            return false
         }
     }
 

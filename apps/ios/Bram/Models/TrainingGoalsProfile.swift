@@ -199,8 +199,8 @@ struct TrainingGoalsProfile: Codable, Equatable, Hashable {
 
     var sanitized: TrainingGoalsProfile {
         var copy = self
-        copy.weeklyTrainingDays = min(max(weeklyTrainingDays, 1), 14)
-        copy.sessionLengthMinutes = min(max(sessionLengthMinutes, 10), 240)
+        copy.weeklyTrainingDays = min(max(weeklyTrainingDays, 1), 7)
+        copy.sessionLengthMinutes = min(max(sessionLengthMinutes, 5), 240)
         copy.heightValue = heightValue.flatMap { $0 > 0 ? $0 : nil }
         copy.currentWeightValue = currentWeightValue.flatMap { $0 > 0 ? $0 : nil }
         copy.targetWeightValue = targetWeightValue.flatMap { $0 > 0 ? $0 : nil }
