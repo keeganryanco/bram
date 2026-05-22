@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { WaitlistForm } from "@/components/waitlist-form";
 
 const footerLinks = [
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms" },
   { href: "mailto:support@trybram.app", label: "Contact" },
 ];
+
+const appStoreURL = "https://apps.apple.com/us/app/bram-workout-notes/id6767239086";
 
 export default function Home() {
   return (
@@ -31,7 +32,20 @@ export default function Home() {
               As easy as Notes. Smart enough to remember every lift, track your
               progress, and surface insights like a personal trainer.
             </p>
-            <WaitlistForm />
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link
+                href={appStoreURL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-14 items-center justify-center rounded-full bg-[var(--foreground)] px-7 text-base font-semibold text-[var(--background)] shadow-[0_18px_44px_rgba(35,38,44,0.18)] transition hover:-translate-y-0.5 hover:bg-[var(--charcoal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--violet)]"
+                aria-label="Download Bram from the App Store"
+              >
+                Download from App Store
+              </Link>
+              <p className="text-sm font-medium text-[var(--muted)] sm:text-base">
+                Get Bram for iOS.
+              </p>
+            </div>
           </div>
 
           <div className="hidden justify-center md:flex md:justify-end">
