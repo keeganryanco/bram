@@ -27,6 +27,10 @@ struct AccountGateView: View {
     var body: some View {
         ZStack {
             OnboardingStyle.background.ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    focusedField = nil
+                }
 
             VStack(spacing: 24) {
                 Spacer(minLength: 16)
