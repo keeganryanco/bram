@@ -260,7 +260,8 @@ struct OnboardingFlowView: View {
         OnboardingStepShell(
             title: "Set a simple starting point.",
             mascotImageName: "BramBearBodyBaseline",
-            mascotSize: 142
+            mascotSize: 142,
+            focusedLift: focusedField == .targetWeight ? 96 : 0
         ) {
             Picker("Units", selection: $profile.preferredUnits) {
                 ForEach(MeasurementUnitPreference.allCases) { unit in
@@ -452,6 +453,7 @@ private struct OnboardingStepShell<Content: View>: View {
     let subtitle: String?
     let mascotImageName: String?
     let mascotSize: CGFloat
+    let focusedLift: CGFloat
     let content: Content
 
     init(
@@ -459,12 +461,14 @@ private struct OnboardingStepShell<Content: View>: View {
         subtitle: String? = nil,
         mascotImageName: String? = nil,
         mascotSize: CGFloat = 150,
+        focusedLift: CGFloat = 0,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
         self.subtitle = subtitle
         self.mascotImageName = mascotImageName
         self.mascotSize = mascotSize
+        self.focusedLift = focusedLift
         self.content = content()
     }
 
@@ -492,6 +496,8 @@ private struct OnboardingStepShell<Content: View>: View {
             .padding(.top, 8)
             .frame(maxWidth: 560, alignment: .leading)
             .frame(maxWidth: .infinity)
+            .offset(y: -focusedLift)
+            .animation(.snappy(duration: 0.22), value: focusedLift)
         }
     }
 }
