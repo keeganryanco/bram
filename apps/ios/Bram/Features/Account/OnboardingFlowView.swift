@@ -89,14 +89,6 @@ struct OnboardingFlowView: View {
                 }
             }
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Continue") {
-                    Task { await primaryContinueTapped() }
-                }
-            }
-        }
     }
 
     @ViewBuilder
@@ -136,14 +128,12 @@ struct OnboardingFlowView: View {
                         .fixedSize(horizontal: true, vertical: false)
                 }
                     .font(BramFont.label(size: 15))
-                    .foregroundStyle(draft.step == .name ? OnboardingStyle.textTertiary : OnboardingStyle.textPrimary)
+                    .foregroundStyle(OnboardingStyle.textPrimary)
                     .padding(.horizontal, 13)
                     .frame(minWidth: 88, minHeight: 44)
                     .background(OnboardingStyle.cardSurfaceStrong, in: Capsule())
             }
             .buttonStyle(.plain)
-            .disabled(draft.step == .name)
-            .opacity(draft.step == .name ? 0.42 : 1)
             .layoutPriority(2)
             .accessibilityLabel("Back")
 
@@ -409,7 +399,10 @@ struct OnboardingFlowView: View {
     private func backTapped() async {
         focusedField = nil
         syncTextFields()
-        guard let previous = draft.step.previousStep else { return }
+        guard let previous = draft.step.previousStep else {
+            await signOut()
+            return
+        }
         draft.step = previous
         await saveProgress(draft, profile)
     }
