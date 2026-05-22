@@ -709,12 +709,20 @@ private struct OnboardingStepper: View {
                 .font(BramFont.label())
                 .foregroundStyle(OnboardingStyle.textPrimary)
             Spacer()
-            Button(action: decrement) { Image(systemName: "minus") }
+            Button(action: decrement) {
+                Image(systemName: "minus")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
                 .accessibilityLabel("Decrease \(title)")
             Text(value)
                 .font(BramFont.label())
                 .frame(minWidth: 88)
-            Button(action: increment) { Image(systemName: "plus") }
+            Button(action: increment) {
+                Image(systemName: "plus")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
                 .accessibilityLabel("Increase \(title)")
         }
         .font(.system(size: 15, weight: .semibold))
