@@ -494,7 +494,7 @@ final class AccountSessionState: ObservableObject {
     }
 
     func redeemAppleOfferCode() async {
-        paywallMessage = "Enter your App Store offer code, then return to Bram and tap Restore."
+        paywallMessage = "Enter your App Store offer code. Bram will check access when you return."
         analytics.track(AnalyticsEvent(name: "apple_offer_code_sheet_opened", properties: ["source": "paywall"]))
         paywallService?.presentCodeRedemption()
     }

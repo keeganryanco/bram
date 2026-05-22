@@ -559,7 +559,7 @@ struct BramTests {
         await state.redeemAppleOfferCode()
 
         #expect(paywallService.didPresentCodeRedemption)
-        #expect(state.paywallMessage == "Enter your App Store offer code, then return to Bram and tap Restore.")
+        #expect(state.paywallMessage == "Enter your App Store offer code. Bram will check access when you return.")
     }
 
     @MainActor

@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct PaywallGateView: View {
+    @Environment(\.scenePhase) private var scenePhase
+
     let account: SettingsAccountState
     let accountMessage: String?
     let load: () async throws -> BramPaywallSnapshot
@@ -18,6 +20,7 @@ struct PaywallGateView: View {
     @State private var isSubmitting = false
     @State private var message: String?
     @State private var didTrackImpression = false
+    @State private var shouldRestoreAfterOfferCodeSheet = false
 
     var body: some View {
         ZStack {
@@ -114,6 +117,7 @@ struct PaywallGateView: View {
                             Task { await restore() }
                         }
                         Button("Redeem code") {
+                            shouldRestoreAfterOfferCodeSheet = true
                             Task { await redeemCode() }
                         }
                         Button("Retry") {
@@ -147,6 +151,14 @@ struct PaywallGateView: View {
             guard !didTrackImpression else { return }
             didTrackImpression = true
             trackImpression()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, shouldRestoreAfterOfferCodeSheet else { return }
+            shouldRestoreAfterOfferCodeSheet = false
+            Task {
+                await restore()
+                await reload()
+            }
         }
     }
 
