@@ -143,6 +143,7 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         exerciseDoubleTap.numberOfTapsRequired = 2
         exerciseDoubleTap.cancelsTouchesInView = false
         textView.addGestureRecognizer(exerciseDoubleTap)
+        context.coordinator.startObservingAppFocus(for: textView)
         return textView
     }
 
@@ -421,9 +422,31 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
         var isUpdatingText = false
         var lastRenderedText = ""
         var lastRenderSignature = ""
+        private weak var observedTextView: UITextView?
+        private var shouldRestoreKeyboardAfterForeground = false
 
         init(parent: WorkoutNoteTextView) {
             self.parent = parent
+        }
+
+        deinit {
+            NotificationCenter.default.removeObserver(self)
+        }
+
+        func startObservingAppFocus(for textView: UITextView) {
+            observedTextView = textView
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(appWillResignActive),
+                name: UIApplication.willResignActiveNotification,
+                object: nil
+            )
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(appDidBecomeActive),
+                name: UIApplication.didBecomeActiveNotification,
+                object: nil
+            )
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -444,6 +467,21 @@ private struct WorkoutNoteTextView: UIViewRepresentable {
 
         func textViewDidEndEditing(_ textView: UITextView) {
             parent.isEditing = false
+        }
+
+        @objc private func appWillResignActive() {
+            shouldRestoreKeyboardAfterForeground = observedTextView?.isFirstResponder == true
+        }
+
+        @objc private func appDidBecomeActive() {
+            guard shouldRestoreKeyboardAfterForeground,
+                  let textView = observedTextView
+            else { return }
+            shouldRestoreKeyboardAfterForeground = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                guard textView.window != nil, !textView.isFirstResponder else { return }
+                textView.becomeFirstResponder()
+            }
         }
 
         @objc func handleExerciseDoubleTap(_ recognizer: UITapGestureRecognizer) {

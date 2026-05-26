@@ -707,19 +707,11 @@ final class AccountSessionState: ObservableObject {
                 "preferred_units": result.account.preferredUnits
             ]
         )
-        var canSafelyPullRemoteWorkoutData = true
-        do {
-            try await workoutSyncService?.syncPendingAccountData(userId: userId)
-        } catch {
-            canSafelyPullRemoteWorkoutData = false
-            reportNonFatal(source: "sync", eventName: "workout_sync_before_pull_failed", error: error)
-        }
-        if canSafelyPullRemoteWorkoutData {
-            do {
-                try await workoutSyncService?.pullAccountData(userId: userId)
-            } catch {
-                reportNonFatal(source: "sync", eventName: "workout_pull_failed", error: error)
-            }
+        let hasLocalWorkoutData = ((try? await localStore.calendarWorkoutDays()) ?? []).isEmpty == false
+        if hasLocalWorkoutData {
+            syncWorkoutDataInBackground(userId: userId)
+        } else {
+            await syncWorkoutDataBeforeFirstLocalLoad(userId: userId)
         }
         if result.needsOnboarding {
             analytics.track(AnalyticsEvent(name: "onboarding_started", properties: ["source": "bootstrap"]))
@@ -745,6 +737,28 @@ final class AccountSessionState: ObservableObject {
         canChangeEmailWithPassword = (try? await authService?.canChangeEmailWithPassword()) ?? false
         apply(result)
         await claimPendingReferralIfPossible()
+    }
+
+    private func syncWorkoutDataBeforeFirstLocalLoad(userId: UUID) async {
+        var canSafelyPullRemoteWorkoutData = true
+        do {
+            try await workoutSyncService?.syncPendingAccountData(userId: userId)
+        } catch {
+            canSafelyPullRemoteWorkoutData = false
+            reportNonFatal(source: "sync", eventName: "workout_sync_before_pull_failed", error: error)
+        }
+        guard canSafelyPullRemoteWorkoutData else { return }
+        do {
+            try await workoutSyncService?.pullAccountData(userId: userId)
+        } catch {
+            reportNonFatal(source: "sync", eventName: "workout_pull_failed", error: error)
+        }
+    }
+
+    private func syncWorkoutDataInBackground(userId: UUID) {
+        Task {
+            await syncWorkoutDataBeforeFirstLocalLoad(userId: userId)
+        }
     }
 
     private func apply(_ result: AccountBootstrapResult) {
