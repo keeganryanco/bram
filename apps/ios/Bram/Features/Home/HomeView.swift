@@ -24,7 +24,7 @@ struct HomeView: View {
     @State private var isLoadingNote = false
     @State private var isEditingNote = false
     @State private var activeNoteLineIndex: Int?
-    @State private var showingReviewPrompt = false
+    @State private var reviewPromptSheet: ReviewPromptSheetState?
     @State private var activeSuggestionDraft: SuggestionDraft?
     @State private var coachCards: [WorkoutCoachCard] = []
     @State private var coachCardsShownAt = Date.distantPast
@@ -201,25 +201,39 @@ struct HomeView: View {
                 .presentationDetents([.large])
                 .presentationCornerRadius(30)
         }
-        .sheet(isPresented: $showingReviewPrompt) {
-            ReviewPromptSheet(
+        .sheet(item: $reviewPromptSheet) { sheet in
+            switch sheet {
+            case .ask:
+                ReviewPromptAskSheet(
                 onYes: {
                     track(AnalyticsEvent(name: "review_prompt_accepted", properties: ["source": "first_workout"]))
-                    requestReview()
-                    showingReviewPrompt = false
-                },
-                onNotNow: {
-                    track(AnalyticsEvent(name: "review_prompt_deferred", properties: ["source": "first_workout"]))
-                    showingReviewPrompt = false
-                },
-                onNever: {
                     reviewPromptDisabled = true
-                    track(AnalyticsEvent(name: "review_prompt_disabled", properties: ["source": "first_workout"]))
-                    showingReviewPrompt = false
+                    requestReview()
+                    reviewPromptSheet = nil
+                },
+                onNo: {
+                    track(AnalyticsEvent(name: "review_prompt_feedback_started", properties: ["source": "first_workout"]))
+                    reviewPromptSheet = .feedback
                 }
-            )
-            .presentationDetents([.height(350)])
-            .presentationCornerRadius(28)
+                )
+                .presentationDetents([.height(280)])
+                .presentationCornerRadius(28)
+            case .feedback:
+                ReviewFeedbackSheet(
+                    account: account,
+                    submit: submitSupportRequest,
+                    dismiss: { reviewPromptSheet = nil },
+                    dontShowAgain: {
+                        reviewPromptDisabled = true
+                        track(AnalyticsEvent(name: "review_prompt_disabled", properties: ["source": "feedback_form"]))
+                    },
+                    trackSubmitted: {
+                        track(AnalyticsEvent(name: "review_feedback_submitted", properties: ["source": "first_workout"]))
+                    }
+                )
+                .presentationDetents([.medium, .large])
+                .presentationCornerRadius(28)
+            }
         }
         .sheet(isPresented: $showingLaunchChallengeOverlay) {
             LaunchChallengeOverlayView(
@@ -1441,7 +1455,7 @@ struct HomeView: View {
         reviewPromptCount += 1
         reviewLastPromptAt = Date().timeIntervalSince1970
         reviewFirstWorkoutPrompted = true
-        showingReviewPrompt = true
+        reviewPromptSheet = .ask
         track(AnalyticsEvent(name: "review_prompt_viewed", properties: ["source": "first_workout"]))
     }
 
@@ -1449,7 +1463,7 @@ struct HomeView: View {
         guard !reviewPromptDisabled,
               !reviewFirstWorkoutPrompted,
               reviewPromptCount < 2,
-              !showingReviewPrompt,
+              reviewPromptSheet == nil,
               isWorkoutLike(draft)
         else { return false }
 
@@ -1504,31 +1518,28 @@ struct HomeView: View {
     }
 }
 
-private struct ReviewPromptSheet: View {
+private enum ReviewPromptSheetState: String, Identifiable {
+    case ask
+    case feedback
+
+    var id: String { rawValue }
+}
+
+private struct ReviewPromptAskSheet: View {
     let onYes: () -> Void
-    let onNotNow: () -> Void
-    let onNever: () -> Void
+    let onNo: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 BramLogoMark(size: 38)
-                Spacer()
-                Button(action: onNotNow) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(BramColor.textTertiary)
-                        .frame(width: 34, height: 34)
-                        .background(BramColor.cardSurface, in: Circle())
-                }
-                .accessibilityLabel("Close")
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Is Bram working for you?")
+                Text("Are you enjoying Bram?")
                     .font(BramFont.largeTitle(size: 30))
                     .foregroundStyle(BramColor.textPrimary)
-                Text("A quick App Store review helps more lifters find Bram.")
+                Text("Your answer helps us keep Bram simple and useful.")
                     .font(BramFont.body(size: 16))
                     .foregroundStyle(BramColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1537,7 +1548,7 @@ private struct ReviewPromptSheet: View {
             Spacer(minLength: 4)
 
             Button(action: onYes) {
-                Text("Yes, leave a review")
+                Text("Yes")
                     .font(BramFont.button(size: 16))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -1546,16 +1557,138 @@ private struct ReviewPromptSheet: View {
             }
             .buttonStyle(.plain)
 
-            HStack(spacing: 18) {
-                Button("Not now", action: onNotNow)
-                Button("Don't ask again", action: onNever)
+            Button(action: onNo) {
+                Text("No")
+                    .font(BramFont.button(size: 16))
+                    .foregroundStyle(BramColor.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(BramColor.hairline, lineWidth: 1)
+                    }
             }
-            .font(BramFont.label(size: 13))
-            .foregroundStyle(BramColor.textTertiary)
-            .frame(maxWidth: .infinity)
+            .buttonStyle(.plain)
         }
         .padding(22)
         .background(BramColor.appBackground)
+    }
+}
+
+private struct ReviewFeedbackSheet: View {
+    let account: SettingsAccountState
+    let submit: (SupportRequestDraft) async throws -> Void
+    let dismiss: () -> Void
+    let dontShowAgain: () -> Void
+    let trackSubmitted: () -> Void
+
+    @State private var message = ""
+    @State private var includeDiagnostics = true
+    @State private var suppressFuturePrompts = false
+    @State private var isSubmitting = false
+    @State private var resultMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Tell us what felt off")
+                        .font(BramFont.largeTitle(size: 30))
+                        .foregroundStyle(BramColor.textPrimary)
+                    Text("Send quick feedback so Bram can get better.")
+                        .font(BramFont.body(size: 15))
+                        .foregroundStyle(BramColor.textSecondary)
+                }
+                Spacer()
+                Button(action: dismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(BramColor.textTertiary)
+                        .frame(width: 36, height: 36)
+                        .background(BramColor.cardSurface, in: Circle())
+                }
+                .accessibilityLabel("Close")
+            }
+
+            TextEditor(text: $message)
+                .font(BramFont.body(size: 16))
+                .foregroundStyle(BramColor.textPrimary)
+                .frame(minHeight: 150)
+                .padding(12)
+                .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(BramColor.hairline, lineWidth: 1)
+                }
+                .accessibilityLabel("Feedback message")
+
+            Toggle("Include diagnostics", isOn: $includeDiagnostics)
+                .font(BramFont.label())
+                .tint(BramColor.violet)
+
+            Toggle("Don't show again", isOn: $suppressFuturePrompts)
+                .font(BramFont.label())
+                .tint(BramColor.violet)
+
+            if let resultMessage {
+                Text(resultMessage)
+                    .font(BramFont.callout(size: 13))
+                    .foregroundStyle(BramColor.textSecondary)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                Task { await submitTapped() }
+            } label: {
+                Text(isSubmitting ? "Sending..." : "Send feedback")
+                    .font(BramFont.button(size: 16))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(BramColor.violet, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(isSubmitting)
+            .opacity(isSubmitting ? 0.5 : 1)
+        }
+        .padding(22)
+        .background(BramColor.appBackground)
+    }
+
+    private func submitTapped() async {
+        let cleanMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanMessage.isEmpty else {
+            resultMessage = "Add a short note so we know what to improve."
+            return
+        }
+
+        isSubmitting = true
+        defer { isSubmitting = false }
+
+        do {
+            try await submit(
+                SupportRequestDraft(
+                    category: .feedback,
+                    message: cleanMessage,
+                    contactEmail: account.email,
+                    includeDiagnostics: includeDiagnostics,
+                    source: "review_feedback"
+                )
+            )
+            if suppressFuturePrompts {
+                dontShowAgain()
+            }
+            trackSubmitted()
+            resultMessage = "Sent. Thanks for the feedback."
+            message = ""
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                dismiss()
+            }
+        } catch {
+            resultMessage = error.localizedDescription
+        }
     }
 }
 
