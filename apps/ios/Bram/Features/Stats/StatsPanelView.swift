@@ -809,7 +809,8 @@ private struct StreakOverview: View {
                 referralProgram: referralProgram,
                 track: track
             )
-            .presentationDetents([.medium])
+            .presentationDetents([award.title == "Share with a friend" ? .height(760) : .height(620)])
+            .presentationDragIndicator(.hidden)
             .presentationCornerRadius(28)
         }
     }
@@ -1057,7 +1058,7 @@ private struct BadgeDetailSheet: View {
         BramPanelChrome(title: award.title) {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(spacing: 12) {
-                    BadgeArtwork(award: award, size: 154, cornerRadius: 34)
+                    BadgeArtwork(award: award, size: isReferralBadge ? 128 : 154, cornerRadius: isReferralBadge ? 28 : 34)
                         .shadow(color: award.colorRole.color.opacity(award.isUnlocked ? 0.22 : 0), radius: 18, y: 10)
 
                     VStack(spacing: 5) {
@@ -1079,6 +1080,30 @@ private struct BadgeDetailSheet: View {
                     .foregroundStyle(BramColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
+                if let shareText, isReferralBadge {
+                    ShareLink(item: shareText) {
+                        Text("Share invite")
+                            .font(BramFont.button())
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(BramColor.violet, in: Capsule())
+                    }
+                    .simultaneousGesture(
+                        TapGesture().onEnded {
+                            track(
+                                AnalyticsEvent(
+                                    name: "badge_shared",
+                                    properties: [
+                                        "badge_key": award.key,
+                                        "status": award.isUnlocked ? "unlocked" : "locked"
+                                    ]
+                                )
+                            )
+                        }
+                    )
+                }
+
                 if isReferralBadge, let code = referralProgram?.code {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Your code")
@@ -1094,9 +1119,9 @@ private struct BadgeDetailSheet: View {
                     .background(BramColor.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
 
-                if let shareText {
+                if let shareText, !isReferralBadge {
                     ShareLink(item: shareText) {
-                        Text(isReferralBadge ? "Share invite" : "Share badge")
+                        Text("Share badge")
                             .font(BramFont.button())
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)

@@ -216,7 +216,8 @@ struct HomeView: View {
                     reviewPromptSheet = .feedback
                 }
                 )
-                .presentationDetents([.height(280)])
+                .presentationDetents([.height(430)])
+                .presentationDragIndicator(.hidden)
                 .presentationCornerRadius(28)
             case .feedback:
                 ReviewFeedbackSheet(
@@ -231,7 +232,8 @@ struct HomeView: View {
                         track(AnalyticsEvent(name: "review_feedback_submitted", properties: ["source": "first_workout"]))
                     }
                 )
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.height(650)])
+                .presentationDragIndicator(.hidden)
                 .presentationCornerRadius(28)
             }
         }
@@ -1603,9 +1605,9 @@ private struct ReviewFeedbackSheet: View {
 
     @State private var message = ""
     @State private var includeDiagnostics = true
-    @State private var suppressFuturePrompts = false
     @State private var isSubmitting = false
     @State private var resultMessage: String?
+    @State private var didSubmit = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -1629,50 +1631,77 @@ private struct ReviewFeedbackSheet: View {
                 .accessibilityLabel("Close")
             }
 
-            TextEditor(text: $message)
-                .font(BramFont.body(size: 16))
-                .foregroundStyle(BramColor.textPrimary)
-                .frame(minHeight: 150)
-                .padding(12)
-                .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(BramColor.hairline, lineWidth: 1)
+            if didSubmit {
+                SupportSubmittedView(
+                    title: "Your feedback has been submitted",
+                    subtitle: "We'll address it as soon as possible and email you if we need any follow-up information or have an update."
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            } else {
+                VStack(alignment: .leading, spacing: 16) {
+                    TextEditor(text: $message)
+                        .scrollContentBackground(.hidden)
+                        .font(BramFont.body(size: 16))
+                        .foregroundStyle(BramColor.textPrimary)
+                        .frame(height: 185)
+                        .padding(12)
+                        .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(BramColor.hairline, lineWidth: 1)
+                        }
+                        .accessibilityLabel("Feedback message")
+
+                    Toggle("Include diagnostics", isOn: $includeDiagnostics)
+                        .font(BramFont.label())
+                        .tint(BramColor.violet)
+
+                    if let resultMessage {
+                        Text(resultMessage)
+                            .font(BramFont.callout(size: 13))
+                            .foregroundStyle(BramColor.textSecondary)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Button {
+                        Task { await submitTapped() }
+                    } label: {
+                        Text(isSubmitting ? "Sending..." : "Send feedback")
+                            .font(BramFont.button(size: 16))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(BramColor.violet, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSubmitting)
+                    .opacity(isSubmitting ? 0.5 : 1)
+
+                    Button {
+                        dontShowAgain()
+                        dismiss()
+                    } label: {
+                        Text("Don't show again")
+                            .font(BramFont.button(size: 15))
+                            .foregroundStyle(BramColor.textPrimary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(BramColor.cardSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(BramColor.hairline, lineWidth: 1)
+                            }
+                    }
+                    .buttonStyle(.plain)
                 }
-                .accessibilityLabel("Feedback message")
-
-            Toggle("Include diagnostics", isOn: $includeDiagnostics)
-                .font(BramFont.label())
-                .tint(BramColor.violet)
-
-            Toggle("Don't show again", isOn: $suppressFuturePrompts)
-                .font(BramFont.label())
-                .tint(BramColor.violet)
-
-            if let resultMessage {
-                Text(resultMessage)
-                    .font(BramFont.callout(size: 13))
-                    .foregroundStyle(BramColor.textSecondary)
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
-
-            Spacer(minLength: 0)
-
-            Button {
-                Task { await submitTapped() }
-            } label: {
-                Text(isSubmitting ? "Sending..." : "Send feedback")
-                    .font(BramFont.button(size: 16))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(BramColor.violet, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .disabled(isSubmitting)
-            .opacity(isSubmitting ? 0.5 : 1)
         }
         .padding(22)
         .background(BramColor.appBackground)
+        .animation(.snappy(duration: 0.28), value: didSubmit)
     }
 
     private func submitTapped() async {
@@ -1695,18 +1724,43 @@ private struct ReviewFeedbackSheet: View {
                     source: "review_feedback"
                 )
             )
-            if suppressFuturePrompts {
-                dontShowAgain()
-            }
             trackSubmitted()
-            resultMessage = "Sent. Thanks for the feedback."
-            message = ""
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            didSubmit = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
                 dismiss()
             }
         } catch {
             resultMessage = error.localizedDescription
         }
+    }
+}
+
+private struct SupportSubmittedView: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 40, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 78, height: 78)
+                .background(BramColor.violet, in: Circle())
+                .shadow(color: BramColor.violet.opacity(0.24), radius: 18, y: 8)
+
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(BramFont.headline(size: 24))
+                    .foregroundStyle(BramColor.textPrimary)
+                    .multilineTextAlignment(.center)
+                Text(subtitle)
+                    .font(BramFont.body(size: 15))
+                    .foregroundStyle(BramColor.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 14)
     }
 }
 
