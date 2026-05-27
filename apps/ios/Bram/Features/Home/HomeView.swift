@@ -261,6 +261,7 @@ struct HomeView: View {
         }
         .task {
             track(AnalyticsEvent(name: "home_viewed", properties: ["access": featureAccess.canUseInterpretation ? "premium" : "free"]))
+            showReviewPromptOnLaunchForDebugIfNeeded()
             await refreshCalendarDays()
             await refreshProgressStats()
             updateLaunchChallengeOverlayPresentation()
@@ -1457,6 +1458,23 @@ struct HomeView: View {
         reviewFirstWorkoutPrompted = true
         reviewPromptSheet = .ask
         track(AnalyticsEvent(name: "review_prompt_viewed", properties: ["source": "first_workout"]))
+    }
+
+    @MainActor
+    private func showReviewPromptOnLaunchForDebugIfNeeded() {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        let hasLaunchArgument = arguments.indices.contains { index in
+            arguments[index] == "-BramShowReviewPromptOnLaunch"
+                && arguments.indices.contains(index + 1)
+                && arguments[index + 1] == "YES"
+        }
+        guard hasLaunchArgument,
+              reviewPromptSheet == nil
+        else { return }
+        reviewPromptSheet = .ask
+        track(AnalyticsEvent(name: "review_prompt_viewed", properties: ["source": "debug_launch_arg"]))
+        #endif
     }
 
     private func shouldShowReviewPrompt(for draft: DailyWorkoutNote) -> Bool {
