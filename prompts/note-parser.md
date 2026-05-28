@@ -19,12 +19,15 @@ Extract:
 - sets
 - reps
 - load
+- timed holds / duration-based sets, using `durationSeconds`
 - units
 - effort/RPE/RIR language
 - body part or training day hints
 - user notes that matter for interpretation
 
 Do not infer unsupported facts. Preserve ambiguity as uncertainty.
+
+Timed bodyweight work such as planks, wall sits, dead hangs, hollow holds, and side planks is strength work. For `75 sec planks x3`, return one exercise with three sets where `durationSeconds` is `75`, `reps` is `null`, `load` is `null`, and `unit` is `bodyweight`.
 
 Privacy:
 

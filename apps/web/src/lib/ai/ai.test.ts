@@ -421,6 +421,42 @@ describe("AI workout interpretation", () => {
     expect(parsed.targetLines[0]?.lineIndex).toBe(1);
   });
 
+  it("accepts timed strength sets in parser schema", () => {
+    const parsed = ParsedWorkoutSchema.parse({
+      ...parsedWorkoutJson,
+      lines: [
+        {
+          lineIndex: 0,
+          kind: "strength",
+          segments: [
+            { type: "exercise_anchor", text: "planks", exerciseKey: "planks" },
+            { type: "metric", text: "3 x 75 sec", exerciseKey: null },
+          ],
+        },
+      ],
+      exercises: [
+        {
+          name: "planks",
+          normalizedName: "Planks",
+          exerciseKey: "planks",
+          muscleGroupHint: "Abs",
+          sets: Array.from({ length: 3 }, () => ({
+            reps: null,
+            load: null,
+            durationSeconds: 75,
+            unit: "bodyweight",
+            rpe: null,
+            rir: null,
+            note: null,
+          })),
+          uncertainty: null,
+        },
+      ],
+    });
+
+    expect(parsed.exercises[0]?.sets[0]?.durationSeconds).toBe(75);
+  });
+
   it("rejects oversized repair target batches", () => {
     const input = {
       noteText: "Leg curls 70 for 8",
@@ -491,5 +527,66 @@ describe("AI workout interpretation", () => {
     expect(payload).toContain("2: Leg curls 70 for 8");
     expect(payload).not.toContain("Bench 185");
     expect(payload).not.toContain("lifter@example.com");
+  });
+
+  it("preserves timed repair target line indexes", async () => {
+    const calls: unknown[] = [];
+    await interpretWorkoutNoteWithAI(
+      {
+        noteText: "Bench 185 3x8\nI did 75 sec planks x3",
+        mode: "repair",
+        targetLines: [{ lineIndex: 1, text: "I did 75 sec planks x3" }],
+        userId: "user_123",
+      },
+      {
+        config: getBramAIConfig({
+          BRAM_AI_ENABLED: "true",
+          OPENAI_API_KEY: "test-key",
+          BRAM_AI_PSEUDONYM_SALT: "test-salt",
+        }),
+        createResponse: async (request) => {
+          calls.push(request);
+          return {
+            id: "resp_1",
+            model: request.model,
+            output_text: JSON.stringify({
+              ...parsedWorkoutJson,
+              lines: [
+                {
+                  lineIndex: 1,
+                  kind: "strength",
+                  segments: [
+                    { type: "exercise_anchor", text: "planks", exerciseKey: "planks" },
+                    { type: "metric", text: "3 x 75 sec", exerciseKey: null },
+                  ],
+                },
+              ],
+              exercises: [
+                {
+                  name: "planks",
+                  normalizedName: "Planks",
+                  exerciseKey: "planks",
+                  muscleGroupHint: "Abs",
+                  sets: Array.from({ length: 3 }, () => ({
+                    reps: null,
+                    load: null,
+                    durationSeconds: 75,
+                    unit: "bodyweight",
+                    rpe: null,
+                    rir: null,
+                    note: null,
+                  })),
+                  uncertainty: null,
+                },
+              ],
+            }),
+          };
+        },
+      },
+    );
+
+    const payload = JSON.stringify(calls[0]);
+    expect(payload).toContain("1: I did 75 sec planks x3");
+    expect(payload).not.toContain("Bench 185");
   });
 });

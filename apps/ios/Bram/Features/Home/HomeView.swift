@@ -1402,10 +1402,11 @@ struct HomeView: View {
         let hasTrainingTerm = [
             "bench", "press", "squat", "deadlift", "curl", "row", "raise",
             "run", "ran", "jog", "walk", "bike", "cycle", "rowed", "cardio",
-            "set", "sets", "reps", "rpe", "rir", "failure"
+            "set", "sets", "reps", "rpe", "rir", "failure", "plank",
+            "planks", "wall sit", "dead hang", "hold", "holds"
         ].contains { lower.contains($0) }
         let hasTrainingNumber = lower.range(
-            of: #"\b\d+(?:\.\d+)?\s*(?:x|for|min|mins|minutes|mi|mile|miles|km|k|lb|lbs|s\b)"#,
+            of: #"\b\d+(?:\.\d+)?\s*(?:x|for|min|mins|minutes|sec|secs|second|seconds|mi|mile|miles|km|k|lb|lbs|s\b)"#,
             options: .regularExpression
         ) != nil
 

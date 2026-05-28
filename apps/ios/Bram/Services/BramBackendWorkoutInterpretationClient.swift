@@ -202,17 +202,18 @@ private struct BackendParsedExercise: Decodable {
     ) -> [StrengthSetRecord] {
         let exercise = normalizedExercise(using: exerciseMatcher)
         return sets.enumerated().compactMap { index, set in
-            guard let reps = set.reps else { return nil }
+            guard set.reps != nil || set.durationSeconds != nil else { return nil }
             return StrengthSetRecord(
                 exerciseKey: exercise.exerciseKey,
                 exerciseName: exercise.displayName,
                 lineIndex: sourceLineIndex,
                 setNumber: index + 1,
-                reps: reps,
+                reps: set.reps ?? 1,
                 load: set.load ?? 0,
                 unit: set.unit == "kg" ? "kg" : "lb",
                 performedAt: note.date,
-                effort: set.effort
+                effort: set.effort,
+                durationSeconds: set.durationSeconds
             )
         }
     }
@@ -223,6 +224,7 @@ private struct BackendWorkoutSet: Decodable {
     var load: Double?
     var unit: String
     var effort: String?
+    var durationSeconds: Int?
 }
 
 private struct BackendParsedCardioEntry: Decodable {

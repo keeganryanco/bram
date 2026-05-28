@@ -634,6 +634,39 @@ struct BramTests {
         #expect(result.lines.first?.cardioEntry?.activityType == "Running")
     }
 
+    @Test func heuristicInterpreterParsesTimedBodyweightHolds() async throws {
+        let cases: [(String, String, Int, Int)] = [
+            ("I did 75 sec planks x3", "planks", 3, 75),
+            ("plank 1 min x3", "plank", 3, 60),
+            ("3x75 sec plank", "plank", 3, 75),
+            ("wall sit 45s x2", "wall sit", 2, 45),
+            ("dead hang 30s", "dead hang", 1, 30)
+        ]
+
+        for testCase in cases {
+            let result = await HeuristicWorkoutInterpretationService().interpret(note: DailyWorkoutNote(body: testCase.0))
+            let line = try #require(result.lines.first)
+
+            #expect(result.metrics.totalSets == testCase.2)
+            #expect(result.metrics.estimatedVolume == 0)
+            #expect(result.metrics.prCount == 0)
+            #expect(result.strengthSets.allSatisfy { $0.durationSeconds == testCase.3 })
+            #expect(result.strengthSets.allSatisfy { $0.reps == 1 && $0.load == 0 })
+            #expect(line.kind == .strength)
+            #expect(line.segments.first?.kind == .exerciseAnchor)
+            #expect(line.segments.first?.text == testCase.1)
+            #expect(line.segments.contains { $0.kind == .metric && $0.text == "\(testCase.2) x \(StrengthSetRecord.durationText(seconds: testCase.3))" })
+        }
+    }
+
+    @Test func heuristicInterpreterDoesNotTreatRestTimerAsWorkout() async {
+        let result = await HeuristicWorkoutInterpretationService().interpret(note: DailyWorkoutNote(body: "rest 75 sec"))
+
+        #expect(result.metrics.totalSets == 0)
+        #expect(result.lines.isEmpty)
+        #expect(result.strengthSets.isEmpty)
+    }
+
     @Test func heuristicInterpreterKeepsSameDayCardioAndLiftDistinct() async {
         let note = DailyWorkoutNote(
             body: """

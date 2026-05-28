@@ -3,6 +3,7 @@ import { z } from "zod";
 export const WorkoutSetSchema = z.object({
   reps: z.number().int().positive().nullable(),
   load: z.number().positive().nullable(),
+  durationSeconds: z.number().int().positive().nullable().default(null),
   unit: z.enum(["lb", "kg", "bodyweight", "unknown"]).default("unknown"),
   rpe: z.number().min(1).max(10).nullable(),
   rir: z.number().min(0).max(10).nullable(),

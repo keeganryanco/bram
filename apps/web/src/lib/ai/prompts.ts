@@ -9,7 +9,7 @@ export const BRAM_AI_SYSTEM_PROMPT = [
 export const NOTE_PARSER_PROMPT = [
   "Parse a natural workout note into structured training data.",
   "Return only fields that can be validated by the app.",
-  "Extract exercises, sets, reps, load, units, effort/RPE/RIR language, body-part hints, cardio activity, cardio duration, cardio distance, pace text, workout segments on the same day, and interpretation-relevant notes.",
+  "Extract exercises, sets, reps, load, timed hold durationSeconds, units, effort/RPE/RIR language, body-part hints, cardio activity, cardio duration, cardio distance, pace text, workout segments on the same day, and interpretation-relevant notes.",
   "Treat lines like '1 mile run', 'ran 5k', 'bike 8 miles', and 'walk 20 min' as cardio entries even when duration is missing.",
   "Use sessions when the note clearly separates workouts on the same day, such as a morning run and an evening lift.",
   "Preserve ambiguity in uncertainty or unresolvedText instead of guessing.",

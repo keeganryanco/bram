@@ -92,7 +92,8 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
                         reps: strength.reps,
                         load: Double(strength.load),
                         performedAt: note.date,
-                        effort: strength.effort
+                        effort: strength.effort,
+                        durationSeconds: strength.durationSeconds
                     )
                 }
                 let pr = prDetector.detectPR(for: exercise, sets: setRecords)
@@ -365,9 +366,12 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         )
     }
 
-    private func strengthSignal(in line: String) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, metricText: String, detail: String, confidence: Double)? {
+    private func strengthSignal(in line: String) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, durationSeconds: Int?, metricText: String, detail: String, confidence: Double)? {
         let lower = line.lowercased()
         let isPR = lower.contains("pr") || lower.contains("personal record")
+        if let timed = timedStrengthSignal(in: line, lower: lower, isPR: isPR) {
+            return timed
+        }
         if let shorthand = dumbbellShorthandSignal(in: line, lower: lower, isPR: isPR) {
             return shorthand
         }
@@ -389,14 +393,67 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         let detail = load > 0
             ? "Bram read this as \(sets) sets of \(reps) at about \(load) lb."
             : "Bram read this as \(sets) sets of \(reps). Load can be added naturally in the note."
-        return (exerciseName, max(sets, 1), reps, load, volume, isPR, effort, metricText, detail, load > 0 ? 0.82 : 0.68)
+        return (exerciseName, max(sets, 1), reps, load, volume, isPR, effort, nil, metricText, detail, load > 0 ? 0.82 : 0.68)
+    }
+
+    private func timedStrengthSignal(
+        in line: String,
+        lower: String,
+        isPR: Bool
+    ) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, durationSeconds: Int?, metricText: String, detail: String, confidence: Double)? {
+        guard !isRestTimerLine(lower) else { return nil }
+
+        let patterns = [
+            #"^(?:i\s+)?(?:did|do|done|held|hold)?\s*(\d+(?:\.\d+)?)\s*(sec|secs|second|seconds|s|min|mins|minute|minutes)\s+([a-z][a-z0-9\s'/-]{1,80}?)(?:\s*(?:x|for)\s*(\d+))?(?:\s+each\s+side)?$"#,
+            #"^([a-z][a-z0-9\s'/-]{1,80}?)\s+(?:for\s+)?(\d+(?:\.\d+)?)\s*(sec|secs|second|seconds|s|min|mins|minute|minutes)(?:\s*(?:x|for)\s*(\d+))?(?:\s+each\s+side)?$"#,
+            #"^(\d+)\s*[xX]\s*(\d+(?:\.\d+)?)\s*(sec|secs|second|seconds|s|min|mins|minute|minutes)\s+([a-z][a-z0-9\s'/-]{1,80}?)(?:\s+each\s+side)?$"#
+        ]
+
+        for (patternIndex, pattern) in patterns.enumerated() {
+            guard let match = firstMatch(pattern, in: lower) else { continue }
+
+            let exerciseName: String
+            let durationValue: Double
+            let durationUnit: String
+            let sets: Int
+
+            if patternIndex == 0 {
+                guard let value = Double(match[1]) else { continue }
+                durationValue = value
+                durationUnit = match[2]
+                exerciseName = cleanedExercisePhrase(match[3])
+                sets = Int(match[safe: 4] ?? "") ?? 1
+            } else if patternIndex == 1 {
+                guard let value = Double(match[2]) else { continue }
+                durationValue = value
+                durationUnit = match[3]
+                exerciseName = cleanedExercisePhrase(match[1])
+                sets = Int(match[safe: 4] ?? "") ?? 1
+            } else {
+                guard let count = Int(match[1]), let value = Double(match[2]) else { continue }
+                sets = count
+                durationValue = value
+                durationUnit = match[3]
+                exerciseName = cleanedExercisePhrase(match[4])
+            }
+
+            guard isLikelyTimedExerciseName(exerciseName) else { continue }
+            let durationSeconds = seconds(from: durationValue, unit: durationUnit)
+            guard durationSeconds > 0 else { continue }
+            let effort = effortSignal(in: line)
+            let metricText = "\(sets) x \(StrengthSetRecord.durationText(seconds: durationSeconds))"
+            let detail = "Bram read this as \(sets) timed set\(sets == 1 ? "" : "s") of \(StrengthSetRecord.durationText(seconds: durationSeconds))."
+            return (exerciseName, max(sets, 1), 1, 0, 0, isPR, effort, durationSeconds, metricText, detail, 0.8)
+        }
+
+        return nil
     }
 
     private func dumbbellShorthandSignal(
         in line: String,
         lower: String,
         isPR: Bool
-    ) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, metricText: String, detail: String, confidence: Double)? {
+    ) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, durationSeconds: Int?, metricText: String, detail: String, confidence: Double)? {
         guard let match = firstMatch(#"\b(\d+(?:\.\d+)?)\s*s\b(?:\s*(?:lb|lbs|pounds?))?(?:\s*(?:each|ea|per side|dumbbells?|dbs?))?\s*(?:for|x)\s*(\d+)\b"#, in: lower),
               let loadValue = Double(match[1]),
               let reps = Int(match[2])
@@ -411,14 +468,14 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         let effort = effortSignal(in: line)
         let metricText = "\(load) x \(reps)"
         let detail = "Bram read this as one set of \(reps) with \(load) lb dumbbells."
-        return (exerciseName, 1, reps, load, load * reps, isPR, effort, metricText, detail, 0.78)
+        return (exerciseName, 1, reps, load, load * reps, isPR, effort, nil, metricText, detail, 0.78)
     }
 
     private func naturalOneSetSignal(
         in line: String,
         lower: String,
         isPR: Bool
-    ) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, metricText: String, detail: String, confidence: Double)? {
+    ) -> (exerciseName: String, sets: Int, reps: Int, load: Int, volume: Int, isPR: Bool, effort: String?, durationSeconds: Int?, metricText: String, detail: String, confidence: Double)? {
         guard BodyweightNoteExtractor.extract(from: line, date: .now) == nil,
               let match = firstMatch(#"^([a-z][a-z0-9\s'/-]{1,80}?)\s+(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds?|kg)?\s+(?:for|x)\s*(\d+)\b"#, in: lower),
               let loadValue = Double(match[2]),
@@ -434,12 +491,15 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         let effort = effortSignal(in: line)
         let metricText = "\(load) x \(reps)"
         let detail = "Bram read this as one set of \(reps) at about \(load) lb."
-        return (exerciseName, 1, reps, load, load * reps, isPR, effort, metricText, detail, 0.76)
+        return (exerciseName, 1, reps, load, load * reps, isPR, effort, nil, metricText, detail, 0.76)
     }
 
     private func setLineSignal(in line: String, exerciseName: String, fallbackEffort: String? = nil) -> StrengthSetRecord? {
         let lower = line.lowercased()
         let effort = effortSignal(in: line) ?? fallbackEffort
+        if let timed = timedSetLineSignal(in: lower, exerciseName: exerciseName, effort: effort) {
+            return timed
+        }
         if let match = firstMatch(#"^\s*\d+\s*[-:]\s*((?:\d+(?:\.\d+)?)(?:s)?|bw|bodyweight)(?:\s*(?:lb|lbs|pounds?))?(?:\s*(?:each|ea|per side|descending))*\s*(?:for|x)\s*(\d+)"#, in: lower) {
             guard let reps = Int(match[2]) else { return nil }
             let loadToken = match[1].replacingOccurrences(of: #"s$"#, with: "", options: .regularExpression)
@@ -466,6 +526,25 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
             reps: reps,
             load: 0,
             effort: effort
+        )
+    }
+
+    private func timedSetLineSignal(in lower: String, exerciseName: String, effort: String?) -> StrengthSetRecord? {
+        guard !isRestTimerLine(lower) else { return nil }
+        guard let match = firstMatch(#"^\s*\d+\s*[-:]\s*(\d+(?:\.\d+)?)\s*(sec|secs|second|seconds|s|min|mins|minute|minutes)\b"#, in: lower),
+              let value = Double(match[1])
+        else { return nil }
+
+        let durationSeconds = seconds(from: value, unit: match[2])
+        guard durationSeconds > 0 else { return nil }
+        let exercise = exerciseMatcher.normalize(exerciseName)
+        return StrengthSetRecord(
+            exerciseKey: exercise.exerciseKey,
+            exerciseName: exercise.displayName,
+            reps: 1,
+            load: 0,
+            effort: effort,
+            durationSeconds: durationSeconds
         )
     }
 
@@ -622,6 +701,22 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
         return (activity, estimatedMinutes, distance?.value, distance?.unit, metricText, detail, distance == nil ? 0.74 : 0.82)
     }
 
+    private func isRestTimerLine(_ lower: String) -> Bool {
+        lower.range(of: #"\b(rest|rested|break|between sets|between-set|timer)\b"#, options: .regularExpression) != nil
+    }
+
+    private func seconds(from value: Double, unit: String) -> Int {
+        let multiplier = unit.hasPrefix("min") ? 60.0 : 1.0
+        return max(1, Int((value * multiplier).rounded()))
+    }
+
+    private func cleanedExercisePhrase(_ phrase: String) -> String {
+        phrase
+            .replacingOccurrences(of: #"^(?:i\s+)?(?:did|do|done|held|hold)\s+"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"\b(each side|per side)\b"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func cardioActivityType(in lower: String) -> String {
         if lower.contains("walk") { return "Walking" }
         if lower.contains("bike") || lower.contains("cycle") { return "Cycling" }
@@ -774,14 +869,35 @@ struct HeuristicWorkoutInterpretationService: WorkoutInterpretationService {
             [
                 "bench", "press", "squat", "deadlift", "curl", "curls", "row",
                 "raise", "raises", "fly", "flies", "extension", "pullover",
-                "pulldown", "lunge", "lunges", "dip", "dips", "pushup", "pullup"
+                "pulldown", "lunge", "lunges", "dip", "dips", "pushup", "pullup",
+                "plank", "planks", "sit", "hang", "hold"
             ].contains(String(token))
         }
+    }
+
+    private func isLikelyTimedExerciseName(_ name: String) -> Bool {
+        let normalized = name
+            .lowercased()
+            .replacingOccurrences(of: #"[^a-z\s]"#, with: " ", options: .regularExpression)
+            .split(separator: " ")
+            .map(String.init)
+        guard !normalized.isEmpty else { return false }
+        let timedTokens: Set<String> = [
+            "plank", "planks", "sit", "wall", "dead", "hang", "holds", "hold",
+            "hollow", "boat", "bridge", "bridges", "l", "side"
+        ]
+        return normalized.contains { timedTokens.contains($0) }
     }
 }
 
 private extension String {
     var nilIfEmpty: String? {
         isEmpty ? nil : self
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

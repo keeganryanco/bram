@@ -165,6 +165,7 @@ struct StrengthSetRecord: Identifiable, Codable, Hashable {
     var estimatedOneRepMax: Double
     var performedAt: Date
     var effort: String?
+    var durationSeconds: Int?
 
     init(
         id: UUID = UUID(),
@@ -176,7 +177,8 @@ struct StrengthSetRecord: Identifiable, Codable, Hashable {
         load: Double,
         unit: String = "lb",
         performedAt: Date = .now,
-        effort: String? = nil
+        effort: String? = nil,
+        durationSeconds: Int? = nil
     ) {
         self.id = id
         self.exerciseKey = exerciseKey
@@ -186,9 +188,24 @@ struct StrengthSetRecord: Identifiable, Codable, Hashable {
         self.reps = reps
         self.load = load
         self.unit = unit
-        self.estimatedOneRepMax = PRMath.epleyEstimatedOneRepMax(load: load, reps: reps)
+        self.estimatedOneRepMax = durationSeconds == nil ? PRMath.epleyEstimatedOneRepMax(load: load, reps: reps) : 0
         self.performedAt = performedAt
         self.effort = effort
+        self.durationSeconds = durationSeconds
+    }
+
+    var metricText: String {
+        if let durationSeconds {
+            return Self.durationText(seconds: durationSeconds)
+        }
+        return load.rounded() == load ? "\(Int(load)) x \(reps)" : "\(String(format: "%.1f", load)) x \(reps)"
+    }
+
+    static func durationText(seconds: Int) -> String {
+        if seconds >= 60, seconds % 60 == 0 {
+            return "\(seconds / 60) min"
+        }
+        return "\(seconds) sec"
     }
 }
 
