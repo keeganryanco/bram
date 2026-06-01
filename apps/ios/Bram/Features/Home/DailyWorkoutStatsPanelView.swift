@@ -4,7 +4,7 @@ struct DailyWorkoutStatsPanelView: View {
     let note: DailyWorkoutNote
 
     var body: some View {
-        BramPanelChrome(title: note.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())) {
+        BramPanelChrome(title: note.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()), showsCloseButton: false) {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Today's workout")
                     .font(BramFont.headline())
