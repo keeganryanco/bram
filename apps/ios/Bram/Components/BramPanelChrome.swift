@@ -2,11 +2,13 @@ import SwiftUI
 
 struct BramPanelChrome<Content: View>: View {
     let title: String
+    let showsCloseButton: Bool
     private let content: Content
     @Environment(\.dismiss) private var dismiss
 
-    init(title: String, @ViewBuilder content: () -> Content) {
+    init(title: String, showsCloseButton: Bool = true, @ViewBuilder content: () -> Content) {
         self.title = title
+        self.showsCloseButton = showsCloseButton
         self.content = content()
     }
 
@@ -23,17 +25,19 @@ struct BramPanelChrome<Content: View>: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: dismiss.callAsFunction) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(BramColor.textSecondary)
-                            .frame(width: 34, height: 34)
-                            .background(BramColor.elevated)
-                            .clipShape(Circle())
+                if showsCloseButton {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: dismiss.callAsFunction) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(BramColor.textSecondary)
+                                .frame(width: 34, height: 34)
+                                .background(BramColor.elevated)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Close")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Close")
                 }
             }
         }

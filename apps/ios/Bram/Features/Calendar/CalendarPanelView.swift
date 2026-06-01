@@ -15,7 +15,7 @@ struct CalendarPanelView: View {
     }
 
     var body: some View {
-        BramPanelChrome(title: "Calendar") {
+        BramPanelChrome(title: "Calendar", showsCloseButton: false) {
             CalendarMonthHeader(
                 monthTitle: monthTitle,
                 previousMonth: { moveMonth(by: -1) },
