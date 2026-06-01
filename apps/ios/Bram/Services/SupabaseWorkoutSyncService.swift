@@ -405,7 +405,7 @@ private struct RemoteStrengthEntry: Encodable {
         self.noteId = noteId
         lineId = nil
         exerciseName = set.exerciseName
-        exerciseKey = nil
+        exerciseKey = RemoteExerciseKey.catalogSafeKey(set.exerciseKey)
         sets = 1
         reps = set.reps
         loadValue = set.load
@@ -444,9 +444,10 @@ private struct RemoteStrengthEntryRow: Decodable {
     var durationSeconds: Int?
 
     var localSet: StrengthSetRecord {
-        StrengthSetRecord(
+        let key = RemoteExerciseKey.key(for: exerciseName, remoteKey: exerciseKey)
+        return StrengthSetRecord(
             id: id,
-            exerciseKey: exerciseKey ?? RemoteExerciseKey.key(for: exerciseName),
+            exerciseKey: key,
             exerciseName: exerciseName,
             reps: reps ?? 0,
             load: loadValue ?? 0,
@@ -754,11 +755,38 @@ private struct RemoteHealthWorkoutMatchRow: Decodable {
 }
 
 private enum RemoteExerciseKey {
-    static func key(for name: String) -> String {
-        let words = name
-            .lowercased()
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-        return words.isEmpty ? "unknown" : words.joined(separator: "_")
+    private static let catalogSafeKeys: Set<String> = [
+        "bench_press",
+        "barbell_bench_press",
+        "chest_press",
+        "dumbbell_chest_press",
+        "incline_chest_press",
+        "incline_barbell_press",
+        "incline_dumbbell_chest_press",
+        "single_arm_preacher_curl",
+        "incline_hammer_curl",
+        "cable_pullover",
+        "bike"
+    ]
+
+    static func catalogSafeKey(_ key: String) -> String? {
+        catalogSafeKeys.contains(key) ? key : nil
+    }
+
+    static func key(for name: String, remoteKey: String? = nil) -> String {
+        let localKey = DefaultExerciseMatchingService().normalize(name).exerciseKey
+        guard let remoteKey = remoteKey?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !remoteKey.isEmpty
+        else { return localKey }
+
+        let canonicalRemote = ExerciseIdentityResolver.canonicalKey(
+            forCleanedName: remoteKey.replacingOccurrences(of: "_", with: " ")
+        ) ?? remoteKey
+        if canonicalRemote == remoteKey, localKey != "unknown" {
+            return ExerciseIdentityResolver.canonicalKey(
+                forCleanedName: ExerciseIdentityResolver.cleanedName(name)
+            ) ?? remoteKey
+        }
+        return canonicalRemote
     }
 }

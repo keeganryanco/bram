@@ -696,6 +696,26 @@ struct BramTests {
         #expect(matcher.normalize("Preacher Curl").exerciseKey == "single_arm_preacher_curl")
     }
 
+    @Test func exerciseMatcherGroupsChestPressWordOrderAliases() {
+        let matcher = DefaultExerciseMatchingService()
+        let aliases = [
+            "flat barbell chest press",
+            "chest press barbell",
+            "barbell chest press",
+            "barbell bench press"
+        ]
+
+        #expect(Set(aliases.map { matcher.normalize($0).exerciseKey }) == ["barbell_bench_press"])
+    }
+
+    @Test func exerciseMatcherKeepsInclineEquipmentVariantsSeparate() {
+        let matcher = DefaultExerciseMatchingService()
+
+        #expect(matcher.normalize("incline dumbbell chest press").exerciseKey == "incline_dumbbell_chest_press")
+        #expect(matcher.normalize("incline barbell chest press").exerciseKey == "incline_barbell_press")
+        #expect(matcher.normalize("incline chest press").exerciseKey == "incline_chest_press")
+    }
+
     @Test func epleyEstimateAndPRDetectionUseEstimatedOneRepMax() {
         let matcher = DefaultExerciseMatchingService()
         let exercise = matcher.normalize("Bench")
@@ -1494,6 +1514,66 @@ struct BramTests {
         #expect(history.recentSessions.first?.bestSetText == "205 x 5")
         #expect(history.bestSetText == "205 x 5")
         #expect(Int((history.estimatedOneRepMax ?? 0).rounded()) == 239)
+    }
+
+    @Test func sqliteWorkoutStoreReclassifiesChestPressAliasHistory() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramExerciseAliasHistoryTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let firstDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let secondDate = firstDate.addingTimeInterval(7 * 86_400)
+        let repeatDate = firstDate.addingTimeInterval(14 * 86_400)
+
+        var firstNote = try await store.note(for: firstDate)
+        firstNote.body = "flat barbell chest press 185 for 8"
+        try await store.save(firstNote)
+
+        var secondNote = try await store.note(for: secondDate)
+        secondNote.body = "chest press barbell 205 for 5"
+        try await store.save(secondNote)
+        let loadedSecondBeforeRepeat = try await store.note(for: secondDate)
+
+        var repeatNote = try await store.note(for: repeatDate)
+        repeatNote.body = "barbell bench press 205 for 5"
+        try await store.save(repeatNote)
+
+        let exercise = DefaultExerciseMatchingService().normalize("barbell bench press")
+        let anchor = ExerciseAnchor(
+            id: UUID(),
+            displayName: exercise.displayName,
+            normalizedName: exercise.canonicalName,
+            exerciseKey: exercise.exerciseKey,
+            history: .placeholder(for: exercise)
+        )
+        let history = try await store.exerciseHistory(for: anchor)
+        let loadedRepeat = try await store.note(for: repeatDate)
+
+        #expect(history.recentSessions.count == 3)
+        #expect(history.bestSetText == "205 x 5")
+        #expect(loadedSecondBeforeRepeat.metrics.prCount == 1)
+        #expect(loadedRepeat.metrics.prCount == 0)
+    }
+
+    @Test func sqliteWorkoutStoreMapsUnspecifiedInclineChestPressToDominantVariant() async throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BramDominantAliasTests-\(UUID().uuidString).sqlite")
+            .path
+        let store = try SQLiteWorkoutLocalStore(databasePath: path)
+        let firstDate = Date(timeIntervalSince1970: 1_800_000_000)
+
+        for offset in 0..<2 {
+            var note = try await store.note(for: firstDate.addingTimeInterval(Double(offset) * 86_400))
+            note.body = "incline dumbbell chest press 70 for 8"
+            try await store.save(note)
+        }
+
+        var ambiguous = try await store.note(for: firstDate.addingTimeInterval(3 * 86_400))
+        ambiguous.body = "incline chest press 70 for 9"
+        try await store.save(ambiguous)
+        let loaded = try await store.note(for: ambiguous.date)
+
+        #expect(loaded.interpretedLines.first?.exerciseAnchor?.exerciseKey == "incline_dumbbell_chest_press")
     }
 
     @Test func heuristicInterpreterParsesEffortIntoStrengthSets() async {

@@ -343,6 +343,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         guard !sessions.isEmpty else { return exercise.history }
 
         let bestSession = sessions.max(by: { $0.estimatedOneRepMax < $1.estimatedOneRepMax })
+        let displayName = (try? mostCommonExerciseName(for: exercise.exerciseKey)) ?? exercise.displayName
         let goals = (try? await trainingGoalsProfile()) ?? TrainingGoalsProfile()
         let suggestion = LocalSuggestionEngine.exerciseSuggestion(
             exerciseKey: exercise.exerciseKey,
@@ -352,7 +353,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         return ExerciseHistorySummary(
             id: UUID(),
             exerciseKey: exercise.exerciseKey,
-            displayName: exercise.displayName,
+            displayName: displayName,
             estimatedOneRepMax: bestSession?.estimatedOneRepMax,
             bestSetText: bestSession?.bestSetText,
             recentDates: sessions.map(\.date),
@@ -361,6 +362,26 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
             recentEffortText: sessions.first(where: { $0.effortText != nil })?.effortText,
             primarySuggestion: suggestion
         )
+    }
+
+    private func mostCommonExerciseName(for exerciseKey: String) throws -> String? {
+        let sql = """
+        select exercise_name, count(*)
+        from workout_strength_sets
+        where exercise_key = ?
+        group by exercise_name
+        order by count(*) desc, max(performed_at) desc
+        limit 1;
+        """
+        var name: String?
+        try database.withStatement(sql) { statement in
+            try database.bind(exerciseKey, to: 1, in: statement)
+            if try database.step(statement) {
+                let rawName = database.string(at: 0, in: statement)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                name = rawName?.isEmpty == false ? rawName : nil
+            }
+        }
+        return name
     }
 
     func cardioHistory(for activityType: String) async throws -> CardioHistorySummary {
@@ -531,6 +552,7 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
     func save(_ note: DailyWorkoutNote) async throws {
         try saveSync(note)
         var result = await interpreter.interpret(note: note)
+        result = try canonicalizedExerciseIdentities(in: result)
         result.metrics = await energyAdjustedMetrics(result.metrics, for: note)
         result = try scorePRsAgainstExerciseHistory(note: note, result: result)
         try saveInterpretation(for: note, result: result)
@@ -1311,6 +1333,66 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
                 _ = try database.step(statement)
             }
         }
+    }
+
+    private func canonicalizedExerciseIdentities(in result: WorkoutInterpretationResult) throws -> WorkoutInterpretationResult {
+        let counts = try exerciseKeyCounts()
+        let keyOverrides = result.strengthSets.reduce(into: [String: String]()) { overrides, set in
+            let resolved = ExerciseIdentityResolver.dominantKey(for: set.exerciseKey, counts: counts)
+            if resolved != set.exerciseKey {
+                overrides[set.exerciseKey] = resolved
+            }
+        }
+        guard !keyOverrides.isEmpty else { return result }
+
+        func mappedKey(_ key: String?) -> String? {
+            guard let key else { return nil }
+            return keyOverrides[key] ?? key
+        }
+
+        var output = result
+        output.strengthSets = result.strengthSets.map { set in
+            var copy = set
+            copy.exerciseKey = keyOverrides[set.exerciseKey] ?? set.exerciseKey
+            return copy
+        }
+        output.lines = result.lines.map { line in
+            var copy = line
+            copy.segments = copy.segments.map { segment in
+                InterpretedLineSegment(
+                    id: segment.id,
+                    kind: segment.kind,
+                    text: segment.text,
+                    exerciseKey: mappedKey(segment.exerciseKey)
+                )
+            }
+            if var anchor = copy.exerciseAnchor,
+               let resolved = mappedKey(anchor.exerciseKey) {
+                anchor.exerciseKey = resolved
+                anchor.history.exerciseKey = resolved
+                copy.exerciseAnchor = anchor
+            }
+            return copy
+        }
+        return output
+    }
+
+    private func exerciseKeyCounts() throws -> [String: Int] {
+        let sql = """
+        select exercise_key, count(*)
+        from workout_strength_sets
+        group by exercise_key;
+        """
+        var counts: [String: Int] = [:]
+        try database.withStatement(sql) { statement in
+            while try database.step(statement) {
+                guard let key = database.string(at: 0, in: statement),
+                      let count = database.int(at: 1, in: statement)
+                else { continue }
+                counts[key] = count
+            }
+        }
+        return counts
     }
 
     private func saveCardioEntries(noteId: UUID, entries: [CardioEntry]) throws {
@@ -2103,6 +2185,9 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
     private func interpreted(_ note: DailyWorkoutNote) async -> DailyWorkoutNote {
         var output = note
         var result = await interpreter.interpret(note: note)
+        if let canonicalized = try? canonicalizedExerciseIdentities(in: result) {
+            result = canonicalized
+        }
         output.interpretedLines = result.lines
         result.metrics = await energyAdjustedMetrics(result.metrics, for: note)
         if let historicalResult = try? scorePRsAgainstExerciseHistory(note: note, result: result) {
@@ -2550,6 +2635,30 @@ actor SQLiteWorkoutLocalStore: WorkoutLocalStore {
         }
         if try !Self.columnExists("duration_seconds", in: "workout_strength_sets", database: database) {
             try database.execute("alter table workout_strength_sets add column duration_seconds integer;")
+        }
+        try remapKnownExerciseAliases(database)
+    }
+
+    private static func remapKnownExerciseAliases(_ database: SQLiteDatabase) throws {
+        let aliases: [String: String] = [
+            "flat_barbell_chest_press": "barbell_bench_press",
+            "chest_press_barbell": "barbell_bench_press",
+            "barbell_chest_press": "barbell_bench_press",
+            "barbell_chest": "barbell_bench_press",
+            "barbell_bench": "barbell_bench_press",
+            "flat_barbell_bench": "barbell_bench_press",
+            "flat_barbell_bench_press": "barbell_bench_press",
+            "incline_barbell_chest_press": "incline_barbell_press",
+            "incline_chest_press_barbell": "incline_barbell_press",
+            "incline_dumbbell_chest_press": "incline_dumbbell_chest_press",
+            "incline_db_chest_press": "incline_dumbbell_chest_press"
+        ]
+        for (legacy, canonical) in aliases {
+            try database.withStatement("update workout_strength_sets set exercise_key = ? where exercise_key = ?;") { statement in
+                try database.bind(canonical, to: 1, in: statement)
+                try database.bind(legacy, to: 2, in: statement)
+                _ = try database.step(statement)
+            }
         }
     }
 

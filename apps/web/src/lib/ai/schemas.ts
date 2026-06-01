@@ -14,6 +14,15 @@ export const ParsedExerciseSchema = z.object({
   name: z.string().min(1).max(120),
   normalizedName: z.string().min(1).max(120).nullable(),
   exerciseKey: z.string().min(1).max(120).nullable(),
+  identity: z
+    .object({
+      movementFamily: z.string().min(1).max(80).nullable().default(null),
+      angle: z.enum(["flat", "incline", "decline", "unknown"]).default("unknown"),
+      equipment: z.enum(["barbell", "dumbbell", "machine", "cable", "bodyweight", "unknown"]).default("unknown"),
+      confidence: z.number().min(0).max(1).default(0),
+    })
+    .nullable()
+    .default(null),
   muscleGroupHint: z.string().max(80).nullable(),
   sets: z.array(WorkoutSetSchema).max(12),
   uncertainty: z.string().max(180).nullable(),

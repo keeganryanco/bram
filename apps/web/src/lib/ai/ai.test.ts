@@ -457,6 +457,41 @@ describe("AI workout interpretation", () => {
     expect(parsed.exercises[0]?.sets[0]?.durationSeconds).toBe(75);
   });
 
+  it("accepts structured exercise identity hints", () => {
+    const parsed = ParsedWorkoutSchema.parse({
+      ...parsedWorkoutJson,
+      exercises: [
+        {
+          name: "chest press barbell",
+          normalizedName: "Barbell Bench Press",
+          exerciseKey: "barbell_bench_press",
+          identity: {
+            movementFamily: "chest_press",
+            angle: "flat",
+            equipment: "barbell",
+            confidence: 0.92,
+          },
+          muscleGroupHint: "Chest",
+          sets: [
+            {
+              reps: 8,
+              load: 185,
+              durationSeconds: null,
+              unit: "lb",
+              rpe: null,
+              rir: null,
+              note: null,
+            },
+          ],
+          uncertainty: null,
+        },
+      ],
+    });
+
+    expect(parsed.exercises[0]?.identity?.equipment).toBe("barbell");
+    expect(parsed.exercises[0]?.exerciseKey).toBe("barbell_bench_press");
+  });
+
   it("rejects oversized repair target batches", () => {
     const input = {
       noteText: "Leg curls 70 for 8",
