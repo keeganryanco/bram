@@ -1,5 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
+import {
+  FAQList,
+  JsonLd,
+  ReviewCard,
+  ScreenshotPlaceholder,
+  SectionHeader,
+} from "@/components/marketing";
+import {
+  appStoreURL,
+  bramReviews,
+  homeFaq,
+  homeFeatures,
+  siteURL,
+} from "@/lib/marketing-content";
 
 const footerLinks = [
   { href: "/privacy", label: "Privacy Policy" },
@@ -7,12 +21,43 @@ const footerLinks = [
   { href: "mailto:support@trybram.app", label: "Contact" },
 ];
 
-const appStoreURL = "https://apps.apple.com/us/app/bram-workout-notes/id6767239086";
-
 export default function Home() {
+  const softwareSchema = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Bram: Workout Notes",
+    applicationCategory: "HealthApplication",
+    operatingSystem: "iOS",
+    url: siteURL,
+    downloadUrl: appStoreURL,
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "5.0",
+      ratingCount: "2",
+    },
+    description:
+      "Bram is a notes-style workout tracker for iPhone. Write your workout naturally and Bram tracks sets, reps, weights, PRs, volume, and progress.",
+  };
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: homeFaq.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  };
+
   return (
-    <main className="relative flex min-h-[100svh] overflow-hidden bg-[var(--background)] px-6 py-7 text-[var(--foreground)] sm:px-8 lg:px-12">
-      <div className="mx-auto grid min-h-[calc(100svh-56px)] w-full max-w-6xl grid-rows-[auto_1fr_auto]">
+    <main className="relative bg-[var(--background)] text-[var(--foreground)]">
+      <JsonLd data={softwareSchema} />
+      <JsonLd data={faqSchema} />
+
+      <div className="mx-auto grid min-h-[100svh] w-full max-w-6xl grid-rows-[auto_1fr] px-6 py-7 sm:px-8 lg:px-12">
         <header className="flex items-center justify-between">
           <Link
             href="/"
@@ -61,8 +106,71 @@ export default function Home() {
             </div>
           </div>
         </section>
+      </div>
 
-        <footer className="flex items-center justify-center gap-7 text-sm font-medium text-[var(--muted)]">
+      <section className="px-6 py-16 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-6xl">
+          <SectionHeader
+            eyebrow="Workout notes"
+            title="As easy as Notes. Built for progress."
+            description="Bram keeps the workout note fast, then turns it into the training history you actually wanted."
+          />
+          <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {homeFeatures.map((feature) => (
+              <article
+                key={feature.title}
+                className="rounded-lg border border-[var(--border)] bg-[var(--cream-panel)] p-4 shadow-[0_16px_54px_rgba(35,38,44,0.06)]"
+              >
+                <ScreenshotPlaceholder label={feature.label} />
+                <h3 className="mt-5 text-xl font-semibold tracking-normal text-[var(--foreground)]">
+                  {feature.title}
+                </h3>
+                <p className="mt-3 text-base leading-7 text-[var(--muted)]">
+                  {feature.description}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-6 py-16 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--violet)]">
+              App Store reviews
+            </p>
+            <h2 className="mt-4 text-balance text-4xl font-semibold leading-[1.02] tracking-normal sm:text-5xl">
+              5.0 out of 5 on the App Store.
+            </h2>
+            <p className="mt-5 text-lg leading-8 text-[var(--muted)]">
+              Bram is early, focused, and already highly rated by lifters who
+              want workout tracking to feel simple.
+            </p>
+            <p className="mt-5 text-xl font-semibold text-[var(--foreground)]">
+              ★★★★★ <span className="text-base text-[var(--muted)]">2 ratings</span>
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {bramReviews.map((review) => (
+              <ReviewCard key={review.title} {...review} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-6 py-16 sm:px-8 lg:px-12">
+        <SectionHeader
+          eyebrow="FAQ"
+          title="Simple answers for a simple workout tracker."
+          description="Bram is for lifters who want Apple Notes speed with progress tracking underneath."
+        />
+        <div className="mt-10">
+          <FAQList faqs={homeFaq} />
+        </div>
+      </section>
+
+      <footer className="flex items-center justify-center gap-7 px-6 py-8 text-sm font-medium text-[var(--muted)]">
           {footerLinks.map((link) => (
             <Link
               key={link.href}
@@ -72,8 +180,7 @@ export default function Home() {
               {link.label}
             </Link>
           ))}
-        </footer>
-      </div>
+      </footer>
     </main>
   );
 }
