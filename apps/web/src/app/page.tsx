@@ -30,11 +30,6 @@ export default function Home() {
     operatingSystem: "iOS",
     url: siteURL,
     downloadUrl: appStoreURL,
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "5.0",
-      ratingCount: "2",
-    },
     description:
       "Bram is a notes-style workout tracker for iPhone. Write your workout naturally and Bram tracks sets, reps, weights, PRs, volume, and progress.",
   };
@@ -148,7 +143,7 @@ export default function Home() {
               want workout tracking to feel simple.
             </p>
             <p className="mt-5 text-xl font-semibold text-[var(--foreground)]">
-              ★★★★★ <span className="text-base text-[var(--muted)]">2 ratings</span>
+              ★★★★★
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">

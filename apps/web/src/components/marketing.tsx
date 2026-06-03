@@ -391,7 +391,7 @@ export function ArticleLayout({ article }: { article: Article }) {
           <SectionHeader
             eyebrow="App Store reviews"
             title="Lifters are already noticing the simplicity."
-            description="Bram is 5.0 out of 5 on the App Store from its first 2 ratings."
+            description="Bram is already earning 5-star reviews from lifters who want workout tracking to feel simple."
           />
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             {bramReviews.map((review) => (
