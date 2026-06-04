@@ -23,6 +23,9 @@ packages:
   PostHog:
     url: https://github.com/PostHog/posthog-ios.git
     from: 3.0.0
+  TikTokBusinessSDK:
+    url: https://github.com/tiktok/tiktok-business-ios-sdk.git
+    from: 1.6.1
 targets:
   Bram:
     type: application
@@ -84,6 +87,7 @@ targets:
       - package: RevenueCat
         product: RevenueCat
       - package: PostHog
+      - package: TikTokBusinessSDK
       - sdk: libsqlite3.tbd
       - sdk: HealthKit.framework
     scheme:

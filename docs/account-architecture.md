@@ -75,6 +75,8 @@ RevenueCat defaults are entitlement `premium`, current/default offering, and pro
 
 RevenueCat sync maps active paid access to `PREMIUM`, active trials to `TRIAL`, cancellation-with-remaining-access to `CANCELED`, billing issues to `BILLING_RETRY`, and expired subscriptions to `EXPIRED`. Expired RevenueCat state must not overwrite active manual/founder/developer grants; expired one-month grants fall back to `FREE`.
 
+RevenueCat webhooks also provide the durable paid-acquisition signal for TikTok ads when TikTok env vars are configured on Vercel. Trial starts map to TikTok `StartTrial`; paid starts and renewals map to TikTok `Subscribe`. The server sends only subscription metadata and a hashed Supabase UUID external ID.
+
 ### Admin grants
 
 Server grants use `POST /api/admin/account-grants`, protected by `BRAM_ADMIN_GRANT_TOKEN`. The route accepts a `userId` or account email, `grantKind` (`TESTFLIGHT_1MONTH`, `PRODUCT_HUNT_1MONTH`, `FOUNDER_1MONTH`, `FOUNDER_LIFETIME`, or `FRIENDS_DISCOUNT`), optional expiration, and optional AI budget caps. Legacy `TESTFLIGHT` and `PRODUCT_HUNT` inputs are normalized to the one-month grant kinds.

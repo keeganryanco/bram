@@ -6,6 +6,7 @@
 - Account info: Supabase Auth, `profiles`, `account_entitlements`.
 - Purchases: RevenueCat, App Store.
 - Product analytics: PostHog, identified by Supabase user ID only.
+- Paid acquisition measurement: TikTok App Events / Events API, identified by install/app signals and pseudonymous Supabase user ID only.
 - Workout notes: local SQLite and Supabase user-owned tables. Raw free-text note bodies are encrypted on-device before Supabase upload.
 - Parsed workouts: Supabase user-owned tables.
 - Goals/profile context: primary training goal, weekly target, session length, training styles, equipment context, body basics, preferred units, and optional calorie estimate.
@@ -19,6 +20,7 @@
 - Bram does not sell workout data.
 - Bram does not use workout notes for advertising.
 - Analytics must not include raw workout notes.
+- Ad attribution must not include raw workout notes, Health data, body measurements, support messages, email, first name, or freeform user-entered training text.
 - Supabase workout tables must store notes under `user_id` only and must not duplicate direct identity fields such as email or display name.
 - Free-text workout note bodies are highly sensitive private data. V1 clients encrypt note bodies before Supabase upload and keep derived workout metrics queryable separately.
 - Analytics must not include raw goals/profile freeform text, body measurements, target weight, sex, or calorie estimates.

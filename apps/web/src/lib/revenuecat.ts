@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { sendTikTokAppEvent } from "./tiktok-events";
 
 const premiumEntitlementId = "premium";
 
@@ -16,6 +17,8 @@ const revenueCatEventSchema = z.object({
   expiration_at_ms: z.number().optional().nullable(),
   entitlement_ids: z.array(z.string()).optional().nullable(),
   period_type: z.string().optional().nullable(),
+  price: z.number().optional().nullable(),
+  currency: z.string().optional().nullable(),
 });
 
 const revenueCatWebhookSchema = z.object({
@@ -72,6 +75,7 @@ type SupabaseLike = {
 type RevenueCatClients = {
   supabase?: SupabaseLike;
   fetch?: typeof fetch;
+  tiktokFetch?: typeof fetch;
 };
 
 class RevenueCatAPIError extends Error {
@@ -402,8 +406,62 @@ export async function handleRevenueCatWebhook(
 
   const supabase = clients.supabase ?? getSupabaseAdmin();
   await insertSubscriptionEvent(supabase, appUserId, event);
+  await sendTikTokRevenueCatEvent(event, appUserId, clients);
   const account = await syncRevenueCatEntitlement(appUserId, { ...clients, supabase });
   return { ignored: false, account };
+}
+
+async function sendTikTokRevenueCatEvent(
+  event: RevenueCatEvent,
+  appUserId: string,
+  clients: RevenueCatClients,
+) {
+  const tiktokEvent = tiktokEventForRevenueCat(event);
+  if (!tiktokEvent) {
+    return;
+  }
+
+  try {
+    await sendTikTokAppEvent(
+      {
+        event: tiktokEvent,
+        eventId: event.id ?? `${appUserId}:${event.type ?? "UNKNOWN"}:${event.transaction_id ?? event.purchased_at_ms ?? Date.now()}`,
+        eventTime: event.purchased_at_ms
+          ? Math.floor(event.purchased_at_ms / 1000)
+          : undefined,
+        externalId: appUserId,
+        properties: {
+          content_id: event.product_id ?? premiumEntitlementId,
+          content_type: "subscription",
+          currency: event.currency?.toUpperCase(),
+          value: event.price ?? undefined,
+          revenuecat_event_type: event.type ?? "UNKNOWN",
+        },
+      },
+      { fetch: clients.tiktokFetch ?? clients.fetch },
+    );
+  } catch (error) {
+    console.error("tiktok_revenuecat_event_failed", error);
+  }
+}
+
+function tiktokEventForRevenueCat(event: RevenueCatEvent) {
+  const eventType = event.type?.toUpperCase();
+  const periodType = event.period_type?.toUpperCase();
+
+  if (eventType === "INITIAL_PURCHASE" && periodType === "TRIAL") {
+    return "StartTrial" as const;
+  }
+
+  if (
+    eventType === "INITIAL_PURCHASE" ||
+    eventType === "NON_RENEWING_PURCHASE" ||
+    eventType === "RENEWAL"
+  ) {
+    return "Subscribe" as const;
+  }
+
+  return null;
 }
 
 async function insertSubscriptionEvent(

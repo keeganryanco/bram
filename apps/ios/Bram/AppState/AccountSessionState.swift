@@ -93,7 +93,10 @@ final class AccountSessionState: ObservableObject {
         do {
             let configuration = try BramSupabaseConfiguration.fromBundle()
             let client = BramSupabaseClientFactory.makeClient(configuration: configuration)
-            let analytics = PostHogAnalyticsService.configuredFromBundle()
+            let analytics = CompositeAnalyticsService([
+                PostHogAnalyticsService.configuredFromBundle(),
+                TikTokAppEventsAnalyticsService.configuredFromBundle()
+            ])
             return AccountSessionState(
                 authService: BramAuthService(client: client, configuration: configuration),
                 bootstrapService: AccountBootstrapService(client: client),
@@ -859,10 +862,12 @@ final class AccountSessionState: ObservableObject {
             if let refreshed = try await entitlementRefreshService?.refresh(accessToken: token) {
                 let result = AccountBootstrapResult(account: refreshed, goalsProfile: goalsProfile)
                 apply(result)
+                trackSubscriptionAccessIfConfirmed(result.account, source: "entitlement_refresh")
                 paywallMessage = result.account.hasPremiumAccess || result.account.hasDeveloperAccess ? nil : "No active App Store subscription was found yet."
             } else if let bootstrapService {
                 let result = try await bootstrapService.bootstrap(userId: userId)
                 apply(result)
+                trackSubscriptionAccessIfConfirmed(result.account, source: "bootstrap")
                 paywallMessage = result.account.hasPremiumAccess || result.account.hasDeveloperAccess ? nil : "No active App Store subscription was found yet."
             }
         } catch BramPaywallError.purchaseCancelled {
@@ -922,6 +927,20 @@ final class AccountSessionState: ObservableObject {
             return nil
         }
         return trimmed
+    }
+
+    private func trackSubscriptionAccessIfConfirmed(_ account: AccountSnapshot, source: String) {
+        guard account.hasPremiumAccess || account.hasDeveloperAccess else { return }
+        analytics.track(
+            AnalyticsEvent(
+                name: "subscription_access_confirmed",
+                properties: [
+                    "source": source,
+                    "account_tier": account.accountTier.rawValue,
+                    "subscription_status": account.subscriptionStatus.rawValue
+                ]
+            )
+        )
     }
 }
 

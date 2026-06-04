@@ -294,6 +294,92 @@ describe("handleRevenueCatWebhook", () => {
     vi.unstubAllEnvs();
   });
 
+  it("forwards RevenueCat trial starts to TikTok when configured", async () => {
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "rc_secret");
+    vi.stubEnv("TIKTOK_APP_EVENTS_ENABLED", "true");
+    vi.stubEnv("TIKTOK_IOS_ACCESS_TOKEN", "tiktok_token");
+    vi.stubEnv("TIKTOK_IOS_TIKTOK_APP_ID", "tiktok_app_id");
+    const supabase = supabaseMock();
+    const tiktokFetch = vi.fn(async () => ({ ok: true })) as unknown as typeof fetch;
+
+    await handleRevenueCatWebhook(
+      {
+        event: {
+          id: "event_trial",
+          type: "INITIAL_PURCHASE",
+          app_user_id: userId,
+          product_id: "app.trybram.Bram.premium.year",
+          transaction_id: "tx_trial",
+          period_type: "TRIAL",
+          purchased_at_ms: 1_777_777_777_000,
+        },
+      },
+      { supabase, fetch: revenueCatFetch(), tiktokFetch },
+    );
+
+    const [, request] = vi.mocked(tiktokFetch).mock.calls[0];
+    const body = JSON.parse(String((request as RequestInit).body));
+    expect(body).toMatchObject({
+      event_source: "app",
+      event_source_id: "tiktok_app_id",
+      data: [
+        {
+          event: "StartTrial",
+          event_id: "event_trial",
+          event_time: 1_777_777_777,
+          properties: {
+            content_id: "app.trybram.Bram.premium.year",
+            content_type: "subscription",
+            revenuecat_event_type: "INITIAL_PURCHASE",
+          },
+        },
+      ],
+    });
+    expect(body.data[0].user.external_id).toMatch(/^[a-f0-9]{64}$/);
+    vi.unstubAllEnvs();
+  });
+
+  it("forwards RevenueCat renewals to TikTok as subscriptions when configured", async () => {
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "rc_secret");
+    vi.stubEnv("TIKTOK_APP_EVENTS_ENABLED", "true");
+    vi.stubEnv("TIKTOK_IOS_ACCESS_TOKEN", "tiktok_token");
+    vi.stubEnv("TIKTOK_IOS_TIKTOK_APP_ID", "tiktok_app_id");
+    const supabase = supabaseMock();
+    const tiktokFetch = vi.fn(async () => ({ ok: true })) as unknown as typeof fetch;
+
+    await handleRevenueCatWebhook(
+      {
+        event: {
+          id: "event_renewal",
+          type: "RENEWAL",
+          app_user_id: userId,
+          product_id: "app.trybram.Bram.premium.year",
+          transaction_id: "tx_renewal",
+          period_type: "NORMAL",
+          purchased_at_ms: 1_778_000_000_000,
+          price: 49.99,
+          currency: "usd",
+        },
+      },
+      { supabase, fetch: revenueCatFetch(), tiktokFetch },
+    );
+
+    const [, request] = vi.mocked(tiktokFetch).mock.calls[0];
+    const body = JSON.parse(String((request as RequestInit).body));
+    expect(body.data[0]).toMatchObject({
+      event: "Subscribe",
+      event_id: "event_renewal",
+      properties: {
+        content_id: "app.trybram.Bram.premium.year",
+        content_type: "subscription",
+        currency: "USD",
+        value: 49.99,
+        revenuecat_event_type: "RENEWAL",
+      },
+    });
+    vi.unstubAllEnvs();
+  });
+
   it("does not accept client supplied entitlement values", async () => {
     vi.stubEnv("REVENUECAT_SECRET_API_KEY", "rc_secret");
     const supabase = supabaseMock();

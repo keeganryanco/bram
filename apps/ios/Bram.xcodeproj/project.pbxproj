@@ -23,6 +23,7 @@
 		26170587033BB9756E418B39 /* WorkoutSuggestionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EECA5C27E11964BAC9A96B1D /* WorkoutSuggestionCard.swift */; };
 		2A5B1911C6574478ADFA90A6 /* AccountSessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CFEA661336FD61AD07A6E01 /* AccountSessionState.swift */; };
 		2AFD80EFC4E2E0574FDD6380 /* SuisseIntl-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 8DC2E71AFE6E3B1C60A3D865 /* SuisseIntl-Bold.otf */; };
+		2E54E3BE26D31391AFED7D7E /* TikTokAppEventsAnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50EF8F3C38ED9965A623431C /* TikTokAppEventsAnalyticsService.swift */; };
 		2F983B4C8EDDA61001C98635 /* SuggestionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAFFCC56C95CDEBC8224082 /* SuggestionModels.swift */; };
 		2FCE84FBD99DB6FE355F1681 /* ServicePlaceholders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20FE1B72BBFB65BDC735C020 /* ServicePlaceholders.swift */; };
 		31CDA4A6D284907CD97E9681 /* WorkoutCoachCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB642AA98AF8D28A5068521F /* WorkoutCoachCard.swift */; };
@@ -31,6 +32,7 @@
 		3862B7CCBE3CE760C5B86D5A /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E6F487E7AF0279EB62D4B05 /* HealthKit.framework */; };
 		3C7A3E31D7566CFD519892C4 /* SuggestionContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49BA2201D752F2FDEE120AA /* SuggestionContextBuilder.swift */; };
 		3F17E3E75EF7763412919FE7 /* AdobeCaslonPro-Italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 8C57540D20D166C6851E6111 /* AdobeCaslonPro-Italic.otf */; };
+		4408EEC67D34E2E02E1AA346 /* TikTokBusinessSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 2BC3F5796C24B378E49B63DA /* TikTokBusinessSDK */; };
 		4551BC054AD0430DD81151FA /* SuisseIntl-Book.otf in Resources */ = {isa = PBXBuildFile; fileRef = 46B005EC835121B4DD018517 /* SuisseIntl-Book.otf */; };
 		48013401B51A61D0F1D4BD0F /* BramAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9BAC6FF09C7B0DA208101F8 /* BramAuthService.swift */; };
 		4AE43E0DBB730B6CED4860BF /* SupabaseWorkoutSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2D126E989C988EA990ACA7 /* SupabaseWorkoutSyncService.swift */; };
@@ -68,6 +70,7 @@
 		A192132E3FDCA418DE46411E /* BramCapsuleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D8EA3B5EF9141732E59EAF /* BramCapsuleButton.swift */; };
 		A333FC15B768D439955D5105 /* BramPromoRedemptionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD8AA7C56755F1E5A81DC30 /* BramPromoRedemptionClient.swift */; };
 		A971E8974B54D660BA5EBFA5 /* AdobeCaslonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = FCAF644B58904EE3D59604C0 /* AdobeCaslonPro-Regular.otf */; };
+		AC988C3C9386998F7509754B /* CompositeAnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41121E981144CBAD3C80EAC6 /* CompositeAnalyticsService.swift */; };
 		AD26E87A15CA1B930CE427CF /* SuisseIntl-Semibold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */; };
 		B6E799B949C4052344F65028 /* BramSupportClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574132B8C13C0460E91CE547 /* BramSupportClient.swift */; };
 		B7DFAC71053019420892BA32 /* AppDiagnosticsRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D1A26AE4EC37935F066AC6 /* AppDiagnosticsRecorder.swift */; };
@@ -145,6 +148,7 @@
 		32E61E66C42D7586399C0F3D /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		363775AE586BE7D2D0ECC3BC /* SQLiteDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteDatabase.swift; sourceTree = "<group>"; };
 		3E8397782E64FCC5588780B3 /* DailyWorkoutStatsPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWorkoutStatsPanelView.swift; sourceTree = "<group>"; };
+		41121E981144CBAD3C80EAC6 /* CompositeAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompositeAnalyticsService.swift; sourceTree = "<group>"; };
 		41A4668272501B851CB8F7A6 /* BramPreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramPreviewData.swift; sourceTree = "<group>"; };
 		46154B11165956CF3C23EAD7 /* PremiumFeaturePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumFeaturePromptView.swift; sourceTree = "<group>"; };
 		46B005EC835121B4DD018517 /* SuisseIntl-Book.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Book.otf"; sourceTree = "<group>"; };
@@ -152,6 +156,7 @@
 		4D5F33D2CB5B7CC5EBE56D49 /* WorkoutDomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDomainModels.swift; sourceTree = "<group>"; };
 		4DA2D14FA871797BDD78DFB6 /* NoopAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopAnalyticsService.swift; sourceTree = "<group>"; };
 		4E5E05652F6ED1BC5EFC9195 /* AppleHealthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleHealthService.swift; sourceTree = "<group>"; };
+		50EF8F3C38ED9965A623431C /* TikTokAppEventsAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TikTokAppEventsAnalyticsService.swift; sourceTree = "<group>"; };
 		5330C21360BA42B0083EF509 /* CardioHistorySheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioHistorySheetView.swift; sourceTree = "<group>"; };
 		53BFC3BE03DB941049208276 /* SuisseIntl-Semibold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SuisseIntl-Semibold.otf"; sourceTree = "<group>"; };
 		574132B8C13C0460E91CE547 /* BramSupportClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BramSupportClient.swift; sourceTree = "<group>"; };
@@ -227,6 +232,7 @@
 				4CA25F091B17F69206FB447B /* Supabase in Frameworks */,
 				BA9D1BB9FAC77859718B4E6E /* RevenueCat in Frameworks */,
 				59FE8AC2682206C76E85BB72 /* PostHog in Frameworks */,
+				4408EEC67D34E2E02E1AA346 /* TikTokBusinessSDK in Frameworks */,
 				6C44745A06D0556B769F74B5 /* libsqlite3.tbd in Frameworks */,
 				3862B7CCBE3CE760C5B86D5A /* HealthKit.framework in Frameworks */,
 			);
@@ -482,6 +488,7 @@
 				92B4CAC26C537CF935CF42C4 /* BramRevenueCatEntitlementRefreshClient.swift */,
 				2246542FAF17835F1E7A7FC2 /* BramSupabaseConfiguration.swift */,
 				574132B8C13C0460E91CE547 /* BramSupportClient.swift */,
+				41121E981144CBAD3C80EAC6 /* CompositeAnalyticsService.swift */,
 				5AA3ADDAC2241E5048F15325 /* ExerciseMatchingService.swift */,
 				EFABCD04C86C365D9B4B54A3 /* HealthEnergyEstimator.swift */,
 				C3498F26DABA049C54061884 /* HeuristicWorkoutInterpretationService.swift */,
@@ -493,6 +500,7 @@
 				20FE1B72BBFB65BDC735C020 /* ServicePlaceholders.swift */,
 				F49BA2201D752F2FDEE120AA /* SuggestionContextBuilder.swift */,
 				0D2D126E989C988EA990ACA7 /* SupabaseWorkoutSyncService.swift */,
+				50EF8F3C38ED9965A623431C /* TikTokAppEventsAnalyticsService.swift */,
 				A4A6F4448AA0042C73CFE4BD /* WorkoutCoachCardEngine.swift */,
 				04CE319598171FD66864CC5C /* WorkoutNoteBodyEncryptionService.swift */,
 			);
@@ -520,6 +528,7 @@
 				2158A67DFBFF9D36946472B3 /* Supabase */,
 				FD9D783180AC0E867376CE01 /* RevenueCat */,
 				AB97CE936C54042A8C1E235D /* PostHog */,
+				2BC3F5796C24B378E49B63DA /* TikTokBusinessSDK */,
 			);
 			productName = Bram;
 			productReference = B97EB29BCB4ACFAE2D0E11E4 /* Bram.app */;
@@ -574,6 +583,7 @@
 				A60DC0D25698E2331172F55C /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 				0AF6748C59294F0C71633B91 /* XCRemoteSwiftPackageReference "rive-ios" */,
 				5B86630551466BFFC622D60A /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				0C1A96DD6EE549DD08B805FA /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4E290EF7A962D7BA089FE546 /* Products */;
@@ -646,6 +656,7 @@
 				B6E799B949C4052344F65028 /* BramSupportClient.swift in Sources */,
 				D7BA7D7AE4A84E505523325C /* CalendarPanelView.swift in Sources */,
 				627D83CF359BEC8A2A7810D8 /* CardioHistorySheetView.swift in Sources */,
+				AC988C3C9386998F7509754B /* CompositeAnalyticsService.swift in Sources */,
 				5656B210B6AFCB20F71B5FC2 /* DailyWorkoutModels.swift in Sources */,
 				1F79D267A31C110A85DCEC4A /* DailyWorkoutStatsPanelView.swift in Sources */,
 				1F821C7EE1A875DF74E0BAD4 /* ExerciseHistorySheetView.swift in Sources */,
@@ -682,6 +693,7 @@
 				08C4F04C27D915A7B3B0E201 /* SuggestionDraftControls.swift in Sources */,
 				2F983B4C8EDDA61001C98635 /* SuggestionModels.swift in Sources */,
 				4AE43E0DBB730B6CED4860BF /* SupabaseWorkoutSyncService.swift in Sources */,
+				2E54E3BE26D31391AFED7D7E /* TikTokAppEventsAnalyticsService.swift in Sources */,
 				C10A185661DD1B3C7E814744 /* TrainingGoalsProfile.swift in Sources */,
 				31CDA4A6D284907CD97E9681 /* WorkoutCoachCard.swift in Sources */,
 				884E0C8C82BD4A802B55EBDD /* WorkoutCoachCardEngine.swift in Sources */,
@@ -956,6 +968,14 @@
 				minimumVersion = 6.9.5;
 			};
 		};
+		0C1A96DD6EE549DD08B805FA /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tiktok/tiktok-business-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.6.1;
+			};
+		};
 		5B86630551466BFFC622D60A /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift.git";
@@ -987,6 +1007,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5B86630551466BFFC622D60A /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		2BC3F5796C24B378E49B63DA /* TikTokBusinessSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0C1A96DD6EE549DD08B805FA /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */;
+			productName = TikTokBusinessSDK;
 		};
 		AB97CE936C54042A8C1E235D /* PostHog */ = {
 			isa = XCSwiftPackageProductDependency;
