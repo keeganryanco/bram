@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import AppTrackingTransparency
 import TikTokBusinessSDK
 
 final class TikTokAppEventsAnalyticsService: AnalyticsTracking, @unchecked Sendable {
@@ -77,6 +78,8 @@ final class TikTokAppEventsAnalyticsService: AnalyticsTracking, @unchecked Senda
             else { return }
 
             await MainActor.run {
+                requestTrackingAuthorizationIfNeeded()
+
                 guard let tiktokConfig = TikTokConfig(
                     accessToken: accessToken,
                     appId: appId,
@@ -98,6 +101,12 @@ final class TikTokAppEventsAnalyticsService: AnalyticsTracking, @unchecked Senda
         } catch {
             return
         }
+    }
+
+    @MainActor
+    private func requestTrackingAuthorizationIfNeeded() {
+        guard ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
+        ATTrackingManager.requestTrackingAuthorization { _ in }
     }
 
     private func identify(userId: UUID) {

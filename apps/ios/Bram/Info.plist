@@ -55,6 +55,8 @@
 	<string>Bram reads workouts, active energy, heart rate, distance, and bodyweight to connect workout notes to progress.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Bram can save workout updates to Apple Health when you choose to connect Health-backed workout data.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Bram uses app activity from ads to understand which campaigns lead to installs, onboarding completion, trials, and subscriptions.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AdobeCaslonPro-Regular.otf</string>
