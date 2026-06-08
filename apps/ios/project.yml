@@ -40,6 +40,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         BramAIBackendEnabled: false
         BramAIDevRouteToken: ""
+        BramTikTokAppEventsEnabled: false
         BramAPIBaseURL: https://www.trybram.app
         BramPostHogProjectToken: $(BRAM_IOS_POSTHOG_PROJECT_TOKEN)
         BramPostHogHost: https://us.i.posthog.com
@@ -61,7 +62,6 @@ targets:
           - UIInterfaceOrientationPortrait
         NSHealthShareUsageDescription: Bram reads workouts, active energy, heart rate, distance, and bodyweight to connect workout notes to progress.
         NSHealthUpdateUsageDescription: Bram can save workout updates to Apple Health when you choose to connect Health-backed workout data.
-        NSUserTrackingUsageDescription: Bram uses app activity from ads to understand which campaigns lead to installs, onboarding completion, trials, and subscriptions.
         UIAppFonts:
           - AdobeCaslonPro-Regular.otf
           - AdobeCaslonPro-Semibold.otf
