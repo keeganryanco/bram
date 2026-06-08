@@ -4,7 +4,6 @@ import {
   FAQList,
   JsonLd,
   ReviewCard,
-  ScreenshotPlaceholder,
   SectionHeader,
 } from "@/components/marketing";
 import {
@@ -63,14 +62,15 @@ export default function Home() {
           </Link>
         </header>
 
-        <section className="grid min-h-0 content-start gap-8 pt-16 pb-8 md:content-center md:grid-cols-[1.05fr_0.95fr] md:items-center md:gap-12 md:py-4 lg:gap-20">
+        <section className="grid min-h-0 content-start gap-10 pt-12 pb-8 md:content-center md:grid-cols-[1.05fr_0.95fr] md:items-center md:gap-12 md:py-4 lg:gap-20">
           <div className="max-w-xl">
-            <h1 className="max-w-[12ch] text-balance text-[3.45rem] font-semibold leading-[0.94] tracking-normal text-[var(--foreground)] sm:max-w-none sm:text-[clamp(2.45rem,6vw,5.8rem)]">
-              The simplest workout tracker ever.
+            <h1 className="max-w-[12ch] text-balance text-[3.45rem] font-semibold leading-[0.94] tracking-normal text-[var(--foreground)] sm:max-w-[11ch] sm:text-[clamp(2.45rem,6vw,5.8rem)]">
+              Get stronger without tracking harder.
             </h1>
             <p className="mt-6 max-w-[29rem] text-pretty text-[1.08rem] leading-7 text-[var(--muted)] sm:text-lg sm:leading-8">
-              As easy as Notes. Smart enough to remember every lift, track your
-              progress, and surface insights like a personal trainer.
+              As easy as writing in Notes. Bram is smart enough to remember
+              every lift, track your progress, and surface insights like a
+              personal trainer.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
@@ -88,15 +88,16 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="hidden justify-center md:flex md:justify-end">
-            <div className="relative aspect-square w-[min(54vw,360px)] max-w-[360px] min-w-[190px] overflow-hidden rounded-[28%] bg-[var(--charcoal)] shadow-[0_28px_80px_rgba(35,38,44,0.22)] ring-1 ring-black/10">
+          <div className="flex justify-center md:justify-end">
+            <div className="relative w-[min(72vw,245px)] max-w-[245px] overflow-hidden rounded-[32px] bg-[var(--charcoal)] shadow-[0_28px_80px_rgba(35,38,44,0.22)] ring-1 ring-black/10 sm:w-[min(54vw,275px)] md:w-[min(28vw,310px)] md:max-w-[310px]">
               <Image
-                src="/bram-icon.png"
-                alt="Bram app icon"
-                fill
-                sizes="(max-width: 768px) 54vw, 360px"
+                src="https://trybram.app/screenshots/hero_screenshot.png"
+                alt="Bram iPhone workout notes screen"
+                width={383}
+                height={706}
                 priority
-                className="object-cover"
+                sizes="(max-width: 640px) 72vw, (max-width: 768px) 54vw, 310px"
+                className="h-auto w-full"
               />
             </div>
           </div>
@@ -116,7 +117,15 @@ export default function Home() {
                 key={feature.title}
                 className="rounded-lg border border-[var(--border)] bg-[var(--cream-panel)] p-4 shadow-[0_16px_54px_rgba(35,38,44,0.06)]"
               >
-                <ScreenshotPlaceholder label={feature.label} />
+                <div className="relative aspect-[3/4] overflow-hidden rounded-md bg-[var(--background)]">
+                  <Image
+                    src={feature.image}
+                    alt={feature.title}
+                    fill
+                    sizes="(max-width: 768px) calc(100vw - 64px), (max-width: 1024px) 44vw, 260px"
+                    className="object-cover"
+                  />
+                </div>
                 <h3 className="mt-5 text-xl font-semibold tracking-normal text-[var(--foreground)]">
                   {feature.title}
                 </h3>

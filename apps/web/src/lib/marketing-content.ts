@@ -25,25 +25,25 @@ export const homeFeatures = [
     title: "Write your workout like Notes.",
     description:
       "Type the way you already train: bench 185 for 8, incline 70s for 7, shoulders felt tired. Bram keeps the note-taking flow fast.",
-    label: "Screenshot placeholder: note editor",
+    image: "https://trybram.app/screenshots/bram_website_card_1.png",
   },
   {
     title: "Progress comes from the note.",
     description:
       "Bram turns sets, reps, weights, PRs, volume, and progress into history without making you build a routine first.",
-    label: "Screenshot placeholder: strength trend",
+    image: "https://trybram.app/screenshots/bram_website_card_2.png",
   },
   {
     title: "Your training history, remembered.",
     description:
       "See what you did last time, what improved, and where you are trending before the next set starts.",
-    label: "Screenshot placeholder: progress history",
+    image: "https://trybram.app/screenshots/bram_website_card_3.png",
   },
   {
     title: "Context when you want it.",
     description:
       "Apple Health context and simple weekly progress help Bram stay useful without turning into a giant dashboard.",
-    label: "Screenshot placeholder: Apple Health context",
+    image: "https://trybram.app/screenshots/bram_website_card_4.png",
   },
 ];
 

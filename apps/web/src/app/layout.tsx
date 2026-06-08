@@ -100,7 +100,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Bram: Workout Notes",
     description:
-      "The simplest workout tracker ever. Write workouts naturally like Notes, then track progress.",
+      "Get stronger without tracking harder. Write workouts naturally like Notes, then track progress.",
     url: "https://trybram.app",
     siteName: "Bram",
     images: [
