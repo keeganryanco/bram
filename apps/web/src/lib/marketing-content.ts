@@ -56,7 +56,7 @@ export const homeFaq = [
   {
     question: "Is Bram like Apple Notes for workouts?",
     answer:
-      "Yes, Bram is built for people who like the speed of Apple Notes but want their workouts remembered. It keeps the writing flow and adds workout tracking underneath.",
+      "Yes, Bram is built for people who like the speed of Apple Notes and want their workouts remembered. It keeps the writing flow and adds workout tracking underneath.",
   },
   {
     question: "Do I need to build routines first?",
@@ -116,7 +116,7 @@ export const articles: Article[] = [
       {
         heading: "What makes a workout tracker notes-style?",
         body: [
-          "A notes-style workout tracker starts with plain text instead of forms. You write the workout in your own shorthand, then the app organizes the useful parts: exercises, sets, reps, load, PRs, volume, and history.",
+          "A notes-style workout tracker starts with plain text. You write the workout in your own shorthand, then the app organizes the useful parts: exercises, sets, reps, load, PRs, volume, and history.",
           "That matters because most lifters already know how they train. They do not need a social network or a routine builder before they can log today's workout.",
         ],
       },
@@ -145,7 +145,7 @@ export const articles: Article[] = [
         ],
         [
           "Progress history",
-          "Strong, but usually tied to structured entry.",
+          "Strong history after structured entry.",
           "Built from the workout notes you already write.",
         ],
         [
@@ -159,12 +159,12 @@ export const articles: Article[] = [
       {
         question: "What is the best notes-style workout tracker?",
         answer:
-          "Bram is designed for lifters who currently track workouts in Apple Notes, a paper notebook, or a spreadsheet. Unlike traditional workout trackers, Bram lets you write naturally and turns your notes into structured workout data.",
+          "Bram is designed for lifters who currently track workouts in Apple Notes, a paper notebook, or a spreadsheet. Bram lets you write naturally and turns your notes into structured workout data.",
       },
       {
         question: "Is Bram better than Apple Notes for workouts?",
         answer:
-          "Apple Notes is great for quickly writing workouts, but it does not automatically track PRs, volume, sets, reps, or weekly progress. Bram keeps the note-taking workflow while adding workout history and strength insights.",
+          "Apple Notes is great for quickly writing workouts. Bram keeps the note-taking workflow while adding workout history, PRs, volume, sets, reps, and strength insights.",
       },
       {
         question: "Who is Bram for?",
@@ -275,7 +275,7 @@ export const articles: Article[] = [
       {
         question: "Is Bram better than Strong?",
         answer:
-          "Strong is better if you want a mature traditional gym log. Bram is better if you want to write naturally instead of managing routines and structured fields.",
+          "Strong is better if you want a mature traditional gym log. Bram is better if you want natural writing, lighter setup, and notes-first progress tracking.",
       },
       {
         question: "Is Bram a Strong alternative?",
@@ -291,7 +291,7 @@ export const articles: Article[] = [
     description:
       "Apple Notes is fast for writing workouts. Bram keeps that speed and adds PRs, volume, history, and progress tracking.",
     intro:
-      "Apple Notes is one of the fastest workout trackers because it is not really a workout tracker. You open a note, type what you did, and keep lifting. Bram keeps that feeling but adds the part Notes cannot: progress history.",
+      "Apple Notes is one of the fastest workout trackers because it is a clean writing surface. You open a note, type what you did, and keep lifting. Bram keeps that feeling and adds progress history.",
     verdict:
       "Choose Apple Notes for plain writing only. Choose Bram if you want the same simple habit with PRs, history, volume, and strength progress.",
     updated: "June 2, 2026",
@@ -308,7 +308,7 @@ export const articles: Article[] = [
         heading: "Where Bram is stronger",
         body: [
           "The problem with Apple Notes shows up after a few weeks: progress gets buried. You have to search old notes, remember best sets, calculate volume manually, and guess whether you are improving.",
-          "Bram keeps the same natural writing habit but turns workout notes into sets, reps, weights, PRs, volume, and progress history.",
+          "Bram keeps the same natural writing habit and turns workout notes into sets, reps, weights, PRs, volume, and progress history.",
         ],
       },
     ],
@@ -325,12 +325,12 @@ export const articles: Article[] = [
       {
         question: "Is Bram better than Apple Notes for workouts?",
         answer:
-          "Apple Notes is great for quickly writing workouts, but it does not automatically track PRs, volume, sets, reps, or weekly progress. Bram keeps the note-taking workflow while adding workout history and strength insights.",
+          "Apple Notes is great for quickly writing workouts. Bram keeps the note-taking workflow while adding workout history, PRs, volume, sets, reps, and strength insights.",
       },
       {
         question: "Can Bram replace my Apple Notes workout log?",
         answer:
-          "Yes. Bram is built specifically for lifters who already like Apple Notes-style logging but want their workouts to become progress data.",
+          "Yes. Bram is built specifically for lifters who already like Apple Notes-style logging and want their workouts to become progress data.",
       },
     ],
     related: ["notes-style-workout-tracker", "best-workout-notes-app", "bram-vs-hevy"],
@@ -387,7 +387,7 @@ export const articles: Article[] = [
       {
         question: "Should I use a notes app or a workout tracker?",
         answer:
-          "Use a notes app if you only care about writing. Use Bram if you like notes but want workout history and progress tracking too.",
+          "Use a notes app for raw writing. Use Bram for notes with workout history and progress tracking.",
       },
     ],
     related: ["best-notes-style-workout-tracker", "notes-style-workout-tracker", "bram-vs-apple-notes"],
@@ -452,6 +452,603 @@ export const articles: Article[] = [
       },
     ],
     related: ["notes-style-workout-tracker", "best-workout-notes-app", "bram-vs-strong"],
+  },
+  {
+    slug: "progressive-overload-without-spreadsheet",
+    title: "How to Track Progressive Overload Without a Spreadsheet",
+    description:
+      "A simple way to track progressive overload with notes, PRs, history, and Bram.",
+    intro:
+      "Progressive overload starts with a clear record: exercise, sets, reps, load, and one useful note. The hard part is keeping that record close during the next workout.",
+    verdict:
+      "Bram is the clean iPhone method: write the workout like a note, then use the history to add weight, reps, or sets at the right time.",
+    updated: "June 11, 2026",
+    keywords: [
+      "best workout tracker for progressive overload",
+      "track progressive overload",
+      "progressive overload workout tracker",
+      "workout tracker without spreadsheet",
+    ],
+    sections: [
+      {
+        heading: "The simple method",
+        body: [
+          "Track the exercise name, working sets, reps, load, and how the last set felt. Your next workout should start from that record.",
+          "Apple Notes works when you search old entries. A spreadsheet works when you keep it updated. Bram keeps the writing flow and the training history together.",
+        ],
+      },
+      {
+        heading: "A note format that works",
+        body: [
+          "Write one exercise per block: Bench press, 185 for 5, 185 for 5, 185 for 6, next target 190 for 5.",
+          "That gives you the decision for next time. Add a rep, add a small amount of weight, or repeat the same load with cleaner form.",
+        ],
+      },
+      {
+        heading: "Where Bram fits",
+        body: [
+          "Bram reads the workout note and remembers PRs, recent sets, volume, and progress history. You get the useful parts of a spreadsheet from a normal lifting note.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["Method", "What you do", "What you get"],
+      rows: [
+        ["Apple Notes", "Write sets in plain text.", "Fast capture with manual history checks."],
+        ["Spreadsheet", "Enter rows and formulas.", "Flexible tracking with more maintenance."],
+        ["Bram", "Write the workout naturally.", "Notes plus PRs, history, and progress."],
+      ],
+    },
+    faqs: [
+      {
+        question: "What should I track for progressive overload?",
+        answer:
+          "Track exercise, sets, reps, load, and one effort cue. Bram turns that simple note into progress history.",
+      },
+      {
+        question: "Do I need a spreadsheet for progressive overload?",
+        answer:
+          "No. A spreadsheet is useful, though many lifters can progress with clear workout notes and reliable exercise history.",
+      },
+    ],
+    related: [
+      "track-prs",
+      "workout-log-template",
+      "notes-style-workout-tracker",
+    ],
+  },
+  {
+    slug: "track-workouts-in-apple-notes",
+    title: "How to Track Workouts in Apple Notes",
+    description:
+      "A simple Apple Notes workout tracking method, plus the Bram upgrade for PRs and history.",
+    intro:
+      "Apple Notes is fast because it gets out of the way. Open a note, write the workout, and keep lifting.",
+    verdict:
+      "Use Apple Notes for raw capture. Use Bram when you want that same speed with PRs, exercise history, and progress.",
+    updated: "June 11, 2026",
+    keywords: [
+      "how to track workouts in Apple Notes",
+      "Apple Notes workout tracker",
+      "notes app for lifting",
+      "workout notes app",
+    ],
+    sections: [
+      {
+        heading: "Use a repeatable note format",
+        body: [
+          "Start each workout with the date, then list exercises in blocks. Example: Incline press, 70s for 8, 8, 7. Add a short note if it changes the next workout.",
+          "Keep names consistent. Bench press and barbell bench should not become five different labels across the month.",
+        ],
+      },
+      {
+        heading: "Review your last workout",
+        body: [
+          "Before a lift, search the exercise name and check your last working sets. That is enough to choose the next target.",
+          "The manual part is the cost. You need to search, compare, and remember your best sets yourself.",
+        ],
+      },
+      {
+        heading: "Bram is the Notes upgrade",
+        body: [
+          "Bram keeps the same writing habit and turns the note into sets, reps, weights, PRs, and progress history.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["Need", "Apple Notes", "Bram"],
+      rows: [
+        ["Fast capture", "Excellent.", "Excellent."],
+        ["Exercise history", "Manual search.", "Built from your notes."],
+        ["PRs", "Manual memory.", "Tracked from logged workouts."],
+      ],
+    },
+    faqs: [
+      {
+        question: "Can I track workouts in Apple Notes?",
+        answer:
+          "Yes. Use consistent exercise names, write sets clearly, and review old notes before each lift.",
+      },
+      {
+        question: "What is better than Apple Notes for lifting?",
+        answer:
+          "Bram keeps the note-taking workflow and adds workout history, PRs, and progress tracking.",
+      },
+    ],
+    related: [
+      "bram-vs-apple-notes",
+      "notes-app-for-lifting",
+      "workout-log-template",
+    ],
+  },
+  {
+    slug: "workout-log-template",
+    title: "Simple Workout Log Template for Lifters",
+    description:
+      "A clean workout log template for strength training, Apple Notes, and Bram.",
+    intro:
+      "A good workout log should be short enough to use during a hard set and clear enough to guide the next session.",
+    verdict:
+      "The best template is a normal lifting note: exercise, load, reps, sets, and one next-step cue. Bram turns that note into history.",
+    updated: "June 11, 2026",
+    keywords: [
+      "workout log template",
+      "gym log template",
+      "lifting log template",
+      "workout notes template",
+    ],
+    sections: [
+      {
+        heading: "Copy this format",
+        body: [
+          "Date. Main lift. Working sets. Accessories. One note for the next workout.",
+          "Example: Bench press: 185 x 5, 185 x 5, 185 x 6. Incline press: 70s x 8, 8, 7. Note: try 190 on bench next push day.",
+        ],
+      },
+      {
+        heading: "Keep it useful",
+        body: [
+          "Skip extra fields during the workout. Add effort, soreness, or form notes only when they affect the next session.",
+          "Consistent exercise names matter more than perfect formatting.",
+        ],
+      },
+      {
+        heading: "Use Bram for the history",
+        body: [
+          "Bram lets you write in this same format and keeps track of PRs, volume, recent sets, and progress.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["Field", "Example", "Why it matters"],
+      rows: [
+        ["Exercise", "Bench press", "Makes history searchable."],
+        ["Sets", "185 x 5, 5, 6", "Shows the next target."],
+        ["Note", "Try 190 next", "Turns the log into a plan."],
+      ],
+    },
+    faqs: [
+      {
+        question: "What should be in a workout log?",
+        answer:
+          "Track date, exercise, load, reps, sets, and a short note when it helps the next workout.",
+      },
+      {
+        question: "Can Bram use a workout log template?",
+        answer:
+          "Yes. Bram is built for plain workout notes, so simple templates work well.",
+      },
+    ],
+    related: [
+      "track-workouts-in-apple-notes",
+      "progressive-overload-without-spreadsheet",
+      "track-prs",
+    ],
+  },
+  {
+    slug: "simple-gym-log-app",
+    title: "Simple Gym Log App for Lifters Who Want Fast Tracking",
+    description:
+      "Bram is a simple gym log app for iPhone lifters who prefer notes-style workout tracking.",
+    intro:
+      "A simple gym log app should make the workout easier to record in the moment and easier to review next time.",
+    verdict:
+      "Bram is the simple gym log for lifters who want to write naturally and still get progress history.",
+    updated: "June 11, 2026",
+    keywords: [
+      "simple gym log app",
+      "minimal gym log app",
+      "simple workout tracker",
+      "workout tracker for lifters",
+    ],
+    sections: [
+      {
+        heading: "What simple should mean",
+        body: [
+          "Open the app, write the workout, check your last numbers, and move on. That is the core job.",
+          "A simple gym log should still remember exercise history, PRs, and recent volume.",
+        ],
+      },
+      {
+        heading: "Why Bram works",
+        body: [
+          "Bram starts with the note. You can write bench 185 for 5 or curls 30s for 12 in the language you already use.",
+          "Bram then organizes the useful details so your next workout has context.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["Need", "Typical tracker", "Bram"],
+      rows: [
+        ["Logging", "Tap through fields.", "Write a workout note."],
+        ["History", "Available after structured entry.", "Built from notes."],
+        ["Focus", "Many features.", "Fast lifting notes."],
+      ],
+    },
+    faqs: [
+      {
+        question: "What is the simplest gym log app?",
+        answer:
+          "Bram is built to be the simplest gym log app for iPhone lifters who like notes-style tracking.",
+      },
+      {
+        question: "Does a simple gym log still track progress?",
+        answer:
+          "Yes. Bram keeps logging simple and tracks PRs, volume, recent sets, and exercise history.",
+      },
+    ],
+    related: [
+      "notes-style-workout-tracker",
+      "workout-tracker-without-routine-setup",
+      "best-workout-notes-app",
+    ],
+  },
+  {
+    slug: "track-prs",
+    title: "How to Track PRs in the Gym",
+    description:
+      "A simple method for tracking gym PRs, rep PRs, and progress in Bram.",
+    intro:
+      "A PR is only useful if you can find it during the next workout. Track the best set, the date, and the context.",
+    verdict:
+      "Bram tracks PRs from your workout notes, so your best sets stay connected to the exercises you actually train.",
+    updated: "June 11, 2026",
+    keywords: [
+      "how to track PRs",
+      "track gym PRs",
+      "workout PR tracker",
+      "strength PR tracker",
+    ],
+    sections: [
+      {
+        heading: "Track more than one kind of PR",
+        body: [
+          "Keep heaviest weight, best reps at a weight, and best set volume. A lifter can improve before a new one-rep max appears.",
+          "For hypertrophy work, rep PRs often tell the better story.",
+        ],
+      },
+      {
+        heading: "Write PR-friendly notes",
+        body: [
+          "Use clear set lines: Squat 275 x 5, 275 x 5, 275 x 6. Add a note when form, range of motion, or effort changes the meaning.",
+        ],
+      },
+      {
+        heading: "Let Bram remember",
+        body: [
+          "Bram turns those notes into exercise history and highlights progress so you can see what improved.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["PR type", "Example", "Use"],
+      rows: [
+        ["Load PR", "225 x 1", "Max strength marker."],
+        ["Rep PR", "185 x 8", "Progress at a working weight."],
+        ["Volume PR", "70s x 12", "Useful for accessories."],
+      ],
+    },
+    faqs: [
+      {
+        question: "What PRs should I track?",
+        answer:
+          "Track heaviest weight, best reps at a weight, and best set volume. Bram can surface these from workout notes.",
+      },
+      {
+        question: "Can Bram track PRs automatically?",
+        answer:
+          "Bram turns natural workout notes into progress history and highlights PRs from your logged lifts.",
+      },
+    ],
+    related: [
+      "progressive-overload-without-spreadsheet",
+      "workout-log-template",
+      "simple-gym-log-app",
+    ],
+  },
+  {
+    slug: "notes-app-for-lifting",
+    title: "Best Notes App for Lifting",
+    description:
+      "The best notes app for lifting is fast during the workout and useful before the next set. Bram is built for that job.",
+    intro:
+      "A lifting note has to survive the gym floor. It needs fast entry, clear history, and enough structure to guide the next workout.",
+    verdict:
+      "Bram is the notes app for lifting when you want Apple Notes speed with strength-tracking memory.",
+    updated: "June 11, 2026",
+    keywords: [
+      "notes app for lifting",
+      "workout notes app",
+      "lifting notes app",
+      "gym notes app",
+    ],
+    sections: [
+      {
+        heading: "What lifters need from notes",
+        body: [
+          "Fast entry matters first. You should be able to write your set before the rest timer ends.",
+          "The note should also give you your last numbers, PRs, and recent progress when you need them.",
+        ],
+      },
+      {
+        heading: "Apple Notes is a good start",
+        body: [
+          "Apple Notes is excellent for raw text. The missing piece is workout memory: PRs, exercise history, volume, and trends.",
+        ],
+      },
+      {
+        heading: "Bram is purpose-built",
+        body: [
+          "Bram keeps the note-taking feel and adds the training layer. That makes it the stronger choice for lifters.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["Option", "Strength", "Tradeoff"],
+      rows: [
+        ["Apple Notes", "Fast text capture.", "Manual workout history."],
+        ["Spreadsheet", "Custom analysis.", "More upkeep."],
+        ["Bram", "Fast notes plus lifting history.", "iPhone-focused."],
+      ],
+    },
+    faqs: [
+      {
+        question: "What is the best notes app for lifting?",
+        answer:
+          "Bram is the best notes app for lifters who want natural writing plus workout history, PRs, and progress tracking.",
+      },
+      {
+        question: "Can I use Apple Notes for lifting?",
+        answer:
+          "Yes. Apple Notes works for raw logging. Bram adds lifting-specific memory to the same habit.",
+      },
+    ],
+    related: [
+      "track-workouts-in-apple-notes",
+      "bram-vs-apple-notes",
+      "workout-log-template",
+    ],
+  },
+  {
+    slug: "fitbod-alternative",
+    title: "Fitbod Alternative for Lifters Who Already Know Their Workouts",
+    description:
+      "Fitbod builds personalized workout plans. Bram is the Fitbod alternative for lifters who want notes-style tracking and progress history.",
+    intro:
+      "Fitbod is built around personalized workout planning, goals, equipment, and recovery. Bram is built around fast workout notes and progress memory.",
+    verdict:
+      "Choose Bram as your Fitbod alternative when you already know how you train and want the cleanest way to log it.",
+    updated: "June 11, 2026",
+    keywords: [
+      "Fitbod alternative",
+      "Fitbod alternative for lifters",
+      "simple workout tracker",
+      "notes-style workout tracker",
+    ],
+    sections: [
+      {
+        heading: "When Fitbod makes sense",
+        body: [
+          "Fitbod is useful when you want personalized workout suggestions based on goals, equipment, and training history.",
+          "That is a planning-first workflow. It fits people who want the app to shape the session.",
+        ],
+      },
+      {
+        heading: "When Bram makes sense",
+        body: [
+          "Bram is for self-directed lifters. You write the workout you did, and Bram keeps the useful record.",
+          "The result is lighter: notes, PRs, history, and progress from the workouts you choose.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["Need", "Fitbod", "Bram"],
+      rows: [
+        ["Workout planning", "Personalized plans.", "User-led training."],
+        ["Logging style", "Planner-centered.", "Notes-centered."],
+        ["Best fit", "Someone who wants suggested workouts.", "Someone who wants simple tracking."],
+      ],
+    },
+    faqs: [
+      {
+        question: "What is a good Fitbod alternative?",
+        answer:
+          "Bram is a strong Fitbod alternative for lifters who already know their workouts and want notes-style tracking.",
+      },
+      {
+        question: "Is Bram a workout planner?",
+        answer:
+          "Bram focuses on logging, progress history, PRs, and simple insights from the workouts you write.",
+      },
+    ],
+    related: [
+      "simple-gym-log-app",
+      "workout-tracker-without-routine-setup",
+      "notes-style-workout-tracker",
+    ],
+  },
+  {
+    slug: "hevy-alternative",
+    title: "Hevy Alternative for Notes-Style Workout Logging",
+    description:
+      "Bram is a Hevy alternative for lifters who want freeform workout notes, PRs, and history.",
+    intro:
+      "Hevy is a strong gym tracker with routines, stats, and community. Bram is focused on notes-style logging for lifters who want a calmer workflow.",
+    verdict:
+      "Bram is the Hevy alternative for people who prefer writing workouts naturally.",
+    updated: "June 11, 2026",
+    keywords: [
+      "Hevy alternative",
+      "Hevy app alternative",
+      "notes-style workout tracker",
+      "freeform workout logger",
+    ],
+    sections: [
+      {
+        heading: "Why people look for a Hevy alternative",
+        body: [
+          "Some lifters want tracking, stats, and history. They also want less app structure during the set.",
+          "That is where a notes-style tracker makes sense.",
+        ],
+      },
+      {
+        heading: "Why Bram fits",
+        body: [
+          "Bram lets you write workouts like a normal note. The app turns the note into sets, reps, weights, PRs, and progress.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["Need", "Hevy", "Bram"],
+      rows: [
+        ["Community", "Strong fit.", "Private notes focus."],
+        ["Routine tracking", "Structured workflow.", "Write the workout."],
+        ["Notes-style logging", "Limited fit.", "Core product."],
+      ],
+    },
+    faqs: [
+      {
+        question: "What is the best Hevy alternative for notes-style logging?",
+        answer:
+          "Bram is built for lifters who want workout notes with PRs, history, and progress tracking.",
+      },
+      {
+        question: "Is Bram simpler than Hevy?",
+        answer:
+          "Bram has a smaller workflow centered on writing workouts naturally and reviewing progress.",
+      },
+    ],
+    related: ["bram-vs-hevy", "simple-gym-log-app", "best-workout-notes-app"],
+  },
+  {
+    slug: "strong-app-alternative",
+    title: "Strong App Alternative for Freeform Workout Logging",
+    description:
+      "Bram is a Strong app alternative for lifters who want a notes-first gym log.",
+    intro:
+      "Strong is a classic gym log with a mature structured workflow. Bram is a notes-first gym log for lifters who want fast entry and useful history.",
+    verdict:
+      "Bram is the Strong app alternative for lifters who keep coming back to notes.",
+    updated: "June 11, 2026",
+    keywords: [
+      "Strong app alternative",
+      "Strong alternative",
+      "minimal gym log app",
+      "workout notes app",
+    ],
+    sections: [
+      {
+        heading: "Why people look for a Strong alternative",
+        body: [
+          "Strong is powerful for classic gym logging. Some lifters want the same progress memory from a more natural writing flow.",
+        ],
+      },
+      {
+        heading: "Why Bram fits",
+        body: [
+          "Bram starts with a workout note. It keeps the log fast and turns your lifting shorthand into progress history.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["Need", "Strong", "Bram"],
+      rows: [
+        ["Classic gym log", "Strong fit.", "Lean notes flow."],
+        ["Freeform logging", "Structured entry.", "Natural writing."],
+        ["PR history", "Tracked through app fields.", "Built from notes."],
+      ],
+    },
+    faqs: [
+      {
+        question: "What is a good Strong app alternative?",
+        answer:
+          "Bram is a good Strong app alternative for lifters who want a notes-first gym log with PRs and history.",
+      },
+      {
+        question: "Is Bram a full routine builder?",
+        answer:
+          "Bram focuses on fast workout logging, progress history, and simple insights.",
+      },
+    ],
+    related: ["bram-vs-strong", "simple-gym-log-app", "notes-app-for-lifting"],
+  },
+  {
+    slug: "workout-tracker-without-routine-setup",
+    title: "Workout Tracker Without Routine Setup",
+    description:
+      "Bram is a workout tracker for lifters who want to start with today's workout note.",
+    intro:
+      "Some lifters want to log today's workout before building a routine, choosing templates, or managing exercise lists.",
+    verdict:
+      "Bram lets you start with the workout note. Write what you did, then let the app remember the useful details.",
+    updated: "June 11, 2026",
+    keywords: [
+      "workout tracker without routine setup",
+      "workout tracker no routine setup",
+      "simple workout tracker",
+      "freeform workout logger",
+    ],
+    sections: [
+      {
+        heading: "The fastest path",
+        body: [
+          "Open the app and write today's workout. Bench 185 for 5, incline 70s for 8, curls 30s for 12.",
+          "That is enough for Bram to build useful exercise history over time.",
+        ],
+      },
+      {
+        heading: "Who this fits",
+        body: [
+          "This fits lifters who already know their training style: push/pull/legs, upper/lower, full body, bodybuilding, powerbuilding, or intuitive sessions.",
+          "You can keep your style and still get PRs, recent sets, volume, and progress.",
+        ],
+      },
+    ],
+    comparison: {
+      columns: ["Workflow", "Setup", "Result"],
+      rows: [
+        ["Routine builder", "Create a plan first.", "Structured logging."],
+        ["Apple Notes", "Start writing.", "Manual history."],
+        ["Bram", "Start writing.", "Notes with progress history."],
+      ],
+    },
+    faqs: [
+      {
+        question: "Can I track workouts with no routine setup?",
+        answer:
+          "Yes. Bram lets you start from a natural workout note and builds history as you log.",
+      },
+      {
+        question: "Who should use a no-setup workout tracker?",
+        answer:
+          "Self-directed lifters who already know their workouts and want faster logging are the best fit.",
+      },
+    ],
+    related: [
+      "simple-gym-log-app",
+      "fitbod-alternative",
+      "notes-style-workout-tracker",
+    ],
   },
 ];
 

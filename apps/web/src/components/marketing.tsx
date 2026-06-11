@@ -344,11 +344,15 @@ export function ArticleLayout({ article }: { article: Article }) {
                   <a className="font-semibold text-[var(--violet)]" href="https://www.strong.app/?lang=en">
                     Strong
                   </a>
-                  , and{" "}
+                  ,{" "}
                   <a className="font-semibold text-[var(--violet)]" href="https://www.gymnoteplus.com/">
                     Gym Note Plus
                   </a>
-                  . Bram positioning is intentionally focused on notes-style logging rather than copying traditional tracker workflows.
+                  , and{" "}
+                  <a className="font-semibold text-[var(--violet)]" href="https://fitbod.me/">
+                    Fitbod
+                  </a>
+                  . Bram positioning centers on notes-style logging.
                 </p>
               </div>
             </section>
@@ -383,10 +387,6 @@ export function ArticleLayout({ article }: { article: Article }) {
           </aside>
         </div>
 
-        <div className="mt-16">
-          <CTASection />
-        </div>
-
         <section className="mt-14">
           <SectionHeader
             eyebrow="App Store reviews"
@@ -399,6 +399,10 @@ export function ArticleLayout({ article }: { article: Article }) {
             ))}
           </div>
         </section>
+
+        <div className="mt-16">
+          <CTASection />
+        </div>
       </article>
     </main>
   );
