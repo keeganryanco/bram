@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArticleLayout } from "@/components/marketing";
+import { WorkoutUtilityPage } from "@/components/workout-utility";
 import { articleBySlug, articles, siteURL } from "@/lib/marketing-content";
+import {
+  utilityPageBySlug,
+  utilityPages,
+} from "@/lib/utility-content";
 
 type PageProps = {
   params: Promise<{
@@ -10,34 +15,41 @@ type PageProps = {
 };
 
 export function generateStaticParams() {
-  return articles.map((article) => ({
-    slug: article.slug,
+  return [...articles, ...utilityPages].map((page) => ({
+    slug: page.slug,
   }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const article = articleBySlug.get(slug);
+  const utilityPage = utilityPageBySlug.get(slug);
 
-  if (!article) {
+  if (!article && !utilityPage) {
     return {};
   }
 
-  const canonical = `${siteURL}/${article.slug}`;
+  const page = article ?? utilityPage;
+
+  if (!page) {
+    return {};
+  }
+
+  const canonical = `${siteURL}/${page.slug}`;
 
   return {
-    title: article.title,
-    description: article.description,
-    keywords: article.keywords,
+    title: page.title,
+    description: page.description,
+    keywords: page.keywords,
     alternates: {
       canonical,
     },
     openGraph: {
-      title: article.title,
-      description: article.description,
+      title: page.title,
+      description: page.description,
       url: canonical,
       siteName: "Bram",
-      type: "article",
+      type: article ? "article" : "website",
       images: [
         {
           url: "/bram-icon.png",
@@ -53,6 +65,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function MarketingArticlePage({ params }: PageProps) {
   const { slug } = await params;
   const article = articleBySlug.get(slug);
+  const utilityPage = utilityPageBySlug.get(slug);
+
+  if (utilityPage) {
+    return <WorkoutUtilityPage utility={utilityPage} />;
+  }
 
   if (!article) {
     notFound();
